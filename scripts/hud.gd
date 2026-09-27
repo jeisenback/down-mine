@@ -13,6 +13,8 @@ const ARRIVAL_RADIUS := 32.0
 @onready var noise_bar: ProgressBar = $Margin/VBox/NoiseBar
 @onready var ore_label: Label = $Margin/VBox/OreLabel
 @onready var compass: Node2D = $Compass
+@onready var run_summary: ColorRect = $RunSummary
+@onready var run_summary_label: Label = $RunSummary/SummaryLabel
 
 func update_fuel(fraction: float) -> void:
 	fuel_label.text = "Light: %d%%" % int(fraction * 100)
@@ -41,3 +43,12 @@ func update_compass(to_target: Vector2) -> void:
 	var radius: float = max(0.0, min(center.x, center.y) - COMPASS_MARGIN)
 	compass.position = center + direction * radius
 	compass.rotation = direction.angle()
+
+## Right now a run only ever ends by dying or reaching this. Without a
+## visible outcome it just looked like the game froze - this makes an
+## ending actually read as an ending.
+func show_run_summary(success: bool, currency: int, depth: int) -> void:
+	var title := "Extracted!" if success else "Run Failed"
+	var currency_line := "Ore banked: %d" % currency if success else "Ore lost: %d" % currency
+	run_summary_label.text = "%s\n%s\nDepth reached: %d tiles" % [title, currency_line, depth]
+	run_summary.visible = true
