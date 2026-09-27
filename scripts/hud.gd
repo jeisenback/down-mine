@@ -2,6 +2,11 @@ extends CanvasLayer
 class_name HUD
 
 const COMPASS_MARGIN := 40.0
+# Below this distance, hide the arrow instead of pointing it - arctan2 of
+# a near-zero direction vector is extremely sensitive to small position
+# jitter, so without a real "arrived" radius the arrow spins erratically
+# as soon as the player gets close, not just when exactly on top of it.
+const ARRIVAL_RADIUS := 32.0
 
 @onready var fuel_label: Label = $Margin/VBox/FuelLabel
 @onready var noise_label: Label = $Margin/VBox/NoiseLabel
@@ -22,7 +27,7 @@ func update_noise(value: float, fraction: float) -> void:
 ## screen-space direction matches it directly since the camera doesn't
 ## rotate.
 func update_compass(to_target: Vector2) -> void:
-	if to_target.length_squared() < 1.0:
+	if to_target.length_squared() < ARRIVAL_RADIUS * ARRIVAL_RADIUS:
 		compass.visible = false
 		return
 	compass.visible = true
