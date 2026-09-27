@@ -27,3 +27,9 @@ layout_mode = 2
 max_value = 100.0
 value = 0.0
 show_percentage = false
+
+[node name="Compass" type="Node2D" parent="."]
+
+[node name="Arrow" type="Polygon2D" parent="Compass"]
+polygon = PackedVector2Array(14, 0, -8, 8, -8, -8)
+color = Color(1, 0.85, 0.3, 1)
