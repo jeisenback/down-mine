@@ -2,6 +2,7 @@ extends Node2D
 class_name Main
 
 @onready var mine: MineGrid = $Mine
+@onready var run_base: RunBase = $RunBase
 @onready var player: Player = $Player
 @onready var stalker: Stalker = $Stalker
 @onready var noise_meter: NoiseMeter = $NoiseMeter
