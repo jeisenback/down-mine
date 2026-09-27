@@ -4,6 +4,8 @@ class_name Player
 signal died
 
 const SPEED := 120.0
+const ACCELERATION := 900.0  # reaches full speed in ~0.13s
+const DECELERATION := 1200.0 # stops in ~0.1s, snappier than starting
 const GRAVITY := 700.0
 const JUMP_VELOCITY := -200.0
 const DIG_COOLDOWN := 0.25
@@ -39,7 +41,7 @@ func _physics_process(delta: float) -> void:
 		input_dir += 1.0
 	if input_dir != 0.0:
 		facing = int(sign(input_dir))
-	velocity.x = input_dir * SPEED
+	_apply_horizontal_movement(input_dir, delta)
 
 	if is_on_floor():
 		velocity.y = 0.0
@@ -69,6 +71,15 @@ func _physics_process(delta: float) -> void:
 	light.set_flaring(Input.is_physical_key_pressed(KEY_SHIFT))
 
 	move_and_slide()
+
+## Ramps velocity.x toward the input's target speed instead of snapping to
+## it, so starting and stopping have weight. Takes input_dir directly
+## (rather than reading Input itself) so it's callable from a headless
+## test without needing to simulate a real key press.
+func _apply_horizontal_movement(input_dir: float, delta: float) -> void:
+	var target_speed := input_dir * SPEED
+	var accel := ACCELERATION if input_dir != 0.0 else DECELERATION
+	velocity.x = move_toward(velocity.x, target_speed, accel * delta)
 
 func _dig_straight_down() -> void:
 	if dig_timer > 0.0 or mine == null:
