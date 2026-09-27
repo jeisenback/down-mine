@@ -35,27 +35,58 @@ func _physics_process(delta: float) -> void:
 
 	var digging_down := Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)
 	var digging_forward := Input.is_physical_key_pressed(KEY_SPACE)
-	if digging_down:
-		_try_dig(Vector2.DOWN)
+	if digging_down and input_dir != 0.0:
+		_dig_staircase()
+	elif digging_down:
+		_dig_straight_down()
 	elif digging_forward:
-		_try_dig(Vector2(facing, 0))
+		_dig_forward()
 
 	light.set_flaring(Input.is_physical_key_pressed(KEY_SHIFT))
 
 	move_and_slide()
 
-func _try_dig(direction: Vector2) -> void:
+func _dig_straight_down() -> void:
 	if dig_timer > 0.0 or mine == null:
 		return
-	# Reach just past the collision box's edge into the adjacent tile,
-	# not an extra tile beyond it.
 	var half_extents: Vector2 = (collision_shape.shape as RectangleShape2D).size / 2.0
 	var half_tile: float = mine.TILE_SIZE / 2.0
-	var target := global_position + Vector2(
-		direction.x * (half_extents.x + half_tile),
-		direction.y * (half_extents.y + half_tile)
-	)
+	var target := global_position + Vector2(0.0, half_extents.y + half_tile)
 	if mine.dig_at_world(target):
+		dig_timer = DIG_COOLDOWN
+
+## Clears a notch the player's full height, one tile forward, so a
+## sideways tunnel is actually tall enough to walk through.
+func _dig_forward() -> void:
+	if dig_timer > 0.0 or mine == null:
+		return
+	var half_extents: Vector2 = (collision_shape.shape as RectangleShape2D).size / 2.0
+	var half_tile: float = mine.TILE_SIZE / 2.0
+	var target_x := global_position.x + facing * (half_extents.x + half_tile)
+	var cells := mine.cells_in_column(
+		target_x,
+		global_position.y - half_extents.y + 2.0,
+		global_position.y + half_extents.y - 2.0
+	)
+	if mine.dig_cells(cells) > 0:
+		dig_timer = DIG_COOLDOWN
+
+## Clears one descending step: the forward notch (full player height)
+## plus the tile below it, so holding down + a movement key while
+## walking carves a staircase in one action instead of alternating
+## forward/down digs tile by tile.
+func _dig_staircase() -> void:
+	if dig_timer > 0.0 or mine == null:
+		return
+	var half_extents: Vector2 = (collision_shape.shape as RectangleShape2D).size / 2.0
+	var half_tile: float = mine.TILE_SIZE / 2.0
+	var target_x := global_position.x + facing * (half_extents.x + half_tile)
+	var cells := mine.cells_in_column(
+		target_x,
+		global_position.y - half_extents.y + 2.0,
+		global_position.y + half_extents.y + mine.TILE_SIZE - 2.0
+	)
+	if mine.dig_cells(cells) > 0:
 		dig_timer = DIG_COOLDOWN
 
 func take_hit(amount: int) -> void:

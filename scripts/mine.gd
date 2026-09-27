@@ -53,12 +53,29 @@ func is_solid(cell: Vector2i) -> bool:
 	return get_cell_source_id(0, cell) != -1
 
 func dig_at_world(world_pos: Vector2) -> bool:
-	var cell := local_to_map(to_local(world_pos))
-	if is_solid(cell):
-		set_cell(0, cell, -1)
-		tile_dug.emit(DIG_NOISE)
-		return true
-	return false
+	return dig_cells([world_to_cell(world_pos)]) > 0
+
+## Digs every solid cell in the list, emitting noise scaled to how much
+## was actually cleared. Used for multi-tile digs (a tall notch, a step)
+## so a bigger dig costs more noise than a single tile.
+func dig_cells(cells: Array) -> int:
+	var dug_count := 0
+	for cell in cells:
+		if is_solid(cell):
+			set_cell(0, cell, -1)
+			dug_count += 1
+	if dug_count > 0:
+		tile_dug.emit(DIG_NOISE * dug_count)
+	return dug_count
+
+## All cells in one column between two world-space y bounds, inclusive.
+func cells_in_column(world_x: float, y_top: float, y_bottom: float) -> Array:
+	var top_cell := world_to_cell(Vector2(world_x, y_top))
+	var bottom_cell := world_to_cell(Vector2(world_x, y_bottom))
+	var cells: Array = []
+	for y in range(top_cell.y, bottom_cell.y + 1):
+		cells.append(Vector2i(top_cell.x, y))
+	return cells
 
 func world_to_cell(world_pos: Vector2) -> Vector2i:
 	return local_to_map(to_local(world_pos))
