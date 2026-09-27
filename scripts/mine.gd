@@ -31,8 +31,8 @@ const BEDROCK_COLOR := Color(0.05, 0.05, 0.06)
 # than noise. Standard 4/5-neighbor rule. Fill is denser near the
 # surface (tighter caves) and sparser deeper down (bigger caverns),
 # matching "layers get more dangerous/rewarding with depth".
-const LAYER_INITIAL_FILL := [0.58, 0.5, 0.42]
-const CA_ITERATIONS := 4
+const LAYER_INITIAL_FILL := [0.62, 0.56, 0.53]
+const CA_ITERATIONS := 3
 
 const FUEL_DEPOSIT_COUNT := 80
 const FuelPickupScene := preload("res://scenes/FuelPickup.tscn")
