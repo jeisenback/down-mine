@@ -4,22 +4,27 @@ class_name MineGrid
 signal tile_dug(noise_amount: float)
 
 const TILE_SIZE := 16
-const GRID_WIDTH := 40
-const GRID_HEIGHT := 60
+const GRID_WIDTH := 80
+const GRID_HEIGHT := 300
 const SURFACE_ROWS := 4
 const DIG_NOISE := 6.0
 
 # Depth bands: each gets its own tile look, per the PRD's "layers have
 # their own hazards and look" pillar. Hazard variety comes later; for
-# now this just makes depth legible at a glance.
-const TOPSOIL_ROWS_END := 20
-const STONE_ROWS_END := 40
+# now this just makes depth legible at a glance. Fractions (must sum to
+# ~1.0) instead of hardcoded rows, so bands scale with GRID_HEIGHT.
+const LAYER_FRACTIONS := [0.2857, 0.3571, 0.3572]
 const LAYER_ATLAS_COORDS := [Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0)]
 const LAYER_COLORS := [
 	Color(0.42, 0.32, 0.22), # topsoil
 	Color(0.45, 0.45, 0.48), # stone
 	Color(0.22, 0.16, 0.2),  # deep rock
 ]
+
+# Bedrock: indestructible, forms the map's outer walls/floor so digging
+# can never open a path out of the generated area.
+const BEDROCK_ATLAS_COORDS := Vector2i(3, 0)
+const BEDROCK_COLOR := Color(0.05, 0.05, 0.06)
 
 # Cellular-automata cave carving: start from a random fill below the
 # solid crust, then smooth a few times so pockets read as caves rather
@@ -29,7 +34,7 @@ const LAYER_COLORS := [
 const LAYER_INITIAL_FILL := [0.58, 0.5, 0.42]
 const CA_ITERATIONS := 4
 
-const FUEL_DEPOSIT_COUNT := 8
+const FUEL_DEPOSIT_COUNT := 80
 const FuelPickupScene := preload("res://scenes/FuelPickup.tscn")
 
 var source_id: int = 0
@@ -39,10 +44,11 @@ func _ready() -> void:
 	_generate_layout()
 
 func _build_tileset() -> void:
-	var atlas_width := LAYER_ATLAS_COORDS.size()
+	var colors := LAYER_COLORS + [BEDROCK_COLOR]
+	var atlas_width := colors.size()
 	var image := Image.create(TILE_SIZE * atlas_width, TILE_SIZE, false, Image.FORMAT_RGBA8)
 	for i in range(atlas_width):
-		image.fill_rect(Rect2i(i * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE), LAYER_COLORS[i])
+		image.fill_rect(Rect2i(i * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE), colors[i])
 	var texture := ImageTexture.create_from_image(image)
 
 	var atlas := TileSetAtlasSource.new()
@@ -93,11 +99,18 @@ func _generate_layout() -> void:
 
 	for x in range(GRID_WIDTH):
 		for y in range(GRID_HEIGHT):
-			if solid[x][y]:
+			if not solid[x][y]:
+				continue
+			if _is_boundary(x, y):
+				set_cell(0, Vector2i(x, y), source_id, BEDROCK_ATLAS_COORDS)
+			else:
 				var layer_index := _layer_index_for_row(y)
 				set_cell(0, Vector2i(x, y), source_id, LAYER_ATLAS_COORDS[layer_index])
 
 	_scatter_fuel_deposits(solid, rng)
+
+func _is_boundary(x: int, y: int) -> bool:
+	return x == 0 or x == GRID_WIDTH - 1 or y == GRID_HEIGHT - 1
 
 func _make_grid(default_value: bool) -> Array:
 	var grid: Array = []
@@ -112,7 +125,9 @@ func _make_grid(default_value: bool) -> Array:
 func _reinforce_boundaries(grid: Array) -> void:
 	for x in range(GRID_WIDTH):
 		grid[x][GRID_HEIGHT - 1] = true
-	for y in range(SURFACE_ROWS, GRID_HEIGHT):
+	# Full height, including surface rows, so the entrance shaft can't be
+	# walked off the side of the map before any digging happens.
+	for y in range(0, GRID_HEIGHT):
 		grid[0][y] = true
 		grid[GRID_WIDTH - 1][y] = true
 
@@ -145,11 +160,13 @@ func _count_wall_neighbors(grid: Array, x: int, y: int) -> int:
 	return count
 
 func _layer_index_for_row(y: int) -> int:
-	if y < TOPSOIL_ROWS_END:
-		return 0
-	elif y < STONE_ROWS_END:
-		return 1
-	return 2
+	var relative := float(y - SURFACE_ROWS) / float(GRID_HEIGHT - SURFACE_ROWS)
+	var cumulative := 0.0
+	for i in range(LAYER_FRACTIONS.size()):
+		cumulative += LAYER_FRACTIONS[i]
+		if relative < cumulative:
+			return i
+	return LAYER_FRACTIONS.size() - 1
 
 ## Places fuel pickups on open cave floors (an open cell with solid rock
 ## directly beneath it), the PRD's "found fuel" reward for exploring caves
@@ -171,16 +188,21 @@ func _scatter_fuel_deposits(solid: Array, rng: RandomNumberGenerator) -> void:
 func is_solid(cell: Vector2i) -> bool:
 	return get_cell_source_id(0, cell) != -1
 
+func is_indestructible(cell: Vector2i) -> bool:
+	return get_cell_atlas_coords(0, cell) == BEDROCK_ATLAS_COORDS
+
 func dig_at_world(world_pos: Vector2) -> bool:
 	return dig_cells([world_to_cell(world_pos)]) > 0
 
-## Digs every solid cell in the list, emitting noise scaled to how much
-## was actually cleared. Used for multi-tile digs (a tall notch, a step)
-## so a bigger dig costs more noise than a single tile.
+## Digs every solid, destructible cell in the list, emitting noise scaled
+## to how much was actually cleared. Used for multi-tile digs (a tall
+## notch, a step) so a bigger dig costs more noise than a single tile.
+## Bedrock at the map's edges is skipped, so a run can never dig its way
+## out of the generated area.
 func dig_cells(cells: Array) -> int:
 	var dug_count := 0
 	for cell in cells:
-		if is_solid(cell):
+		if is_solid(cell) and not is_indestructible(cell):
 			set_cell(0, cell, -1)
 			dug_count += 1
 	if dug_count > 0:
