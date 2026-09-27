@@ -23,9 +23,11 @@ const LAYER_COLORS := [
 
 # Cellular-automata cave carving: start from a random fill below the
 # solid crust, then smooth a few times so pockets read as caves rather
-# than noise. Standard 4/5-neighbor rule.
-const INITIAL_FILL := 0.45
-const CA_ITERATIONS := 5
+# than noise. Standard 4/5-neighbor rule. Fill is denser near the
+# surface (tighter caves) and sparser deeper down (bigger caverns),
+# matching "layers get more dangerous/rewarding with depth".
+const LAYER_INITIAL_FILL := [0.58, 0.5, 0.42]
+const CA_ITERATIONS := 4
 
 const FUEL_DEPOSIT_COUNT := 8
 const FuelPickupScene := preload("res://scenes/FuelPickup.tscn")
@@ -80,7 +82,7 @@ func _generate_layout() -> void:
 			elif y == SURFACE_ROWS:
 				solid[x][y] = true # a crust the player always has to dig through
 			else:
-				solid[x][y] = rng.randf() < INITIAL_FILL
+				solid[x][y] = rng.randf() < LAYER_INITIAL_FILL[_layer_index_for_row(y)]
 	_reinforce_boundaries(solid)
 
 	for i in range(CA_ITERATIONS):

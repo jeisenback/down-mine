@@ -14,6 +14,12 @@ func _ready() -> void:
 	noise_meter.noise_changed.connect(hud.update_noise)
 	noise_meter.threshold_reached.connect(_on_noise_threshold)
 	player.died.connect(_on_player_died)
+	_configure_camera_limits()
+
+func _configure_camera_limits() -> void:
+	var camera := player.get_node("Camera2D") as Camera2D
+	camera.limit_right = mine.GRID_WIDTH * mine.TILE_SIZE
+	camera.limit_bottom = mine.GRID_HEIGHT * mine.TILE_SIZE
 
 func _process(_delta: float) -> void:
 	hud.update_fuel(player.light.fuel_fraction())
