@@ -11,6 +11,7 @@ const ARRIVAL_RADIUS := 32.0
 @onready var fuel_label: Label = $Margin/VBox/FuelLabel
 @onready var noise_label: Label = $Margin/VBox/NoiseLabel
 @onready var noise_bar: ProgressBar = $Margin/VBox/NoiseBar
+@onready var ore_label: Label = $Margin/VBox/OreLabel
 @onready var compass: Node2D = $Compass
 
 func update_fuel(fraction: float) -> void:
@@ -19,6 +20,9 @@ func update_fuel(fraction: float) -> void:
 func update_noise(value: float, fraction: float) -> void:
 	noise_label.text = "Noise: %d" % int(value)
 	noise_bar.value = fraction * 100.0
+
+func update_currency(amount: int) -> void:
+	ore_label.text = "Ore: %d" % amount
 
 ## Points an arrow toward the run base from anywhere in the mine, clamped
 ## to a circle near the screen edge (an off-screen-indicator, not tied to

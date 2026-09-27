@@ -25,6 +25,7 @@ func _configure_camera_limits() -> void:
 func _process(_delta: float) -> void:
 	hud.update_fuel(player.light.fuel_fraction())
 	hud.update_compass(run_base.global_position - player.global_position)
+	hud.update_currency(player.currency)
 
 func _on_tile_dug(noise_amount: float) -> void:
 	noise_meter.add_noise(noise_amount)

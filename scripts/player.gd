@@ -31,6 +31,9 @@ var mine: MineGrid
 var dig_timer: float = 0.0
 var facing: int = 1
 var health: int = MAX_HEALTH
+## Currency found this run, only banked on extraction (milestone 8) - lost
+## if the run ends in death instead.
+var currency: int = 0
 var _jump_was_pressed: bool = false
 var _coyote_timer: float = 0.0
 var _jump_buffer_timer: float = 0.0
@@ -134,3 +137,6 @@ func take_hit(amount: int) -> void:
 	health -= amount
 	if health <= 0:
 		died.emit()
+
+func add_currency(amount: int) -> void:
+	currency += amount

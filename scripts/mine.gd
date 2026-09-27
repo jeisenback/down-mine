@@ -37,6 +37,10 @@ const CA_ITERATIONS := 3
 const FUEL_DEPOSIT_COUNT := 80
 const FuelPickupScene := preload("res://scenes/FuelPickup.tscn")
 
+const ORE_DEPOSIT_COUNT := 60
+const ORE_VALUE_BY_LAYER := [10, 25, 50] # topsoil/stone/deep - deeper = higher value
+const OrePickupScene := preload("res://scenes/OrePickup.tscn")
+
 var source_id: int = 0
 
 func _ready() -> void:
@@ -107,7 +111,10 @@ func _generate_layout() -> void:
 				var layer_index := _layer_index_for_row(y)
 				set_cell(0, Vector2i(x, y), source_id, LAYER_ATLAS_COORDS[layer_index])
 
-	_scatter_fuel_deposits(solid, rng)
+	var floor_cells := _find_floor_cells(solid)
+	floor_cells.shuffle()
+	_scatter_fuel_deposits(floor_cells)
+	_scatter_ore_deposits(floor_cells)
 
 func _is_boundary(x: int, y: int) -> bool:
 	return x == 0 or x == GRID_WIDTH - 1 or y == GRID_HEIGHT - 1
@@ -168,20 +175,37 @@ func _layer_index_for_row(y: int) -> int:
 			return i
 	return LAYER_FRACTIONS.size() - 1
 
-## Places fuel pickups on open cave floors (an open cell with solid rock
-## directly beneath it), the PRD's "found fuel" reward for exploring caves
-## instead of digging straight down.
-func _scatter_fuel_deposits(solid: Array, rng: RandomNumberGenerator) -> void:
+## Open cells with solid rock directly beneath them - valid places to stand
+## a pickup on a cave floor. Shared by fuel and ore scattering below.
+func _find_floor_cells(solid: Array) -> Array:
 	var floor_cells: Array = []
 	for x in range(1, GRID_WIDTH - 1):
 		for y in range(SURFACE_ROWS + 1, GRID_HEIGHT - 1):
 			if not solid[x][y] and solid[x][y + 1]:
 				floor_cells.append(Vector2i(x, y))
-	floor_cells.shuffle()
+	return floor_cells
+
+## Places fuel pickups on cave floors, the PRD's "found fuel" reward for
+## exploring caves instead of digging straight down. Takes the front slice
+## of the (already shuffled) floor_cells list; ore takes the next slice,
+## so the two pickup types never land on the same cell.
+func _scatter_fuel_deposits(floor_cells: Array) -> void:
 	var count: int = min(FUEL_DEPOSIT_COUNT, floor_cells.size())
 	for i in range(count):
 		var cell: Vector2i = floor_cells[i]
 		var pickup := FuelPickupScene.instantiate()
+		pickup.position = map_to_local(cell)
+		add_child(pickup)
+
+## Ore/relic currency, banked on extraction (milestone 8). Value scales
+## with depth band so pushing deeper is worth more, not just riskier.
+func _scatter_ore_deposits(floor_cells: Array) -> void:
+	var start: int = min(FUEL_DEPOSIT_COUNT, floor_cells.size())
+	var end: int = min(start + ORE_DEPOSIT_COUNT, floor_cells.size())
+	for i in range(start, end):
+		var cell: Vector2i = floor_cells[i]
+		var pickup := OrePickupScene.instantiate()
+		pickup.value = ORE_VALUE_BY_LAYER[_layer_index_for_row(cell.y)]
 		pickup.position = map_to_local(cell)
 		add_child(pickup)
 
