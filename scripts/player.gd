@@ -9,6 +9,13 @@ const JUMP_VELOCITY := -200.0
 const DIG_COOLDOWN := 0.25
 const MAX_HEALTH := 3
 
+# Jump forgiveness: a press just before landing still fires on touchdown
+# (buffer), and a press just after walking off a ledge still fires as if
+# still grounded (coyote time). Without these, jumping near any edge —
+# and this game is full of them — reads as unresponsive.
+const COYOTE_TIME := 0.1
+const JUMP_BUFFER_TIME := 0.12
+
 @onready var light: MineLight = $MineLight
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
 
@@ -17,9 +24,13 @@ var dig_timer: float = 0.0
 var facing: int = 1
 var health: int = MAX_HEALTH
 var _jump_was_pressed: bool = false
+var _coyote_timer: float = 0.0
+var _jump_buffer_timer: float = 0.0
 
 func _physics_process(delta: float) -> void:
 	dig_timer = max(0.0, dig_timer - delta)
+	_coyote_timer = max(0.0, _coyote_timer - delta)
+	_jump_buffer_timer = max(0.0, _jump_buffer_timer - delta)
 
 	var input_dir := 0.0
 	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):
@@ -30,15 +41,21 @@ func _physics_process(delta: float) -> void:
 		facing = int(sign(input_dir))
 	velocity.x = input_dir * SPEED
 
-	if not is_on_floor():
-		velocity.y += GRAVITY * delta
-	else:
+	if is_on_floor():
 		velocity.y = 0.0
+		_coyote_timer = COYOTE_TIME
+	else:
+		velocity.y += GRAVITY * delta
 
 	var jump_pressed := Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)
-	if jump_pressed and not _jump_was_pressed and is_on_floor():
-		velocity.y = JUMP_VELOCITY
+	if jump_pressed and not _jump_was_pressed:
+		_jump_buffer_timer = JUMP_BUFFER_TIME
 	_jump_was_pressed = jump_pressed
+
+	if _jump_buffer_timer > 0.0 and _coyote_timer > 0.0:
+		velocity.y = JUMP_VELOCITY
+		_jump_buffer_timer = 0.0
+		_coyote_timer = 0.0
 
 	var digging_down := Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)
 	var digging_forward := Input.is_physical_key_pressed(KEY_SPACE)
