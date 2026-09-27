@@ -8,7 +8,13 @@ const ACCELERATION := 900.0  # reaches full speed in ~0.13s
 const DECELERATION := 1200.0 # stops in ~0.1s, snappier than starting
 const GRAVITY := 700.0
 const JUMP_VELOCITY := -200.0
-const DIG_COOLDOWN := 0.25
+# Tuned to roughly match the natural fall time through one dug tile
+# (~0.1s at this gravity). Digging straight down while falling used to
+# stutter: dig, fall one tile (~0.1s), then stand frozen for the
+# remaining ~0.15s of a 0.25s cooldown before digging again — a dead
+# pause after every single tile that read as broken. At this cooldown
+# the wait is gated by the fall itself, not idle time.
+const DIG_COOLDOWN := 0.11
 const MAX_HEALTH := 3
 
 # Jump forgiveness: a press just before landing still fires on touchdown
