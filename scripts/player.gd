@@ -5,6 +5,7 @@ signal died
 
 const SPEED := 120.0
 const GRAVITY := 700.0
+const JUMP_VELOCITY := -200.0
 const DIG_COOLDOWN := 0.25
 const MAX_HEALTH := 3
 
@@ -15,6 +16,7 @@ var mine: MineGrid
 var dig_timer: float = 0.0
 var facing: int = 1
 var health: int = MAX_HEALTH
+var _jump_was_pressed: bool = false
 
 func _physics_process(delta: float) -> void:
 	dig_timer = max(0.0, dig_timer - delta)
@@ -32,6 +34,11 @@ func _physics_process(delta: float) -> void:
 		velocity.y += GRAVITY * delta
 	else:
 		velocity.y = 0.0
+
+	var jump_pressed := Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)
+	if jump_pressed and not _jump_was_pressed and is_on_floor():
+		velocity.y = JUMP_VELOCITY
+	_jump_was_pressed = jump_pressed
 
 	var digging_down := Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)
 	var digging_forward := Input.is_physical_key_pressed(KEY_SPACE)

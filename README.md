@@ -9,7 +9,8 @@ darkness. No crew, hub, or stranding yet.
 
 **Controls**
 - `A`/`D` or arrow keys — move
-- `S`/Down — dig downward
+- `W`/Up — jump
+- `S`/Down — dig downward (hold with a movement key to dig a descending staircase)
 - `Space` — dig forward (in facing direction)
 - `Shift` — flare the light (brighter, burns fuel faster)
 
