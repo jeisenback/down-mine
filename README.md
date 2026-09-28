@@ -12,12 +12,16 @@ darkness. No crew, hub, or stranding yet.
 - `W`/Up — jump
 - `S`/Down — dig downward (hold with a movement key to dig a descending staircase)
 - `Space` — dig forward (in facing direction); hold with `W`/Up to dig straight up instead
-- `Shift` — flare the light (brighter, burns fuel faster)
+- `Shift` — flare the light (brighter, burns fuel faster; the only thing that hurts a Burrower)
 - `Q` — fire the grapple straight up (reusable, pulls you to the first solid ceiling within range)
 - `R` — place a rope at your feet (consumable, climbable with `W`/`S`, decays over time — faster in the dark)
 - `E` — extract at the run base (banks ore, ends the run)
 - `1`/`2` — on the run summary (the hub), buy an upgrade with banked ore: lantern tank (+15s light) or hard hat (+1 health)
 - `Enter` — start a new run from the run summary (banked ore and upgrades are saved between runs)
+
+**Noise and the base**: when the noise meter fills, a Burrower surfaces
+below you and tunnels to the run base. Your light slows it; flaring kills
+it. If it takes the base from 3 health to 0, the run fails.
 
 **Run it**: open the project folder in Godot 4.3+ and press Play (main scene
 is `scenes/Main.tscn`).

@@ -26,7 +26,6 @@ const LAYER_COLORS := [
 # fills the gaps in these textures; those pixels get the layer colour
 # above instead, so solid rock still reads apart from empty cave.
 const TILESET_TEXTURE := preload("res://assets/deep_night/tiles.png")
-const TILESET_BG_COLOR := Color8(27, 25, 25)
 const LAYER_TEXTURE_REGIONS := [
 	Rect2i(0, 64, 16, 16),   # green speckle
 	Rect2i(104, 64, 16, 16), # blue-grey speckle
@@ -72,7 +71,7 @@ func _build_tileset() -> void:
 		for x in range(TILE_SIZE):
 			for y in range(TILE_SIZE):
 				var pixel := source_image.get_pixel(region.position.x + x, region.position.y + y)
-				if not pixel.is_equal_approx(TILESET_BG_COLOR):
+				if not pixel.is_equal_approx(PixelArt.SHEET_BG_COLOR):
 					image.set_pixel(i * TILE_SIZE + x, y, pixel)
 	var texture := ImageTexture.create_from_image(image)
 
@@ -243,14 +242,16 @@ func dig_at_world(world_pos: Vector2) -> bool:
 ## to how much was actually cleared. Used for multi-tile digs (a tall
 ## notch, a step) so a bigger dig costs more noise than a single tile.
 ## Bedrock at the map's edges is skipped, so a run can never dig its way
-## out of the generated area.
-func dig_cells(cells: Array) -> int:
+## out of the generated area. Enemies pass emit_noise = false: noise is
+## the player's cost, and a Burrower's tunnelling feeding the meter would
+## chain-spawn more Burrowers.
+func dig_cells(cells: Array, emit_noise: bool = true) -> int:
 	var dug_count := 0
 	for cell in cells:
 		if is_solid(cell) and not is_indestructible(cell):
 			set_cell(0, cell, -1)
 			dug_count += 1
-	if dug_count > 0:
+	if dug_count > 0 and emit_noise:
 		tile_dug.emit(DIG_NOISE * dug_count)
 	return dug_count
 

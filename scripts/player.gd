@@ -55,9 +55,6 @@ const PUSH_RUN_ROW := 4   # 8 frames - running while digging forward
 const JUMP_ROW := 6       # 5 frames; 2 = rising, 3 = falling
 const RUN_FRAME_COUNT := 8
 const RUN_ANIM_FPS := 12.0
-# The sheet ships fully opaque; this flat background colour is keyed out
-# at load so the character isn't drawn inside a dark box.
-const SHEET_BG_COLOR := Color8(27, 25, 25)
 
 @onready var light: MineLight = $MineLight
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
@@ -84,19 +81,9 @@ var _ropes_touching: Array = []
 var _anim_time: float = 0.0
 
 func _ready() -> void:
-	_key_out_sheet_background()
+	body_sprite.texture = PixelArt.keyed(body_sprite.texture)
 	rope_detector.area_entered.connect(_on_rope_area_entered)
 	rope_detector.area_exited.connect(_on_rope_area_exited)
-
-func _key_out_sheet_background() -> void:
-	var image := body_sprite.texture.get_image()
-	image.decompress()
-	image.convert(Image.FORMAT_RGBA8)
-	for x in range(image.get_width()):
-		for y in range(image.get_height()):
-			if image.get_pixel(x, y).is_equal_approx(SHEET_BG_COLOR):
-				image.set_pixel(x, y, Color(0, 0, 0, 0))
-	body_sprite.texture = ImageTexture.create_from_image(image)
 
 func _on_rope_area_entered(area: Area2D) -> void:
 	if area is Rope:

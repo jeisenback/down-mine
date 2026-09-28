@@ -19,6 +19,7 @@ const ARRIVAL_RADIUS := 32.0
 @onready var noise_bar: ProgressBar = $Margin/VBox/NoiseBar
 @onready var ore_label: Label = $Margin/VBox/OreLabel
 @onready var banked_label: Label = $Margin/VBox/BankedLabel
+@onready var base_label: Label = $Margin/VBox/BaseLabel
 @onready var compass: Node2D = $Compass
 @onready var run_summary: ColorRect = $RunSummary
 @onready var run_summary_label: Label = $RunSummary/SummaryLabel
@@ -50,6 +51,10 @@ func update_noise(value: float, fraction: float) -> void:
 func update_currency(amount: int) -> void:
 	ore_label.text = "Ore: %d" % amount
 
+func update_base(health: int, max_health: int, under_attack: bool) -> void:
+	base_label.text = "Base: %d/%d%s" % [health, max_health, "  UNDER ATTACK" if under_attack else ""]
+	base_label.modulate = Color(1, 0.4, 0.3) if under_attack else Color(1, 1, 1)
+
 func update_banked(amount: int) -> void:
 	banked_label.text = "Banked: %d" % amount
 
@@ -74,8 +79,7 @@ func update_compass(to_target: Vector2) -> void:
 ## Right now a run only ever ends by dying or reaching this. Without a
 ## visible outcome it just looked like the game froze - this makes an
 ## ending actually read as an ending.
-func show_run_summary(success: bool, currency: int, depth: int, progress: Progress) -> void:
-	var title := "Extracted!" if success else "Run Failed"
+func show_run_summary(title: String, success: bool, currency: int, depth: int, progress: Progress) -> void:
 	var currency_line := "Ore banked: %d" % currency if success else "Ore lost: %d" % currency
 	_summary_header = "%s\n%s\nDepth reached: %d tiles" % [title, currency_line, depth]
 	refresh_hub(progress)
