@@ -25,6 +25,7 @@ const ARRIVAL_RADIUS := 32.0
 @onready var base_label: Label = $Margin/VBox/BaseLabel
 @onready var escort_label: Label = $Margin/VBox/EscortLabel
 @onready var lamp_label: Label = $Margin/VBox/LampLabel
+@onready var prompt_label: Label = $PromptLabel
 @onready var compass: Node2D = $Compass
 @onready var stranded_compass: Node2D = $StrandedCompass
 @onready var stranded_arrow: Polygon2D = $StrandedCompass/Arrow
@@ -65,25 +66,16 @@ func update_noise(value: float, fraction: float) -> void:
 func update_currency(amount: int) -> void:
 	ore_label.text = "Ore: %d" % amount
 
-func update_base(run_base: RunBase, under_attack: bool, player_at_base: bool, run_ore: int, walls: int, can_plant: bool, at_surface: bool) -> void:
-	var text := "Base: %d/%d  walls %d" % [run_base.health, run_base.MAX_HEALTH, walls]
-	if under_attack:
-		text += "  UNDER ATTACK"
-	if player_at_base and run_base.needs_repair():
-		if run_ore < run_base.repair_cost():
-			text += "  repair needs %d ore" % run_base.repair_cost()
-		elif run_base.repair_progress > 0.0:
-			text += "  repairing %d%%" % int(run_base.repair_progress * 100)
-		else:
-			text += "  hold F to repair (%d ore)" % run_base.repair_cost()
-	if player_at_base:
-		text += "  B: fortify (%d ore/tile)" % run_base.wall_cost()
-	if can_plant:
-		text += "  P: plant base here"
-	if at_surface:
-		text += "  E: extract"
-	base_label.text = text
+## Status only; what the player can do right now goes on the prompt line.
+func update_base(run_base: RunBase, under_attack: bool, walls: int) -> void:
+	base_label.text = "Base: %d/%d  walls %d%s" % [run_base.health, run_base.MAX_HEALTH, walls, "  UNDER ATTACK" if under_attack else ""]
 	base_label.modulate = Color(1, 0.4, 0.3) if under_attack else Color(1, 1, 1)
+
+## Context actions (repair, fortify, plant, extract), one line along the
+## bottom of the screen, hidden when there is nothing to do.
+func update_prompts(prompts: Array) -> void:
+	prompt_label.text = "     ".join(prompts)
+	prompt_label.visible = not prompts.is_empty()
 
 func update_lamps(lamps_left: int, snuffer_hunting: bool) -> void:
 	lamp_label.text = "Lamps: %d%s" % [lamps_left, "  SNUFFER HUNTING" if snuffer_hunting else ""]

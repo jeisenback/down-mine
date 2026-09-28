@@ -154,7 +154,8 @@ func _process(delta: float) -> void:
 	var decay_noise := mine.tick_decay(delta, player.global_position)
 	if decay_noise > 0.0:
 		noise_meter.add_noise(decay_noise)
-	hud.update_base(run_base, get_tree().get_nodes_in_group("burrowers").size() > 0, _near_base(), player.currency, mine.wall_count(), _can_plant(), _at_surface())
+	hud.update_base(run_base, get_tree().get_nodes_in_group("burrowers").size() > 0, mine.wall_count())
+	hud.update_prompts(_action_prompts())
 	max_depth_reached = max(max_depth_reached, _current_depth())
 	_check_extraction()
 
@@ -163,6 +164,23 @@ func _process(delta: float) -> void:
 func _current_depth() -> int:
 	var cell := mine.world_to_cell(player.global_position)
 	return max(0, cell.y - mine.SURFACE_ROWS)
+
+func _action_prompts() -> Array:
+	var prompts: Array = []
+	if _near_base():
+		if run_base.needs_repair():
+			if player.currency < run_base.repair_cost():
+				prompts.append("Repair needs %d ore" % run_base.repair_cost())
+			elif run_base.repair_progress > 0.0:
+				prompts.append("Repairing %d%%" % int(run_base.repair_progress * 100))
+			else:
+				prompts.append("F (hold): repair, %d ore" % run_base.repair_cost())
+		prompts.append("B: fortify, %d ore/tile" % run_base.wall_cost())
+	if _can_plant():
+		prompts.append("P: plant base here")
+	if _at_surface():
+		prompts.append("E: extract")
+	return prompts
 
 func _near_base() -> bool:
 	return player.global_position.distance_to(run_base.global_position) < BASE_RADIUS
