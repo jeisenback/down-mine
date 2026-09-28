@@ -2,8 +2,9 @@ extends RefCounted
 class_name Progress
 
 ## Everything that survives between runs: the ore bank, hub upgrade
-## levels, the NPC roster, and stranded NPCs. Per the PRD, hub progress is never lost -
-## only extraction adds ore, and nothing here is taken away by a failed run.
+## levels, the NPC roster, and stranded NPCs. Per the PRD, hub progress
+## is never lost - only extraction adds ore, and nothing here is taken
+## away by a failed run.
 
 const SAVE_PATH := "user://save.cfg"
 
@@ -19,9 +20,9 @@ const LANTERN_FUEL_PER_LEVEL := 15.0
 const HARD_HAT_HEALTH_PER_LEVEL := 1
 
 # NPC types (PRD: light, repair, noise, traversal). A crew member's type
-# improves its system while on the crew; two of a type stack. Repair
-# Bonuses are fractions at rank
-# strength 1.0; veterans scale them (see RANKS). title: veteran epithet.
+# improves its system while on the crew; two of a type stack. Bonuses
+# are fractions at rank strength 1.0; veterans scale them (see RANKS).
+# title: veteran epithet.
 const NPC_TYPES := {
 	"light": {"label": "Light", "title": "Lamplighter"},
 	"noise": {"label": "Noise", "title": "Whisper"},
