@@ -1,6 +1,6 @@
 # Down Mine
 
-Side-view extraction roguelike prototype. See `MineRoguelike_PRD.md` for the full design.
+Side-view extraction roguelike prototype. See `MineRoguelike_PRD.md` for the full design and `ROADMAP.md` for what comes next.
 
 ## Milestone 1 — vertical slice
 
