@@ -2,7 +2,7 @@ extends RefCounted
 class_name Progress
 
 ## Everything that survives between runs: the ore bank, hub upgrade
-## levels, and the NPC roster. Per the PRD, hub progress is never lost -
+## levels, the NPC roster, and stranded NPCs. Per the PRD, hub progress is never lost -
 ## only extraction adds ore, and nothing here is taken away by a failed run.
 
 const SAVE_PATH := "user://save.cfg"
@@ -28,10 +28,17 @@ const LIGHT_CREW_RADIUS_MULTIPLIER := 1.15
 # there is a crew picker, the crew is simply the first N rescued.
 const CREW_SLOTS := 1
 
+# Stranded NPCs drift one layer deeper for every run that ends without
+# rescuing them; drifting past the last layer kills them (PRD: death only
+# through neglect). Matches MineGrid's depth bands.
+const LAYER_NAMES := ["Topsoil", "Stone", "Deep rock"]
+
 var banked_ore: int = 0
 var levels: Dictionary = {}
 ## Rescued NPCs, oldest first: [{"name": String, "type": String}, ...]
 var roster: Array = []
+## Stranded NPCs: [{"name": String, "type": String, "layer": int}, ...]
+var stranded: Array = []
 
 static func load_saved() -> Progress:
 	var progress := Progress.new()
@@ -41,6 +48,7 @@ static func load_saved() -> Progress:
 		for id in UPGRADES:
 			progress.levels[id] = int(config.get_value("upgrades", id, 0))
 		progress.roster = config.get_value("npcs", "roster", [])
+		progress.stranded = config.get_value("npcs", "stranded", [])
 	return progress
 
 func save() -> void:
@@ -49,6 +57,7 @@ func save() -> void:
 	for id in UPGRADES:
 		config.set_value("upgrades", id, level(id))
 	config.set_value("npcs", "roster", roster)
+	config.set_value("npcs", "stranded", stranded)
 	config.save(SAVE_PATH)
 
 func level(id: String) -> int:
@@ -73,9 +82,32 @@ func try_buy(id: String) -> bool:
 func crew() -> Array:
 	return roster.slice(0, CREW_SLOTS)
 
-func rescue(npc_name: String, npc_type: String) -> void:
-	roster.append({"name": npc_name, "type": npc_type})
+## Settles NPC state at the end of a run and saves. rescued: miners
+## extracted with the player. newly_stranded: miners being escorted when
+## the run failed, with the layer they were lost in. Every other stranded
+## miner drifts a layer deeper. Returns summary lines for the hub.
+func end_run(rescued: Array, newly_stranded: Array) -> Array:
+	var notes: Array = []
+	var settled := {}
+	for npc in rescued:
+		roster.append({"name": npc.name, "type": npc.type})
+		settled[npc.name] = true
+		notes.append("Rescued %s - joins the roster" % npc.name)
+	for npc in newly_stranded:
+		settled[npc.name] = true
+		notes.append("%s is stranded in the %s" % [npc.name, LAYER_NAMES[npc.layer]])
+	var still_stranded: Array = []
+	for npc in stranded:
+		if settled.has(npc.name):
+			continue
+		npc.layer += 1
+		if npc.layer >= LAYER_NAMES.size():
+			notes.append("%s drifted too deep and was lost for good" % npc.name)
+		else:
+			still_stranded.append(npc)
+	stranded = still_stranded + newly_stranded
 	save()
+	return notes
 
 func apply_to(player: Player) -> void:
 	player.light.max_fuel += level("lantern") * LANTERN_FUEL_PER_LEVEL

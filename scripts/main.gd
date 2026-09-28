@@ -37,7 +37,7 @@ var run_ended: bool = false
 var max_depth_reached: int = 0
 var _extract_key_was_pressed: bool = false
 var progress: Progress
-var lost_miner: LostMiner
+var lost_miners: Array[LostMiner] = []
 
 func _ready() -> void:
 	player.mine = mine
@@ -54,23 +54,54 @@ func _ready() -> void:
 	progress.apply_to(player)
 	hud.update_banked(progress.banked_ore)
 	_configure_camera_limits()
-	_spawn_lost_miner()
+	_spawn_lost_miners()
 
-## One lost miner per run, named from those not already on the roster.
-func _spawn_lost_miner() -> void:
-	if mine.lost_miner_cell.x < 0:
-		return
-	var taken := progress.roster.map(func(m): return m.name)
+## This run's new find (named from miners not on the roster or stranded),
+## plus every stranded miner, placed in the layer they have drifted to.
+func _spawn_lost_miners() -> void:
+	var taken := (progress.roster + progress.stranded).map(func(m): return m.name)
 	var names := MINER_COLORS.keys().filter(func(n): return not n in taken)
-	if names.is_empty():
-		names = MINER_COLORS.keys()
-	lost_miner = LostMinerScene.instantiate()
-	lost_miner.player = player
-	lost_miner.miner_name = names.pick_random()
-	lost_miner.shirt_color = MINER_COLORS[lost_miner.miner_name]
-	lost_miner.global_position = mine.cell_to_world(mine.lost_miner_cell)
-	lost_miner.picked_up.connect(func(): hud.update_escort(lost_miner.miner_name))
-	add_child(lost_miner)
+	if mine.lost_miner_cell.x >= 0 and not names.is_empty():
+		_spawn_miner(names.pick_random(), "light", mine.lost_miner_cell, false)
+	for npc in progress.stranded:
+		var cell := mine.take_floor_cell_in_layer(npc.layer)
+		if cell.x >= 0:
+			_spawn_miner(npc.name, npc.type, cell, true)
+
+func _spawn_miner(miner_name: String, npc_type: String, cell: Vector2i, was_stranded: bool) -> void:
+	var miner: LostMiner = LostMinerScene.instantiate()
+	miner.player = player
+	miner.miner_name = miner_name
+	miner.npc_type = npc_type
+	miner.was_stranded = was_stranded
+	miner.shirt_color = MINER_COLORS.get(miner_name, Color(1, 1, 1))
+	miner.global_position = mine.cell_to_world(cell)
+	miner.picked_up.connect(_on_miner_picked_up.bind(miner))
+	add_child(miner)
+	lost_miners.append(miner)
+
+func _on_miner_picked_up(miner: LostMiner) -> void:
+	var escorts := _escorts()
+	miner.follow_delay = LostMiner.FOLLOW_DELAY_POINTS * escorts.size()
+	hud.update_escort(", ".join(escorts.map(func(m): return m.miner_name)))
+
+func _escorts() -> Array:
+	return lost_miners.filter(func(m): return m.following)
+
+## The PRD's in-mine "signs" for stranded miners, simplified: while the
+## player is in a stranded miner's layer, an arrow in their shirt colour
+## points to the nearest one. The hub already told them which layer.
+func _update_stranded_compass() -> void:
+	var player_layer := mine.layer_index_at_world(player.global_position)
+	var nearest: LostMiner = null
+	for miner in lost_miners:
+		if miner.was_stranded and not miner.following and mine.layer_index_at_world(miner.global_position) == player_layer:
+			if nearest == null or player.global_position.distance_to(miner.global_position) < player.global_position.distance_to(nearest.global_position):
+				nearest = miner
+	if nearest == null:
+		hud.hide_stranded_compass()
+	else:
+		hud.update_stranded_compass(nearest.global_position - player.global_position, nearest.shirt_color)
 
 func _configure_camera_limits() -> void:
 	var camera := player.get_node("Camera2D") as Camera2D
@@ -83,6 +114,7 @@ func _process(_delta: float) -> void:
 	hud.update_fuel(player.light.fuel_fraction())
 	hud.update_health(player.health)
 	hud.update_compass(run_base.global_position - player.global_position)
+	_update_stranded_compass()
 	hud.update_currency(player.currency)
 	hud.update_base(run_base.health, run_base.MAX_HEALTH, get_tree().get_nodes_in_group("burrowers").size() > 0)
 	max_depth_reached = max(max_depth_reached, _current_depth())
@@ -106,15 +138,10 @@ func _extract() -> void:
 	progress.banked_ore += player.currency
 	progress.save()
 	hud.update_banked(progress.banked_ore)
-	var notes: Array = []
-	if _escorting():
-		progress.rescue(lost_miner.miner_name, lost_miner.npc_type)
-		notes.append("Rescued %s - joins the roster" % lost_miner.miner_name)
+	var rescued := _escorts().map(func(m): return {"name": m.miner_name, "type": m.npc_type})
+	var notes := progress.end_run(rescued, [])
 	hud.show_run_summary("Extracted!", true, player.currency, max_depth_reached, progress, notes)
 	get_tree().paused = true
-
-func _escorting() -> bool:
-	return lost_miner != null and lost_miner.following
 
 func _on_tile_dug(noise_amount: float) -> void:
 	noise_meter.add_noise(noise_amount)
@@ -145,15 +172,17 @@ func _fail_run(title: String) -> void:
 		return
 	run_ended = true
 	hud.update_health(player.health)
-	var notes: Array = []
-	if _escorting():
-		notes.append("%s was lost in the dark" % lost_miner.miner_name)
+	# PRD: miners lost during an escort are stranded where they were lost.
+	var newly_stranded := _escorts().map(func(m): return {
+		"name": m.miner_name, "type": m.npc_type, "layer": mine.layer_index_at_world(m.global_position)})
+	var notes := progress.end_run([], newly_stranded)
 	hud.show_run_summary(title, false, player.currency, max_depth_reached, progress, notes)
 	get_tree().paused = true
 
 ## Reloading the scene is the whole reset: the mine regenerates in
 ## Mine._ready() and every per-run value (light, noise, run ore) starts
-## fresh. Only Progress (bank + upgrades) survives, via the save file.
+## fresh. Only Progress (bank, upgrades, roster, stranded) survives, via
+## the save file.
 func _start_new_run() -> void:
 	get_tree().paused = false
 	get_tree().reload_current_scene()

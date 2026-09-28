@@ -31,7 +31,11 @@ tiles. Hard landings also make noise.
 cave floor partway down. Touch them and they follow your trail; extract
 with them and they join the roster. Your first rescued miner is your
 crew: light type, so your lantern burns 20% slower and reaches 15%
-further. Fail the run while escorting and they are lost.
+further. Fail the run while escorting and they are stranded in the layer
+they were lost in: the hub shows where, they drift one layer deeper for
+every run that ends without rescuing them, and drifting past Deep rock
+kills them. In their layer, an arrow in their shirt colour points to them.
+You can escort several miners at once; they follow in single file.
 
 **Run it**: open the project folder in Godot 4.3+ and press Play (main scene
 is `scenes/Main.tscn`).

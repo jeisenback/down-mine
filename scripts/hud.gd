@@ -23,6 +23,8 @@ const ARRIVAL_RADIUS := 32.0
 @onready var base_label: Label = $Margin/VBox/BaseLabel
 @onready var escort_label: Label = $Margin/VBox/EscortLabel
 @onready var compass: Node2D = $Compass
+@onready var stranded_compass: Node2D = $StrandedCompass
+@onready var stranded_arrow: Polygon2D = $StrandedCompass/Arrow
 @onready var run_summary: ColorRect = $RunSummary
 @onready var run_summary_label: Label = $RunSummary/SummaryLabel
 
@@ -74,16 +76,27 @@ func update_banked(amount: int) -> void:
 ## screen-space direction matches it directly since the camera doesn't
 ## rotate.
 func update_compass(to_target: Vector2) -> void:
+	_point_arrow(compass, to_target)
+
+## Second arrow, in a stranded miner's shirt colour (see Main).
+func update_stranded_compass(to_target: Vector2, color: Color) -> void:
+	stranded_arrow.color = color
+	_point_arrow(stranded_compass, to_target)
+
+func hide_stranded_compass() -> void:
+	stranded_compass.visible = false
+
+func _point_arrow(arrow: Node2D, to_target: Vector2) -> void:
 	if to_target.length_squared() < ARRIVAL_RADIUS * ARRIVAL_RADIUS:
-		compass.visible = false
+		arrow.visible = false
 		return
-	compass.visible = true
+	arrow.visible = true
 	var direction := to_target.normalized()
 	var viewport_size := get_viewport().get_visible_rect().size
 	var center := viewport_size / 2.0
 	var radius: float = max(0.0, min(center.x, center.y) - COMPASS_MARGIN)
-	compass.position = center + direction * radius
-	compass.rotation = direction.angle()
+	arrow.position = center + direction * radius
+	arrow.rotation = direction.angle()
 
 ## Right now a run only ever ends by dying or reaching this. Without a
 ## visible outcome it just looked like the game froze - this makes an
@@ -112,6 +125,10 @@ func refresh_hub(progress: Progress) -> void:
 		lines.append("Crew: %s (%s: %s)" % [member.name, Progress.NPC_TYPES[member.type].label, Progress.NPC_TYPES[member.type].effect])
 	if progress.roster.size() > crew.size():
 		lines.append("Waiting at the hub: %d" % (progress.roster.size() - crew.size()))
+	for npc in progress.stranded:
+		var last_layer: bool = npc.layer == Progress.LAYER_NAMES.size() - 1
+		var fate := "lost for good if not rescued next run" if last_layer else "drifts to the %s if not rescued" % Progress.LAYER_NAMES[npc.layer + 1]
+		lines.append("Stranded: %s in the %s - %s" % [npc.name, Progress.LAYER_NAMES[npc.layer], fate])
 	lines.append("")
 	lines.append("Press Enter for a new run")
 	run_summary_label.text = "\n".join(lines)

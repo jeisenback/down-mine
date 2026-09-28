@@ -61,6 +61,8 @@ var source_id: int = 0
 ## Where Main should place this run's lost miner, or (-1, -1) if no floor
 ## cell fits the band.
 var lost_miner_cell := Vector2i(-1, -1)
+## Floor cells no pickup or NPC has claimed yet (shuffled).
+var _spare_floor_cells: Array = []
 
 func _ready() -> void:
 	_build_tileset()
@@ -143,7 +145,8 @@ func _generate_layout() -> void:
 	floor_cells.shuffle()
 	_scatter_fuel_deposits(floor_cells)
 	_scatter_ore_deposits(floor_cells)
-	_pick_lost_miner_cell(floor_cells)
+	_spare_floor_cells = floor_cells.slice(min(FUEL_DEPOSIT_COUNT + ORE_DEPOSIT_COUNT, floor_cells.size()))
+	_pick_lost_miner_cell()
 
 func _is_boundary(x: int, y: int) -> bool:
 	return x == 0 or x == GRID_WIDTH - 1 or y == GRID_HEIGHT - 1
@@ -238,14 +241,24 @@ func _scatter_ore_deposits(floor_cells: Array) -> void:
 		pickup.position = map_to_local(cell)
 		add_child(pickup)
 
-## Takes the first unused (shuffled, so random) floor cell after the
-## fuel and ore slices that falls inside the lost-miner row band.
-func _pick_lost_miner_cell(floor_cells: Array) -> void:
-	for i in range(min(FUEL_DEPOSIT_COUNT + ORE_DEPOSIT_COUNT, floor_cells.size()), floor_cells.size()):
-		var cell: Vector2i = floor_cells[i]
-		if cell.y >= LOST_MINER_MIN_ROW and cell.y <= LOST_MINER_MAX_ROW:
-			lost_miner_cell = cell
-			return
+func _pick_lost_miner_cell() -> void:
+	lost_miner_cell = _take_spare_floor_cell(func(cell): return cell.y >= LOST_MINER_MIN_ROW and cell.y <= LOST_MINER_MAX_ROW)
+
+## A random unclaimed cave-floor cell in a depth band, for placing a
+## stranded miner in the layer they drifted to. (-1, -1) if none.
+func take_floor_cell_in_layer(layer_index: int) -> Vector2i:
+	return _take_spare_floor_cell(func(cell): return _layer_index_for_row(cell.y) == layer_index)
+
+func _take_spare_floor_cell(accept: Callable) -> Vector2i:
+	for i in range(_spare_floor_cells.size()):
+		var cell: Vector2i = _spare_floor_cells[i]
+		if accept.call(cell):
+			_spare_floor_cells.remove_at(i)
+			return cell
+	return Vector2i(-1, -1)
+
+func layer_index_at_world(world_pos: Vector2) -> int:
+	return _layer_index_for_row(clamp(world_to_cell(world_pos).y, SURFACE_ROWS, GRID_HEIGHT - 1))
 
 func is_solid(cell: Vector2i) -> bool:
 	return get_cell_source_id(0, cell) != -1
