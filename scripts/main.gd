@@ -11,6 +11,7 @@ const BASE_REFUEL_RATE := 6.0 # fuel/s moved from base light to lantern
 # crust. The flag stands this far above the floor the player is on.
 const BASE_PLANT_NOISE := 15.0
 const BASE_FLAG_HEIGHT_ABOVE_PLAYER := 15.0
+const CREW_SPACING := 12.0 # px between crew standing at the base
 
 # Burrowers surface this far below the player - the noise came from
 # there - and tunnel to the base, so the player can race or chase them.
@@ -62,6 +63,7 @@ var _lamp_key_was_pressed: bool = false
 var _snuffer_timer: float = 0.0
 var progress: Progress
 var lost_miners: Array[LostMiner] = []
+var crew_at_base: Array[LostMiner] = []
 
 func _ready() -> void:
 	player.mine = mine
@@ -81,6 +83,28 @@ func _ready() -> void:
 	hud.update_banked(progress.banked_ore)
 	_configure_camera_limits()
 	_spawn_lost_miners()
+	_spawn_crew()
+
+## The crew wait at the run base (PRD: they can be caught in a base
+## attack or left behind when a run fails - see _fail_run).
+func _spawn_crew() -> void:
+	for member in progress.crew():
+		var miner: LostMiner = LostMinerScene.instantiate()
+		miner.player = player
+		miner.miner_name = member.name
+		miner.npc_type = member.type
+		miner.stationary = true
+		miner.shirt_color = MINER_COLORS.get(member.name, Color(1, 1, 1))
+		add_child(miner)
+		crew_at_base.append(miner)
+	_place_crew_at_base()
+
+## Side by side on the base's floor, flanking the flag.
+func _place_crew_at_base() -> void:
+	for i in range(crew_at_base.size()):
+		var side := -1 if i % 2 == 0 else 1
+		var offset_x := side * CREW_SPACING * (1 + floori(i / 2.0))
+		crew_at_base[i].global_position = run_base.global_position + Vector2(offset_x, BASE_FLAG_HEIGHT_ABOVE_PLAYER)
 
 ## This run's new find (named from miners not on the roster or stranded),
 ## plus every stranded miner, placed in the layer they have drifted to.
@@ -202,6 +226,7 @@ func _check_plant() -> void:
 		base_planted = true
 		run_base.global_position = player.global_position - Vector2(0, BASE_FLAG_HEIGHT_ABOVE_PLAYER)
 		run_base.repair_progress = 0.0
+		_place_crew_at_base()
 		noise_meter.add_noise(BASE_PLANT_NOISE)
 	_plant_key_was_pressed = pressed
 
@@ -319,8 +344,9 @@ func _fail_run(title: String) -> void:
 		return
 	run_ended = true
 	hud.update_health(player.health)
-	# PRD: miners lost during an escort are stranded where they were lost.
-	var newly_stranded := _escorts().map(func(m): return {
+	# PRD: miners lost during an escort are stranded where they were lost,
+	# and crew left at the base are stranded in the base's layer.
+	var newly_stranded := (_escorts() + crew_at_base).map(func(m): return {
 		"name": m.miner_name, "type": m.npc_type, "layer": mine.layer_index_at_world(m.global_position)})
 	var notes := progress.end_run([], newly_stranded, false)
 	hud.show_run_summary(title, false, player.currency, max_depth_reached, progress, notes)
