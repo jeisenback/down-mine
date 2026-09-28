@@ -18,7 +18,7 @@ darkness. No crew, hub, or stranding yet.
 - `R` — place a rope at your feet (consumable, climbable with `W`/`S`, decays over time — faster in the dark)
 - `T` — place a ladder standing up from your feet (hub unlock; 4 per run; climbs faster and lasts longer than a rope; noisy)
 - `G` — hammer in an anchor where you stand (hub unlock; 2 per run); `Q` then pulls you straight to the nearest anchor within 10 tiles in line of sight (over a ledge's lip), before trying a ceiling
-- `E` — extract anywhere at the surface, above the crust (banks ore, ends the run); in the mine, use a nearby camp, lift, outpost or survivor
+- `E` — extract anywhere at the surface, above the crust (banks ore, ends the run); in the mine, use a nearby camp, lift, outpost, survivor, vault door or relic
 - `P` — once per run, plant the run base where you stand (below the crust, on a floor)
 - `F` — hold at the run base to repair it (1 health per 3s, 10 of this run's ore per point, noisy)
 - `B` — at the run base, fortify: reinforce the 12 nearest plain rock tiles within 5 tiles (2 of this run's ore per tile, noisy); press again for more
@@ -55,7 +55,10 @@ all. A survivor outpost, lit by its fire, sits in Stone or Deep rock:
 trade 20 ore for a supply pack (1 lamp, 2 ladders, 1 anchor - even before
 you unlock them; 2 packs per outpost) and recruit its survivor for 40
 ore, who then follows you like a rescued miner. The survivors talk, so
-lingering there fills the noise meter.
+lingering there fills the noise meter. A relic vault, a chamber walled in
+unbreakable brass-tinted stone, sits in Deep rock: breaking its door is one
+press but very loud (60 noise), and the relic inside is worth 150 ore if
+you get it home.
 
 **Sound**: every effect (digging, hits, pickups, placing tools, collapses,
 gas, alarms) is synthesized in code at startup (`scripts/sfx.gd`) - no

@@ -299,3 +299,17 @@ func test_mine_carves_event_rooms() -> void:
 	for room in mine.event_rooms:
 		assert_true(not mine.is_solid(room.cell), "room is open")
 		assert_true(mine.is_solid(room.cell + Vector2i.DOWN), "room has a floor")
+
+func test_vault_is_sealed_but_for_its_door() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var vaults := mine.event_rooms.filter(func(r): return r.kind == "vault")
+	assert_eq(vaults.size(), 1, "one vault")
+	var vault: Dictionary = vaults[0]
+	assert_eq(mine._layer_index_for_row(vault.cell.y), 2, "vault in deep rock")
+	var door: Vector2i = vault.door
+	assert_true(not mine.is_solid(door) and not mine.is_solid(door + Vector2i.UP), "doorway open")
+	assert_true(mine.is_indestructible(door + Vector2i.DOWN), "bedrock under the door")
+	assert_true(mine.is_indestructible(vault.cell + Vector2i.DOWN), "bedrock floor")
+	var right := door.x + MineGrid.ROOM_SIZE.x + 1
+	assert_true(mine.is_indestructible(Vector2i(right, door.y)), "bedrock far wall")
+	assert_true(mine.is_indestructible(Vector2i(vault.cell.x, door.y - MineGrid.ROOM_SIZE.y)), "bedrock ceiling")

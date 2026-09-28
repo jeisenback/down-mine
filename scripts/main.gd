@@ -46,8 +46,10 @@ const EVENT_SCENES := {
 	"camp": preload("res://scenes/Camp.tscn"),
 	"lift": preload("res://scenes/Lift.tscn"),
 	"outpost": preload("res://scenes/Outpost.tscn"),
+	"vault": preload("res://scenes/Relic.tscn"),
 }
 const EVENT_RANGE := 24.0
+const VaultDoorScene := preload("res://scenes/VaultDoor.tscn")
 
 const LostMinerScene := preload("res://scenes/LostMiner.tscn")
 # Signs leading to each stranded miner (milestone 25); Veterans leave more.
@@ -131,6 +133,10 @@ func _spawn_events() -> void:
 		mine.add_child(event)
 		if event is Outpost:
 			_spawn_survivor(event.global_position + Outpost.SURVIVOR_OFFSET)
+		if room.kind == "vault":
+			var door: VaultDoor = VaultDoorScene.instantiate()
+			door.global_position = mine.cell_to_world(room.door) + Vector2(0, -mine.TILE_SIZE / 2.0)
+			mine.add_child(door)
 
 ## The outpost's recruitable survivor, named like a new find.
 func _spawn_survivor(pos: Vector2) -> void:

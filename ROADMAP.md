@@ -51,8 +51,8 @@ dictates.
   rides once to the surface.
 - ~~**M34 - Survivor outpost.**~~ Done: a lit camp in Stone or Deep;
   trade ore for supply packs, recruit its survivor; lingering is noisy.
-- **M35 - Relic vault.** A reinforced chamber holding a valuable relic;
-  loud to break into.
+- ~~**M35 - Relic vault.**~~ Done: a sealed chamber in Deep rock; its
+  door breaks with 60 noise; the relic is worth 150 ore.
 - **M36 - Collapsing gallery.** Rich ore under a ceiling that comes down
   on a timer once you enter.
 - **M37 - Nest.** Stalker eggs in the deep; flare them out and the layer
