@@ -23,6 +23,9 @@ dictates.
 - ~~**M26 - Veteran quirks.**~~ Done: six quirks, one per Veteran,
   distinct across the roster.
 
+- ~~**M32 - Base buildings.**~~ Done: support beams, a beacon and an
+  alarm bell, paid from run ore.
+
 ## Traversal depth
 
 - ~~**M27 - Ladders and anchors.**~~ Done: ladders (T), anchors (G) the

@@ -22,6 +22,8 @@ darkness. No crew, hub, or stranding yet.
 - `P` — once per run, plant the run base where you stand (below the crust, on a floor)
 - `F` — hold at the run base to repair it (1 health per 3s, 10 of this run's ore per point, noisy)
 - `B` — at the run base, fortify: reinforce the 12 nearest plain rock tiles within 5 tiles (2 of this run's ore per tile, noisy); press again for more
+- `1` — build a support beam where you stand (15 of this run's ore): stops collapses and crumbling within 3 tiles; wears out, faster in the dark
+- `2` / `3` — at the run base, build a beacon (30 ore: base light reaches 50% further but burns 50% faster) or an alarm bell (20 ore: warns when noise nears the Burrower threshold); one each per run
 - `1`-`6` — on the run summary (the hub), spend banked ore: lantern tank (+15s light), hard hat (+1 health), crew bunk (+1 crew slot, up to 4), or unlock lamps (40), ladders (60) or anchors (100). The grapple and ropes are always available.
 - `A`-`J` — on the hub, put a rescued miner on the crew or take them off
 - `Enter` — start a new run from the run summary (banked ore and upgrades are saved between runs)

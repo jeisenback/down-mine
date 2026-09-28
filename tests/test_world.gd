@@ -174,6 +174,28 @@ func test_digging_gas_releases_a_cloud_that_hurts_inside_it() -> void:
 	assert_true(inside.health < 999, "standing in the cloud hurts")
 	assert_eq(outside.health, 999, "outside the cloud is safe")
 
+func test_support_stops_collapse_nearby() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var near := Vector2i(10, 250)
+	var far := Vector2i(30, 250)
+	for cell in [near, far]:
+		mine.set_cell(0, cell, mine.source_id, Vector2i(2, 0))
+	mine.dig_cells([near, far])
+	var support: Support = add(preload("res://scenes/Support.tscn").instantiate())
+	support.global_position = mine.cell_to_world(near + Vector2i(1, 0))
+	for i in range(20):
+		mine.tick_decay(10.0, mine.cell_to_world(Vector2i(20, 250)))
+	assert_true(not mine.is_solid(near), "supported tunnel stays open")
+	assert_true(mine.is_solid(far), "unsupported dark tunnel collapsed")
+
+func test_beacon_widens_and_burns_base_light() -> void:
+	var base := _base(Vector2.ZERO)
+	var radius := base.light.radius_max
+	var burn := base.light.burn_rate
+	base.build_beacon()
+	assert_eq(base.light.radius_max, radius * RunBase.BEACON_RADIUS_MULTIPLIER, "wider refuge")
+	assert_eq(base.light.burn_rate, burn * RunBase.BEACON_BURN_MULTIPLIER, "burns faster")
+
 func test_deep_rock_decays_faster() -> void:
 	var mine: MineGrid = add(MineScene.instantiate())
 	var stone := mine.cell_to_world(Vector2i(40, 150))

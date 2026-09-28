@@ -436,7 +436,8 @@ func is_gas(cell: Vector2i) -> bool:
 
 ## Refills one dark dug cell; returns it, or (-1, -1) if none.
 func _collapse_tunnel() -> Vector2i:
-	var candidates := _dug_cells.filter(func(c): return not is_solid(c) and not is_lit(cell_to_world(c)))
+	var candidates := _dug_cells.filter(func(c): return not is_solid(c) and not is_lit(cell_to_world(c)) \
+		and not Support.protects(get_tree(), cell_to_world(c)))
 	if candidates.is_empty():
 		return Vector2i(-1, -1)
 	var cell: Vector2i = candidates.pick_random()
@@ -450,6 +451,8 @@ func _crumble_floor(player_pos: Vector2) -> Vector2i:
 	for i in range(CRUMBLE_SAMPLE_TRIES):
 		var cell := center + Vector2i(randi_range(-CRUMBLE_RADIUS_TILES, CRUMBLE_RADIUS_TILES), randi_range(-CRUMBLE_RADIUS_TILES, CRUMBLE_RADIUS_TILES))
 		if cell.y <= SURFACE_ROWS or not is_solid(cell) or is_indestructible(cell) or is_wall(cell):
+			continue
+		if Support.protects(get_tree(), cell_to_world(cell)):
 			continue
 		if is_solid(cell + Vector2i.UP) or _reserved_floors.has(cell) or is_lit(cell_to_world(cell)):
 			continue

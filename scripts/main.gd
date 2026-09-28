@@ -36,6 +36,11 @@ const GasCloudScene := preload("res://scenes/GasCloud.tscn")
 const StalkerScene := preload("res://scenes/Stalker.tscn")
 const DEEP_STALKER_SPAWN_TILES := 12
 
+# Buildings (milestone 32): support beams anywhere; beacon and bell at base.
+const SupportScene := preload("res://scenes/Support.tscn")
+const SUPPORT_ORE_COST := 15
+const BELL_WARNING_FRACTION := 0.75
+
 const LostMinerScene := preload("res://scenes/LostMiner.tscn")
 # Signs leading to each stranded miner (milestone 25); Veterans leave more.
 const StrandedSignScene := preload("res://scenes/StrandedSign.tscn")
@@ -76,6 +81,8 @@ var lamps_left: int = LAMPS_PER_RUN
 var _lamp_key_was_pressed: bool = false
 var _snuffer_timer: float = 0.0
 var _deep_stalker_spawned: bool = false
+var _build_keys_down: Dictionary = {}
+var _bell_ringing: bool = false
 var progress: Progress
 var lost_miners: Array[LostMiner] = []
 var crew_at_base: Array[LostMiner] = []
@@ -190,6 +197,8 @@ func _process(delta: float) -> void:
 	_check_refuel(delta)
 	_check_plant()
 	_check_lamp()
+	_check_builds()
+	_check_bell()
 	_check_snuffer_spawn(delta)
 	hud.update_tools({
 		"Lamps": lamps_left if progress.has_unlock("lamps") or lamps_left > 0 else -1,
@@ -243,6 +252,12 @@ func _action_prompts() -> Array:
 			else:
 				prompts.append("F (hold): repair, %d ore" % run_base.repair_cost())
 		prompts.append("B: fortify, %d ore/tile" % run_base.wall_cost())
+		if not run_base.has_beacon:
+			prompts.append("2: beacon, %d ore" % run_base.BEACON_ORE_COST)
+		if not run_base.has_bell:
+			prompts.append("3: bell, %d ore" % run_base.BELL_ORE_COST)
+	if not _at_surface() and player.currency >= SUPPORT_ORE_COST:
+		prompts.append("1: support, %d ore" % SUPPORT_ORE_COST)
 	if _can_plant():
 		prompts.append("P: plant base here")
 	if _at_surface():
@@ -272,6 +287,56 @@ func _check_plant() -> void:
 		_place_crew_at_base()
 		noise_meter.add_noise(BASE_PLANT_NOISE)
 	_plant_key_was_pressed = pressed
+
+## Number keys build (milestone 32), paid from this run's ore: 1 a
+## support beam where you stand, 2 a beacon and 3 an alarm bell at the
+## base (one each per run). The hub reads these keys only while paused.
+func _check_builds() -> void:
+	for key in [KEY_1, KEY_2, KEY_3]:
+		var pressed := Input.is_physical_key_pressed(key)
+		if pressed and not _build_keys_down.get(key, false):
+			match key:
+				KEY_1: build_support()
+				KEY_2: build_beacon()
+				KEY_3: build_bell()
+		_build_keys_down[key] = pressed
+
+func build_support() -> bool:
+	if _at_surface() or not player.is_on_floor() or player.currency < SUPPORT_ORE_COST:
+		return false
+	var support: Support = SupportScene.instantiate()
+	mine.add_child(support)
+	support.global_position = player.global_position
+	_pay_for_build(SUPPORT_ORE_COST)
+	return true
+
+func build_beacon() -> bool:
+	if not _near_base() or run_base.has_beacon or player.currency < run_base.BEACON_ORE_COST:
+		return false
+	run_base.build_beacon()
+	_pay_for_build(run_base.BEACON_ORE_COST)
+	return true
+
+func build_bell() -> bool:
+	if not _near_base() or run_base.has_bell or player.currency < run_base.BELL_ORE_COST:
+		return false
+	run_base.build_bell()
+	_pay_for_build(run_base.BELL_ORE_COST)
+	return true
+
+func _pay_for_build(cost: int) -> void:
+	player.currency -= cost
+	noise_meter.add_noise(run_base.BUILD_NOISE)
+	Sfx.play("place")
+
+## With a bell at the base, noise past BELL_WARNING_FRACTION of the
+## Burrower threshold rings once and turns the HUD noise line red.
+func _check_bell() -> void:
+	var loud := run_base.has_bell and noise_meter.noise >= noise_meter.threshold * BELL_WARNING_FRACTION
+	if loud and not _bell_ringing:
+		Sfx.play("alarm", -4.0)
+	_bell_ringing = loud
+	hud.set_noise_warning(loud)
 
 ## L sets a lamp down where the player stands.
 func _check_lamp() -> void:

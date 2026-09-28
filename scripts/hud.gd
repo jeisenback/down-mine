@@ -34,6 +34,8 @@ const ROSTER_KEYS := 10
 @onready var run_summary_label: Label = $RunSummary/SummaryLabel
 
 var _summary_header: String = ""
+var _noise_warning: bool = false
+var _noise_value: float = 0.0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -64,8 +66,17 @@ func update_layer(text: String) -> void:
 	layer_label.text = text
 
 func update_noise(value: float, fraction: float) -> void:
-	noise_label.text = "Noise: %d" % int(value)
+	_noise_value = value
+	noise_label.text = "Noise: %d%s" % [int(value), "  LOUD" if _noise_warning else ""]
 	noise_bar.value = fraction * 100.0
+
+## The alarm bell's warning (milestone 32): noise line turns red.
+func set_noise_warning(on: bool) -> void:
+	if on == _noise_warning:
+		return
+	_noise_warning = on
+	noise_label.modulate = Color(1, 0.4, 0.3) if on else Color(1, 1, 1)
+	update_noise(_noise_value, noise_bar.value / 100.0)
 
 func update_currency(amount: int) -> void:
 	ore_label.text = "Ore: %d" % amount
