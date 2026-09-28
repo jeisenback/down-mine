@@ -52,7 +52,7 @@ func _ready() -> void:
 	hud.upgrade_requested.connect(_on_upgrade_requested)
 	hud.crew_toggle_requested.connect(_on_crew_toggle_requested)
 	progress = Progress.load_saved()
-	progress.apply_to(player, noise_meter)
+	progress.apply_to(player, noise_meter, run_base)
 	hud.update_banked(progress.banked_ore)
 	_configure_camera_limits()
 	_spawn_lost_miners()
@@ -110,7 +110,7 @@ func _configure_camera_limits() -> void:
 	camera.limit_right = mine.GRID_WIDTH * mine.TILE_SIZE
 	camera.limit_bottom = mine.GRID_HEIGHT * mine.TILE_SIZE
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if run_ended:
 		return
 	hud.update_fuel(player.light.fuel_fraction())
@@ -118,7 +118,8 @@ func _process(_delta: float) -> void:
 	hud.update_compass(run_base.global_position - player.global_position)
 	_update_stranded_compass()
 	hud.update_currency(player.currency)
-	hud.update_base(run_base.health, run_base.MAX_HEALTH, get_tree().get_nodes_in_group("burrowers").size() > 0)
+	_check_repair(delta)
+	hud.update_base(run_base, get_tree().get_nodes_in_group("burrowers").size() > 0, _near_base(), player.currency)
 	max_depth_reached = max(max_depth_reached, _current_depth())
 	_check_extraction()
 
@@ -128,10 +129,20 @@ func _current_depth() -> int:
 	var cell := mine.world_to_cell(player.global_position)
 	return max(0, cell.y - mine.SURFACE_ROWS)
 
+func _near_base() -> bool:
+	return player.global_position.distance_to(run_base.global_position) < EXTRACTION_RADIUS
+
+## Holding F at the base repairs it, paid from this run's ore.
+func _check_repair(delta: float) -> void:
+	if not (Input.is_physical_key_pressed(KEY_F) and _near_base()):
+		return
+	if run_base.tick_repair(delta, player.currency):
+		player.currency -= run_base.repair_cost()
+		noise_meter.add_noise(run_base.REPAIR_NOISE)
+
 func _check_extraction() -> void:
 	var extract_pressed := Input.is_physical_key_pressed(KEY_E)
-	var near_base := player.global_position.distance_to(run_base.global_position) < EXTRACTION_RADIUS
-	if extract_pressed and not _extract_key_was_pressed and near_base:
+	if extract_pressed and not _extract_key_was_pressed and _near_base():
 		_extract()
 	_extract_key_was_pressed = extract_pressed
 

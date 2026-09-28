@@ -20,17 +20,20 @@ const HARD_HAT_HEALTH_PER_LEVEL := 1
 
 # NPC types (PRD: light, repair, noise, traversal). A crew member's type
 # improves its system while on the crew; two of a type stack. Repair
-# waits for base repair to exist. Bonuses are fractions at rank
+# Bonuses are fractions at rank
 # strength 1.0; veterans scale them (see RANKS). title: veteran epithet.
 const NPC_TYPES := {
 	"light": {"label": "Light", "title": "Lamplighter"},
 	"noise": {"label": "Noise", "title": "Whisper"},
 	"traversal": {"label": "Traversal", "title": "Climber"},
+	"repair": {"label": "Repair", "title": "Mender"},
 }
 const LIGHT_BURN_REDUCTION := 0.2
 const LIGHT_RADIUS_BONUS := 0.15
 const NOISE_REDUCTION := 0.25
 const TRAVERSAL_GRAPPLE_BONUS := 0.5
+const REPAIR_COST_REDUCTION := 0.25
+const REPAIR_SPEED_BONUS := 0.25
 
 # Veterans (PRD): crew gain a run of experience each time a run they were
 # on ends in extraction. Rank scales their bonus; Veterans earn a title.
@@ -140,6 +143,9 @@ func effect_text(member: Dictionary) -> String:
 			return "noise -%d%%" % roundi(NOISE_REDUCTION * strength * 100)
 		"traversal":
 			return "grapple reach +%d%%" % roundi(TRAVERSAL_GRAPPLE_BONUS * strength * 100)
+		"repair":
+			return "repair cost -%d%%, speed +%d%%" % [
+				roundi(REPAIR_COST_REDUCTION * strength * 100), roundi(REPAIR_SPEED_BONUS * strength * 100)]
 	return ""
 
 ## Type for a newly found miner, weighted toward types the roster lacks.
@@ -188,7 +194,7 @@ func end_run(rescued: Array, newly_stranded: Array, extracted: bool) -> Array:
 	save()
 	return notes
 
-func apply_to(player: Player, noise_meter: NoiseMeter) -> void:
+func apply_to(player: Player, noise_meter: NoiseMeter, run_base: RunBase) -> void:
 	player.light.max_fuel += level("lantern") * LANTERN_FUEL_PER_LEVEL
 	player.light.fuel = player.light.max_fuel
 	player.health += level("hard_hat") * HARD_HAT_HEALTH_PER_LEVEL
@@ -201,3 +207,6 @@ func apply_to(player: Player, noise_meter: NoiseMeter) -> void:
 			noise_meter.noise_multiplier *= 1.0 - NOISE_REDUCTION * strength
 		elif member.type == "traversal":
 			player.grapple_range *= 1.0 + TRAVERSAL_GRAPPLE_BONUS * strength
+		elif member.type == "repair":
+			run_base.repair_cost_multiplier *= 1.0 - REPAIR_COST_REDUCTION * strength
+			run_base.repair_speed_multiplier *= 1.0 + REPAIR_SPEED_BONUS * strength
