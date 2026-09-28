@@ -49,6 +49,7 @@ const EVENT_SCENES := {
 	"vault": preload("res://scenes/Relic.tscn"),
 	"gallery": preload("res://scenes/Gallery.tscn"),
 	"nest": preload("res://scenes/Nest.tscn"),
+	"heart": preload("res://scenes/Heart.tscn"),
 }
 const EVENT_RANGE := 24.0
 const VaultDoorScene := preload("res://scenes/VaultDoor.tscn")
@@ -96,6 +97,12 @@ var _deep_stalker_spawned: bool = false
 var deep_stalker: Stalker = null
 ## A burned nest (milestone 37) keeps the deep's second Stalker away.
 var nest_destroyed: bool = false
+# The Heart of the mine (milestone 40): the run's goal.
+const HEART_ORE := 300
+const HEART_NOISE := 50.0
+const HEART_CARRY_DECAY := 0.5 # the mine decays twice as fast behind you
+const CLAIMED_DECAY_STEP := 0.85 # each claimed Heart: later mines decay 15% faster
+var carrying_heart: bool = false
 var _build_keys_down: Dictionary = {}
 var _bell_ringing: bool = false
 var progress: Progress
@@ -118,6 +125,7 @@ func _ready() -> void:
 	hud.crew_toggle_requested.connect(_on_crew_toggle_requested)
 	progress = Progress.load_saved()
 	progress.apply_to(player, noise_meter, run_base)
+	mine.decay_multiplier = pow(CLAIMED_DECAY_STEP, progress.hearts_claimed)
 	# Lamps need the hub unlock; a Pack rat brings their own either way.
 	lamps_left = (LAMPS_PER_RUN if progress.has_unlock("lamps") else 0) + progress.extra_lamps()
 	hud.update_banked(progress.banked_ore)
@@ -287,7 +295,8 @@ func _check_layer() -> void:
 	var hazard: String = LAYER_HAZARDS[layer]
 	if layer == mine.UNSTABLE_LAYER and nest_destroyed:
 		hazard = "unstable"
-	hud.update_layer(Progress.LAYER_NAMES[layer] + (": " + hazard if hazard != "" else ""))
+	var line: String = Progress.LAYER_NAMES[layer] + (": " + hazard if hazard != "" else "")
+	hud.update_layer(line + ("  - CARRYING THE HEART" if carrying_heart else ""))
 	if layer == mine.UNSTABLE_LAYER and not _deep_stalker_spawned and not nest_destroyed:
 		_deep_stalker_spawned = true
 		var hunter: Stalker = StalkerScene.instantiate()
@@ -297,6 +306,14 @@ func _check_layer() -> void:
 		hunter.global_position = player.global_position + Vector2(side * DEEP_STALKER_SPAWN_TILES * mine.TILE_SIZE, 0)
 		add_child(hunter)
 		deep_stalker = hunter
+
+## Taking the Heart: loud, and the mine collapses faster until the run ends.
+func take_heart() -> void:
+	carrying_heart = true
+	noise_meter.add_noise(HEART_NOISE)
+	mine.decay_multiplier *= HEART_CARRY_DECAY
+	Sfx.play("collapse")
+	hud.show_message("The mine shudders awake. Get the Heart to the surface!")
 
 func on_nest_destroyed() -> void:
 	nest_destroyed = true
@@ -499,12 +516,17 @@ func _check_extraction() -> void:
 
 func _extract() -> void:
 	run_ended = true
+	var title := "Extracted!"
+	if carrying_heart:
+		player.currency += HEART_ORE
+		progress.hearts_claimed += 1
+		title = "The Heart is yours!"
 	progress.banked_ore += player.currency
 	progress.save()
 	hud.update_banked(progress.banked_ore)
 	var rescued := _escorts().map(func(m): return {"name": m.miner_name, "type": m.npc_type, "found_in": m.found_in})
 	var notes := progress.end_run(rescued, [], true)
-	hud.show_run_summary("Extracted!", true, player.currency, max_depth_reached, progress, notes)
+	hud.show_run_summary(title, true, player.currency, max_depth_reached, progress, notes)
 	get_tree().paused = true
 
 func _on_tile_dug(noise_amount: float) -> void:

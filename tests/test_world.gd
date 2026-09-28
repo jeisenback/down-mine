@@ -299,6 +299,9 @@ func test_mine_carves_event_rooms() -> void:
 	assert_eq(mine.event_rooms.filter(func(r): return r.kind == "outpost").size(), 1, "one outpost")
 	assert_eq(mine.event_rooms.filter(func(r): return r.kind == "gallery").size(), 1, "one gallery")
 	assert_eq(mine.event_rooms.filter(func(r): return r.kind == "nest").size(), 1, "one nest")
+	var hearts := mine.event_rooms.filter(func(r): return r.kind == "heart")
+	assert_eq(hearts.size(), 1, "one Heart")
+	assert_true(hearts[0].cell.y >= MineGrid.GRID_HEIGHT - 20, "Heart at the bottom")
 	assert_true(mine._layer_index_for_row(lifts[0].cell.y) >= 1, "lift below topsoil")
 	for room in mine.event_rooms:
 		assert_true(not mine.is_solid(room.cell), "room is open")

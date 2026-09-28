@@ -160,6 +160,8 @@ func show_run_summary(title: String, success: bool, currency: int, depth: int, p
 ## The run summary doubles as the hub: spend banked ore, then go back down.
 func refresh_hub(progress: Progress) -> void:
 	var lines := [_summary_header, "", "Banked ore: %d" % progress.banked_ore]
+	if progress.hearts_claimed > 0:
+		lines.append("Hearts claimed: %d - the mine decays faster each time" % progress.hearts_claimed)
 	for i in range(Progress.UPGRADE_ORDER.size()):
 		var id: String = Progress.UPGRADE_ORDER[i]
 		var upgrade: Dictionary = Progress.UPGRADES[id]

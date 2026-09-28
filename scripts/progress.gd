@@ -102,6 +102,9 @@ var crew_names: Array = []
 ## plus "runs"/"found_in" for former crew, restored on rescue.
 var stranded: Array = []
 var journal_read: int = 0
+## Hearts of the mine brought home (milestone 40); each makes later mines
+## decay faster.
+var hearts_claimed: int = 0
 
 ## When set, load_saved() uses this path instead - the Main smoke test
 ## points it at the test save so it never reads the player's real one.
@@ -120,6 +123,7 @@ static func load_saved(path: String = SAVE_PATH) -> Progress:
 		progress.roster = config.get_value("npcs", "roster", [])
 		progress.stranded = config.get_value("npcs", "stranded", [])
 		progress.journal_read = int(config.get_value("lore", "journal_read", 0))
+		progress.hearts_claimed = int(config.get_value("lore", "hearts_claimed", 0))
 		# Saves from before the crew picker: keep their implicit crew.
 		var default_crew := progress.roster.slice(0, BASE_CREW_SLOTS).map(func(m): return m.name)
 		progress.crew_names = config.get_value("npcs", "crew", default_crew)
@@ -157,6 +161,7 @@ func save() -> void:
 	config.set_value("npcs", "stranded", stranded)
 	config.set_value("npcs", "crew", crew_names)
 	config.set_value("lore", "journal_read", journal_read)
+	config.set_value("lore", "hearts_claimed", hearts_claimed)
 	config.save(save_path)
 
 ## The next unread journal page, marked read and saved right away (the

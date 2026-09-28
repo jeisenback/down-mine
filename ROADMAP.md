@@ -63,9 +63,14 @@ dictates.
 - ~~**M37 - Nest.**~~ Done: flare beside the eggs for 2s to burn them;
   the deep's second Stalker is gone for the run.
 
+## Run goal
+
+- ~~**M40 - The Heart of the mine.**~~ Done: a crystal near the bottom;
+  taking it wakes the mine (loud, decay x2); bringing it home wins the
+  run (+300 ore); each claimed Heart makes later mines decay 15% faster.
+
 ## Open design questions (from the PRD)
 
-- Does a run have a final goal or ending at the deepest layer?
 - What takes stranded NPCs deeper: creatures, a shifting mine, or fleeing?
 
 ## Housekeeping

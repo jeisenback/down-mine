@@ -66,6 +66,13 @@ behind is lost. A Stalker nest of pale eggs sits in Deep rock: flare your
 lantern beside it for 2s to burn it (loud). A burned nest removes Deep
 rock's second Stalker for the rest of the run, or stops it ever waking.
 
+**The Heart of the mine**: the run's goal, a glowing crystal in a chamber
+near the bottom of Deep rock. Taking it is loud (50 noise) and wakes the
+mine: decay runs twice as fast until the run ends. Get it to the surface
+and extract to win the run: it banks 300 ore on top of what you carry.
+Each Heart you claim makes every later mine decay 15% faster; the hub
+shows how many you've claimed. Lose the run and the Heart stays below.
+
 **Sound**: every effect (digging, hits, pickups, placing tools, collapses,
 gas, alarms) is synthesized in code at startup (`scripts/sfx.gd`) - no
 audio files. Collapses fade with distance and go quiet past 16 tiles, so
