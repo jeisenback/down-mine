@@ -17,15 +17,21 @@ centered = false
 region_enabled = true
 region_rect = Rect2(36, 0, 14, 34)
 
-[node name="Beacon" type="Polygon2D" parent="."]
+[node name="Beacon" type="Sprite2D" parent="."]
 visible = false
-polygon = PackedVector2Array(-4, -16, 1, -16, 1, -11, -4, -11)
-color = Color(1, 0.9, 0.45, 1)
+position = Vector2(-3, -18)
+texture = ExtResource("props")
+centered = false
+region_enabled = true
+region_rect = Rect2(52, 10, 7, 7)
 
-[node name="Bell" type="Polygon2D" parent="."]
+[node name="Bell" type="Sprite2D" parent="."]
 visible = false
-polygon = PackedVector2Array(3, 11, 6, 11, 8, 17, 1, 17)
-color = Color(0.8, 0.65, 0.3, 1)
+position = Vector2(1, 10)
+texture = ExtResource("props")
+centered = false
+region_enabled = true
+region_rect = Rect2(52, 20, 7, 7)
 
 [node name="MineLight" type="Node2D" parent="."]
 script = ExtResource("2")

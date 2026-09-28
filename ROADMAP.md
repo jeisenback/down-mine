@@ -42,10 +42,9 @@ dictates.
 - ~~**M30 - Art pass.**~~ Done: fuel, ore, the Stalker and ropes use
   tileset art. The base flag, lamps, ladders and anchors keep their
   drawn shapes - the pack has nothing that fits them.
-- **M39 - Custom props.** In progress: our own pixel sprites, drawn by
-  `tools/make_props.py` from the pack's palette. Done so far: lamp,
-  ladder, support beam, base flag. Next: anchor, beacon, bell, the mine
-  event objects, gas cloud, stranding signs.
+- ~~**M39 - Custom props.**~~ Done: every placed tool, base building,
+  mine event object, the gas cloud and stranding signs are pixel
+  sprites drawn by `tools/make_props.py` from the pack's palette.
 - ~~**M31 - Sound.**~~ Done: eight synthesized effects; collapses fade
   with distance.
 
