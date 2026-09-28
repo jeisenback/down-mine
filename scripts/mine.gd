@@ -21,6 +21,18 @@ const LAYER_COLORS := [
 	Color(0.22, 0.16, 0.2),  # deep rock
 ]
 
+# 16x16 fill regions in the Deep Night tileset (8x8 pack, so each layer
+# tile is a 2x2 block of its art). The sheet's flat background colour also
+# fills the gaps in these textures; those pixels get the layer colour
+# above instead, so solid rock still reads apart from empty cave.
+const TILESET_TEXTURE := preload("res://assets/deep_night/tiles.png")
+const TILESET_BG_COLOR := Color8(27, 25, 25)
+const LAYER_TEXTURE_REGIONS := [
+	Rect2i(0, 64, 16, 16),   # green speckle
+	Rect2i(104, 64, 16, 16), # blue-grey speckle
+	Rect2i(8, 120, 16, 16),  # grey stone block
+]
+
 # Bedrock: indestructible, forms the map's outer walls/floor so digging
 # can never open a path out of the generated area.
 const BEDROCK_ATLAS_COORDS := Vector2i(3, 0)
@@ -53,6 +65,15 @@ func _build_tileset() -> void:
 	var image := Image.create(TILE_SIZE * atlas_width, TILE_SIZE, false, Image.FORMAT_RGBA8)
 	for i in range(atlas_width):
 		image.fill_rect(Rect2i(i * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE), colors[i])
+	var source_image := TILESET_TEXTURE.get_image()
+	source_image.decompress()
+	for i in range(LAYER_TEXTURE_REGIONS.size()):
+		var region: Rect2i = LAYER_TEXTURE_REGIONS[i]
+		for x in range(TILE_SIZE):
+			for y in range(TILE_SIZE):
+				var pixel := source_image.get_pixel(region.position.x + x, region.position.y + y)
+				if not pixel.is_equal_approx(TILESET_BG_COLOR):
+					image.set_pixel(i * TILE_SIZE + x, y, pixel)
 	var texture := ImageTexture.create_from_image(image)
 
 	var atlas := TileSetAtlasSource.new()
