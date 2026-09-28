@@ -102,6 +102,7 @@ func _ready() -> void:
 	_configure_camera_limits()
 	_spawn_lost_miners()
 	_spawn_crew()
+	Sfx.warm_up()
 
 ## The crew wait at the run base (PRD: they can be caught in a base
 ## attack or left behind when a run fails - see _fail_run).
@@ -277,6 +278,7 @@ func _check_lamp() -> void:
 	var pressed := Input.is_physical_key_pressed(KEY_L)
 	if pressed and not _lamp_key_was_pressed and lamps_left > 0 and player.is_on_floor():
 		lamps_left -= 1
+		Sfx.play("place")
 		var lamp: Lamp = LampScene.instantiate()
 		lamp.global_position = player.global_position
 		mine.add_child(lamp)
@@ -361,6 +363,7 @@ func _on_tile_dug(noise_amount: float) -> void:
 	noise_meter.add_noise(noise_amount)
 
 func _on_noise_threshold() -> void:
+	Sfx.play("alarm", -6.0) # something heard you
 	var burrower: Burrower = BurrowerScene.instantiate()
 	burrower.mine = mine
 	burrower.player = player

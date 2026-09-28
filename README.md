@@ -43,6 +43,11 @@ tinted rock that releases a lingering gas cloud when you dig it out
 fast while you're down there, and your first descent wakes a second
 Stalker. The HUD names your layer and its hazard.
 
+**Sound**: every effect (digging, hits, pickups, placing tools, collapses,
+gas, alarms) is synthesized in code at startup (`scripts/sfx.gd`) - no
+audio files. Collapses fade with distance and go quiet past 16 tiles, so
+you hear the mine closing in around you.
+
 **Mine decay**: in darkness, tunnels you dug refill with rock and cave
 floors near you crumble away, a little faster as the run goes on. Light
 (yours, lamps, the base, miners) protects the ground around it.

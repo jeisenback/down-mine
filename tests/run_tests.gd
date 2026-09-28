@@ -35,5 +35,10 @@ func _run() -> void:
 				for f in case.failures:
 					print("          " + f)
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TestCase.TEST_SAVE_PATH))
+	# Let the audio thread release stopped sounds before quitting, or Godot
+	# reports their playbacks as leaked at exit.
+	Sfx.stop_all()
+	OS.delay_msec(100)
+	await process_frame
 	print("%d passed, %d failed" % [passed, failed])
 	quit(1 if failed > 0 else 0)

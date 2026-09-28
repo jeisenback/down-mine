@@ -322,6 +322,7 @@ func _place_rope() -> void:
 	rope.climb_speed = CLIMB_SPEED
 	_rope_place_timer = ROPE_PLACE_COOLDOWN
 	made_noise.emit(ROPE_PLACE_NOISE)
+	Sfx.play("place")
 
 ## Places a Ladder standing up from the bottom of the player's cell.
 func _place_ladder() -> void:
@@ -336,6 +337,7 @@ func _place_ladder() -> void:
 	ladders_left -= 1
 	_rope_place_timer = ROPE_PLACE_COOLDOWN
 	made_noise.emit(LADDER_PLACE_NOISE)
+	Sfx.play("place")
 
 func _place_anchor() -> void:
 	if mine == null or anchors_left <= 0:
@@ -345,6 +347,7 @@ func _place_anchor() -> void:
 	anchor.global_position = global_position
 	anchors_left -= 1
 	made_noise.emit(ANCHOR_PLACE_NOISE)
+	Sfx.play("place")
 
 ## Fastest climb among the ropes/ladders being touched.
 func _climb_speed() -> float:
@@ -464,6 +467,7 @@ func _dig_staircase() -> void:
 		dig_timer = DIG_COOLDOWN
 
 func take_hit(amount: int) -> void:
+	Sfx.play("hit")
 	health -= amount
 	if health <= 0:
 		died.emit()

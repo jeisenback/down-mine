@@ -61,6 +61,7 @@ func take_hit(amount: int) -> void:
 	if health <= 0:
 		return
 	health = max(0, health - amount)
+	Sfx.play("alarm")
 	health_changed.emit(health, MAX_HEALTH)
 	if health == 0:
 		fell.emit()

@@ -18,6 +18,7 @@ var _damage_timer: float = 0.0
 
 func _ready() -> void:
 	add_to_group("gas_clouds")
+	Sfx.play("hiss")
 	var points := PackedVector2Array()
 	for i in range(16):
 		points.append(Vector2.RIGHT.rotated(TAU * i / 16.0) * RADIUS)

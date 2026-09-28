@@ -51,6 +51,7 @@ const DECAY_RAMP_TIME := 480.0 # seconds into the run to reach the end interval
 const CRUMBLE_RADIUS_TILES := 20
 const CRUMBLE_SAMPLE_TRIES := 20
 const DECAY_NOISE := 3.0 # per collapse or crumble (PRD: collapses are loud)
+const COLLAPSE_HEARING_TILES := 16.0
 
 # Reinforced rock around the run base (milestone 18): the tileset's iron
 # grate (8x16, drawn twice across) over dark earth. Burrowers must chew
@@ -377,6 +378,7 @@ func dig_cells(cells: Array, emit_noise: bool = true) -> int:
 				_dug_cells.append(cell)
 	if dug_count > 0 and emit_noise:
 		tile_dug.emit(DIG_NOISE * dug_count)
+		Sfx.play("dig")
 	return dug_count
 
 ## All cells in one column between two world-space y bounds, inclusive.
@@ -398,11 +400,18 @@ func tick_decay(delta: float, player_pos: Vector2) -> float:
 		return 0.0
 	_decay_timer = 0.0
 	var noise := 0.0
-	if _collapse_tunnel():
-		noise += DECAY_NOISE
-	if _crumble_floor(player_pos):
-		noise += DECAY_NOISE
+	for cell in [_collapse_tunnel(), _crumble_floor(player_pos)]:
+		if cell.x >= 0:
+			noise += DECAY_NOISE
+			_play_collapse(cell, player_pos)
 	return noise
+
+## Rumble for a collapse or crumble, fading with distance; silent past
+## COLLAPSE_HEARING_TILES so the far side of the mine doesn't chatter.
+func _play_collapse(cell: Vector2i, player_pos: Vector2) -> void:
+	var tiles := cell_to_world(cell).distance_to(player_pos) / TILE_SIZE
+	if tiles <= COLLAPSE_HEARING_TILES:
+		Sfx.play("collapse", -3.0 - tiles)
 
 ## Seconds between decay ticks: shrinks over the run, and halves while the
 ## player is in the unstable deep layer.
@@ -425,16 +434,18 @@ func _place_gas_pockets(rng: RandomNumberGenerator) -> void:
 func is_gas(cell: Vector2i) -> bool:
 	return get_cell_atlas_coords(0, cell) == GAS_ATLAS_COORDS
 
-func _collapse_tunnel() -> bool:
+## Refills one dark dug cell; returns it, or (-1, -1) if none.
+func _collapse_tunnel() -> Vector2i:
 	var candidates := _dug_cells.filter(func(c): return not is_solid(c) and not is_lit(cell_to_world(c)))
 	if candidates.is_empty():
-		return false
+		return Vector2i(-1, -1)
 	var cell: Vector2i = candidates.pick_random()
 	_dug_cells.erase(cell)
 	set_cell(0, cell, source_id, LAYER_ATLAS_COORDS[_layer_index_for_row(cell.y)])
-	return true
+	return cell
 
-func _crumble_floor(player_pos: Vector2) -> bool:
+## Drops one dark cave floor near the player; returns it, or (-1, -1).
+func _crumble_floor(player_pos: Vector2) -> Vector2i:
 	var center := world_to_cell(player_pos)
 	for i in range(CRUMBLE_SAMPLE_TRIES):
 		var cell := center + Vector2i(randi_range(-CRUMBLE_RADIUS_TILES, CRUMBLE_RADIUS_TILES), randi_range(-CRUMBLE_RADIUS_TILES, CRUMBLE_RADIUS_TILES))
@@ -443,8 +454,8 @@ func _crumble_floor(player_pos: Vector2) -> bool:
 		if is_solid(cell + Vector2i.UP) or _reserved_floors.has(cell) or is_lit(cell_to_world(cell)):
 			continue
 		set_cell(0, cell, -1)
-		return true
-	return false
+		return cell
+	return Vector2i(-1, -1)
 
 ## Inside any MineLight's current radius (same test ropes use).
 func is_lit(world_pos: Vector2) -> bool:
