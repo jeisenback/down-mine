@@ -25,8 +25,8 @@ dictates.
 
 ## Traversal depth
 
-- **M27 - Ladders and anchors.** The PRD's other consumable traversal
-  tools, plus the traversal miner's rope-life and ladder-speed bonuses.
+- ~~**M27 - Ladders and anchors.**~~ Done: ladders (T), anchors (G) the
+  grapple pulls to, and the traversal miner's rope-life/ladder bonuses.
 - **M28 - Hub tool unlocks.** Some tools (grapple, ropes, lamps) become
   hub unlocks - "the hub grants capabilities" - giving banked ore a
   longer-term use.

@@ -1,22 +1,20 @@
 extends Area2D
 class_name Rope
 
-## Full lifetime is ~45s sitting in light; decays twice as fast in the
-## dark, sharing the PRD's "structures decay faster in darkness" clock
-## with MineLight.
-const DECAY_RATE := 1.0 / 45.0
+## A climbable placed tool: ropes (hang down from where they're placed)
+## and ladders (stand up from the player's feet) share this script, set
+## apart by their scene shape and the life/climb speed the player gives
+## them. Lifetime is measured sitting in light; in the dark it decays
+## twice as fast, sharing the PRD's "structures decay faster in darkness"
+## clock with MineLight.
 const DARK_DECAY_MULTIPLIER := 2.0
 
+var life_seconds: float = 45.0
+var climb_speed: float = 80.0
 var lifetime: float = 1.0 # 1.0 = fresh, 0.0 = gone
 
 func _process(delta: float) -> void:
-	var rate := DECAY_RATE * (DARK_DECAY_MULTIPLIER if not _is_in_light() else 1.0)
+	var rate := (1.0 / life_seconds) * (1.0 if MineLight.is_lit(get_tree(), global_position) else DARK_DECAY_MULTIPLIER)
 	lifetime -= rate * delta
 	if lifetime <= 0.0:
 		queue_free()
-
-func _is_in_light() -> bool:
-	for light in get_tree().get_nodes_in_group("mine_lights"):
-		if global_position.distance_to(light.global_position) < light.current_radius():
-			return true
-	return false

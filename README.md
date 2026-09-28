@@ -16,6 +16,8 @@ darkness. No crew, hub, or stranding yet.
 - `Q` — fire the grapple straight up (reusable, pulls you to the first solid ceiling within range)
 - `L` — set down a lamp (3 per run; burns ~90s, lights your route, slows rope decay; noisy)
 - `R` — place a rope at your feet (consumable, climbable with `W`/`S`, decays over time — faster in the dark)
+- `T` — place a ladder standing up from your feet (4 per run; climbs faster and lasts longer than a rope; noisy)
+- `G` — hammer in an anchor where you stand (2 per run); `Q` then pulls you straight to the nearest anchor within 10 tiles in line of sight (over a ledge's lip), before trying a ceiling
 - `E` — extract anywhere at the surface, above the crust (banks ore, ends the run)
 - `P` — once per run, plant the run base where you stand (below the crust, on a floor)
 - `F` — hold at the run base to repair it (1 health per 3s, 10 of this run's ore per point, noisy)
@@ -48,7 +50,7 @@ cave floor partway down. Touch them and they follow your trail; extract
 with them and they join the roster. Each miner has a type that helps
 while they are on your crew: Light (lantern burns 20% slower, reaches
 15% further), Noise (everything 25% quieter), Traversal (grapple
-reaches 50% further) or Repair (base repair 25% cheaper and faster). New finds lean toward types you don't have yet.
+reaches 50% further, ropes/ladders last 50% longer, ladders climb 25% faster) or Repair (base repair 25% cheaper and faster). New finds lean toward types you don't have yet.
 You start with one crew slot; pick who fills it at the hub.
 Crew gain a run of experience whenever a run they were on ends in
 extraction: Seasoned at 2 runs (bonus x1.5), Veteran at 5 (bonus x2, plus

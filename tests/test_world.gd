@@ -100,6 +100,77 @@ func test_quirks_apply_their_effects() -> void:
 	assert_eq(player.safe_fall_tiles, Player.SAFE_FALL_TILES + Progress.SURE_FOOTED_TILES, "sure-footed")
 	assert_true(meter.noise_multiplier > 1.0, "hums makes you louder")
 
+func test_ladders_outclimb_and_outlast_ropes_with_traversal_bonus() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var player := _still_player(mine.cell_to_world(Vector2i(40, 150)), 1.0)
+	player.mine = mine
+	var p := Progress.new()
+	p.save_path = TEST_SAVE_PATH
+	p.roster = [{"name": "Cole", "type": "traversal", "runs": 0}]
+	p.crew_names = ["Cole"]
+	p.apply_to(player, add(NoiseMeter.new()), _base(Vector2(-500, 0)))
+	player._place_rope()
+	player._place_ladder()
+	var tools := mine.get_children().filter(func(c): return c is Rope)
+	var rope: Rope = tools[0]
+	var ladder: Rope = tools[1]
+	assert_eq(rope.life_seconds, Player.ROPE_LIFE_SECONDS * 1.5, "rope life +50%")
+	assert_eq(ladder.life_seconds, Player.LADDER_LIFE_SECONDS * 1.5, "ladder life +50%")
+	assert_eq(ladder.climb_speed, Player.LADDER_CLIMB_SPEED * 1.25, "ladder climb +25%")
+	assert_true(ladder.climb_speed > rope.climb_speed, "ladders climb faster than ropes")
+	assert_eq(player.ladders_left, Player.LADDERS_PER_RUN - 1, "a ladder was used up")
+
+func _open_box(mine: MineGrid, from: Vector2i, to: Vector2i) -> void:
+	for x in range(from.x, to.x + 1):
+		for y in range(from.y, to.y + 1):
+			mine.set_cell(0, Vector2i(x, y), -1)
+	for x in range(from.x, to.x + 1): # a floor under the box
+		mine.set_cell(0, Vector2i(x, to.y + 1), mine.source_id, Vector2i(1, 0))
+
+func test_grapple_pulls_to_anchor_in_sight() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	_open_box(mine, Vector2i(30, 100), Vector2i(45, 115))
+	var player: Player = add(PlayerScene.instantiate())
+	player.mine = mine
+	player.global_position = mine.cell_to_world(Vector2i(32, 115))
+	var anchor: Anchor = add(Player.AnchorScene.instantiate())
+	anchor.global_position = mine.cell_to_world(Vector2i(38, 109)) # mid-air, ~8.5 tiles up-right
+	await physics_frames(5)
+	player._try_fire_grapple()
+	var closest := 9999.0
+	for i in range(60):
+		await physics_frames(1)
+		closest = min(closest, player.global_position.distance_to(anchor.global_position))
+	assert_true(closest < 8.0, "pulled to the anchor (closest %.1f px)" % closest)
+
+func test_grapple_reaches_anchor_on_a_ledge_from_below() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	_open_box(mine, Vector2i(30, 100), Vector2i(45, 115))
+	for x in range(42, 45): # a high shelf; the anchor stands on it
+		mine.set_cell(0, Vector2i(x, 108), mine.source_id, Vector2i(1, 0))
+	var player: Player = add(PlayerScene.instantiate())
+	player.mine = mine
+	player.global_position = mine.cell_to_world(Vector2i(38, 115))
+	var anchor: Anchor = add(Player.AnchorScene.instantiate())
+	anchor.global_position = mine.cell_to_world(Vector2i(43, 107))
+	await physics_frames(5)
+	player._try_fire_grapple()
+	await physics_frames(60)
+	assert_true(player.global_position.distance_to(anchor.global_position) < 8.0,
+		"pulled up over the shelf's lip onto it (%.0f px away)" % player.global_position.distance_to(anchor.global_position))
+	assert_true(player.is_on_floor(), "standing on the shelf")
+
+func test_grapple_ignores_anchor_behind_rock() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	_open_box(mine, Vector2i(30, 100), Vector2i(45, 115))
+	for y in range(100, 116): # a rock wall between player and anchor
+		mine.set_cell(0, Vector2i(35, y), mine.source_id, Vector2i(1, 0))
+	var player := _still_player(mine.cell_to_world(Vector2i(32, 115)), 1.0)
+	player.mine = mine
+	var anchor: Anchor = add(Player.AnchorScene.instantiate())
+	anchor.global_position = mine.cell_to_world(Vector2i(38, 109))
+	assert_eq(player._anchor_in_reach(), null, "no line of sight, no anchor pull")
+
 func test_sign_trail_spreads_from_far_to_near() -> void:
 	var mine: MineGrid = add(MineScene.instantiate())
 	var center := Vector2i(40, 150)

@@ -43,8 +43,27 @@ const GRAPPLE_COOLDOWN := 0.6
 const ROPE_LENGTH_TILES := 6
 const ROPE_PLACE_COOLDOWN := 1.5
 const ROPE_PLACE_NOISE := 15.0
+const ROPE_LIFE_SECONDS := 45.0
 const CLIMB_SPEED := 80.0
 const RopeScene := preload("res://scenes/Rope.tscn")
+
+# Ladders (milestone 27): the rope's complement - a rope hangs down from a
+# ledge, a ladder stands up from your feet (for climbing out of a hole you
+# dropped into). Limited per run, faster to climb, longer-lived.
+const LADDERS_PER_RUN := 4
+const LADDER_LIFE_SECONDS := 120.0
+const LADDER_CLIMB_SPEED := 140.0
+const LADDER_PLACE_NOISE := 15.0
+const LadderScene := preload("res://scenes/Ladder.tscn")
+
+# Anchors (milestone 27): placed grapple points. The grapple pulls straight
+# to the nearest anchor in range and line of sight before trying a ceiling.
+const ANCHORS_PER_RUN := 2
+const ANCHOR_RANGE := 160.0 # 10 tiles
+const ANCHOR_PLACE_NOISE := 20.0 # hammering a bolt in
+const ANCHOR_ARRIVE_DISTANCE := 6.0
+const ANCHOR_PULL_TIMEOUT := 1.2 # safety stop for a pull that never arrives
+const AnchorScene := preload("res://scenes/Anchor.tscn")
 
 # Fall damage, judged by landing speed rather than height fallen, so
 # digging straight down (a near-continuous fall that clears the floor
@@ -94,6 +113,15 @@ var _anim_time: float = 0.0
 var grapple_range: float = GRAPPLE_RANGE
 ## SAFE_FALL_TILES after crew quirks (Progress.apply_to).
 var safe_fall_tiles: float = SAFE_FALL_TILES
+## Traversal crew bonuses (Progress.apply_to): rope/ladder life, ladder climb.
+var tool_life_multiplier: float = 1.0
+var ladder_speed_multiplier: float = 1.0
+var ladders_left: int = LADDERS_PER_RUN
+var anchors_left: int = ANCHORS_PER_RUN
+var _ladder_was_pressed: bool = false
+var _anchor_was_pressed: bool = false
+var _grapple_anchor: Node2D = null
+var _grapple_pull_time: float = 0.0
 var _was_on_floor: bool = true
 
 func _ready() -> void:
@@ -134,11 +162,25 @@ func _physics_process(delta: float) -> void:
 		_place_rope()
 	_rope_place_was_pressed = place_rope_pressed
 
+	var ladder_pressed := Input.is_physical_key_pressed(KEY_T)
+	if ladder_pressed and not _ladder_was_pressed and ladders_left > 0 and _rope_place_timer <= 0.0:
+		_place_ladder()
+	_ladder_was_pressed = ladder_pressed
+
+	var anchor_pressed := Input.is_physical_key_pressed(KEY_G)
+	if anchor_pressed and not _anchor_was_pressed and anchors_left > 0 and is_on_floor():
+		_place_anchor()
+	_anchor_was_pressed = anchor_pressed
+
 	var grapple_pressed := Input.is_physical_key_pressed(KEY_Q)
 	if grapple_pressed and not _grapple_was_pressed and not _grappling and _grapple_timer <= 0.0:
 		_try_fire_grapple()
 	_grapple_was_pressed = grapple_pressed
 
+	if _grappling and _grapple_anchor != null:
+		_pull_toward_anchor(delta)
+		_was_on_floor = false
+		return
 	if _grappling:
 		velocity.y = -GRAPPLE_PULL_SPEED
 		if global_position.y <= _grapple_target_y:
@@ -151,11 +193,12 @@ func _physics_process(delta: float) -> void:
 	var down_held := Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)
 
 	if is_on_rope():
+		var climb := _climb_speed()
 		velocity.y = 0.0
 		if up_held:
-			velocity.y = -CLIMB_SPEED
+			velocity.y = -climb
 		elif down_held:
-			velocity.y = CLIMB_SPEED
+			velocity.y = climb
 		_move()
 		return
 
@@ -246,6 +289,13 @@ static func fall_damage_for_speed(fall_speed: float, safe_tiles: float = SAFE_FA
 func _try_fire_grapple() -> void:
 	if mine == null:
 		return
+	var anchor := _anchor_in_reach()
+	if anchor != null:
+		_grapple_anchor = anchor
+		_grapple_pull_time = 0.0
+		_grappling = true
+		_grapple_timer = GRAPPLE_COOLDOWN
+		return
 	var start_cell := mine.world_to_cell(global_position)
 	var max_cells := int(grapple_range / mine.TILE_SIZE)
 	for i in range(1, max_cells + 1):
@@ -268,8 +318,83 @@ func _place_rope() -> void:
 	var rope: Rope = RopeScene.instantiate()
 	mine.add_child(rope)
 	rope.global_position = mine.cell_to_world(cell) - Vector2(0.0, mine.TILE_SIZE / 2.0)
+	rope.life_seconds = ROPE_LIFE_SECONDS * tool_life_multiplier
+	rope.climb_speed = CLIMB_SPEED
 	_rope_place_timer = ROPE_PLACE_COOLDOWN
 	made_noise.emit(ROPE_PLACE_NOISE)
+
+## Places a Ladder standing up from the bottom of the player's cell.
+func _place_ladder() -> void:
+	if mine == null:
+		return
+	var cell := mine.world_to_cell(global_position)
+	var ladder: Rope = LadderScene.instantiate()
+	ladder.life_seconds = LADDER_LIFE_SECONDS * tool_life_multiplier
+	ladder.climb_speed = LADDER_CLIMB_SPEED * ladder_speed_multiplier
+	mine.add_child(ladder)
+	ladder.global_position = mine.cell_to_world(cell) + Vector2(0.0, mine.TILE_SIZE / 2.0)
+	ladders_left -= 1
+	_rope_place_timer = ROPE_PLACE_COOLDOWN
+	made_noise.emit(LADDER_PLACE_NOISE)
+
+func _place_anchor() -> void:
+	if mine == null:
+		return
+	var anchor: Anchor = AnchorScene.instantiate()
+	mine.add_child(anchor)
+	anchor.global_position = global_position
+	anchors_left -= 1
+	made_noise.emit(ANCHOR_PLACE_NOISE)
+
+## Fastest climb among the ropes/ladders being touched.
+func _climb_speed() -> float:
+	var speed := 0.0
+	for r in _ropes_touching:
+		if is_instance_valid(r):
+			speed = max(speed, r.climb_speed)
+	return speed
+
+## Nearest anchor within ANCHOR_RANGE with no rock between it and the player.
+func _anchor_in_reach() -> Node2D:
+	var best: Node2D = null
+	for anchor in get_tree().get_nodes_in_group("anchors"):
+		var d := global_position.distance_to(anchor.global_position)
+		if d > ANCHOR_RANGE or d < ANCHOR_ARRIVE_DISTANCE or not _clear_line_to(anchor.global_position):
+			continue
+		if best == null or d < global_position.distance_to(best.global_position):
+			best = anchor
+	return best
+
+## Rock between the player and the target, ignoring the target's floor
+## lip: an anchor stands on a floor, so any line to it from below crosses
+## the tile under it or its edge - the line goes over the edge, as a real
+## one would. Any other rock blocks.
+func _clear_line_to(target: Vector2) -> bool:
+	var target_cell := mine.world_to_cell(target)
+	var steps := int(global_position.distance_to(target) / 4.0)
+	for i in range(1, steps):
+		var cell := mine.world_to_cell(global_position.lerp(target, i / float(steps)))
+		var is_lip := cell.y == target_cell.y + 1 and absi(cell.x - target_cell.x) <= 1
+		if mine.is_solid(cell) and not is_lip:
+			return false
+	return true
+
+## Reels the player along the straight line to the anchor. Moves directly
+## rather than through move_and_slide, which would snag on the lip the
+## line passes over; the line of sight check already ruled out real rock.
+func _pull_toward_anchor(delta: float) -> void:
+	_grapple_pull_time += delta
+	velocity = Vector2.ZERO
+	var to_anchor := Vector2.ZERO
+	if is_instance_valid(_grapple_anchor):
+		to_anchor = _grapple_anchor.global_position - global_position
+	if to_anchor.length() < ANCHOR_ARRIVE_DISTANCE or _grapple_pull_time > ANCHOR_PULL_TIMEOUT:
+		if to_anchor.length() < ANCHOR_ARRIVE_DISTANCE:
+			global_position = _grapple_anchor.global_position
+		_grappling = false
+		_grapple_anchor = null
+		return
+	global_position += to_anchor.normalized() * min(GRAPPLE_PULL_SPEED * delta, to_anchor.length())
 
 ## Ramps velocity.x toward the input's target speed instead of snapping to
 ## it, so starting and stopping have weight. Takes input_dir directly

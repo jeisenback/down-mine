@@ -33,6 +33,8 @@ const LIGHT_BURN_REDUCTION := 0.2
 const LIGHT_RADIUS_BONUS := 0.15
 const NOISE_REDUCTION := 0.25
 const TRAVERSAL_GRAPPLE_BONUS := 0.5
+const TRAVERSAL_TOOL_LIFE_BONUS := 0.5   # ropes and ladders last longer
+const TRAVERSAL_LADDER_SPEED_BONUS := 0.25
 const REPAIR_COST_REDUCTION := 0.25
 const REPAIR_SPEED_BONUS := 0.25
 
@@ -187,7 +189,9 @@ func effect_text(member: Dictionary) -> String:
 		"noise":
 			return "noise -%d%%" % roundi(NOISE_REDUCTION * strength * 100)
 		"traversal":
-			return "grapple reach +%d%%" % roundi(TRAVERSAL_GRAPPLE_BONUS * strength * 100)
+			return "grapple +%d%%, rope life +%d%%, ladders +%d%%" % [
+				roundi(TRAVERSAL_GRAPPLE_BONUS * strength * 100), roundi(TRAVERSAL_TOOL_LIFE_BONUS * strength * 100),
+				roundi(TRAVERSAL_LADDER_SPEED_BONUS * strength * 100)]
 		"repair":
 			return "repair cost -%d%%, speed +%d%%" % [
 				roundi(REPAIR_COST_REDUCTION * strength * 100), roundi(REPAIR_SPEED_BONUS * strength * 100)]
@@ -280,6 +284,8 @@ func apply_to(player: Player, noise_meter: NoiseMeter, run_base: RunBase) -> voi
 			noise_meter.noise_multiplier *= 1.0 - NOISE_REDUCTION * strength
 		elif member.type == "traversal":
 			player.grapple_range *= 1.0 + TRAVERSAL_GRAPPLE_BONUS * strength
+			player.tool_life_multiplier *= 1.0 + TRAVERSAL_TOOL_LIFE_BONUS * strength
+			player.ladder_speed_multiplier *= 1.0 + TRAVERSAL_LADDER_SPEED_BONUS * strength
 		elif member.type == "repair":
 			run_base.repair_cost_multiplier *= 1.0 - REPAIR_COST_REDUCTION * strength
 			run_base.repair_speed_multiplier *= 1.0 + REPAIR_SPEED_BONUS * strength
