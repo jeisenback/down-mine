@@ -37,6 +37,12 @@ time - much faster when the base's light is low.
 at a time). It drifts through rock to the lamp or base light furthest from
 you and drains it dry. Your light drives it off; flaring kills it.
 
+**Layers**: Topsoil is the calm start. Stone holds gas pockets - green-
+tinted rock that releases a lingering gas cloud when you dig it out
+(1 health per 1.5s inside). Deep rock is unstable: decay runs twice as
+fast while you're down there, and your first descent wakes a second
+Stalker. The HUD names your layer and its hazard.
+
 **Mine decay**: in darkness, tunnels you dug refill with rock and cave
 floors near you crumble away, a little faster as the run goes on. Light
 (yours, lamps, the base, miners) protects the ground around it.

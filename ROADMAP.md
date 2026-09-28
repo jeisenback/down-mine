@@ -32,8 +32,8 @@ dictates.
 
 ## Content and presentation
 
-- **M29 - Layer identity.** Each layer gets its own hazards and enemy
-  mix (e.g. gas pockets in Stone, Burrowers only below a depth).
+- ~~**M29 - Layer identity.**~~ Done: gas pockets in Stone; Deep rock
+  decays twice as fast and wakes a second Stalker.
 - **M30 - Art pass.** Replace remaining placeholder shapes (pickups,
   base flag, ropes, lamps) with tileset art.
 - **M31 - Sound.** Digging, collapses, enemy cues - noise is a core

@@ -20,6 +20,7 @@ const ROSTER_KEYS := 10
 
 @onready var fuel_label: Label = $Margin/VBox/FuelLabel
 @onready var health_label: Label = $Margin/VBox/HealthLabel
+@onready var layer_label: Label = $Margin/VBox/LayerLabel
 @onready var noise_label: Label = $Margin/VBox/NoiseLabel
 @onready var noise_bar: ProgressBar = $Margin/VBox/NoiseBar
 @onready var ore_label: Label = $Margin/VBox/OreLabel
@@ -58,6 +59,9 @@ func update_fuel(fraction: float) -> void:
 
 func update_health(health: int) -> void:
 	health_label.text = "Health: %d" % max(0, health)
+
+func update_layer(text: String) -> void:
+	layer_label.text = text
 
 func update_noise(value: float, fraction: float) -> void:
 	noise_label.text = "Noise: %d" % int(value)

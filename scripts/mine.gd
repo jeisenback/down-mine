@@ -2,6 +2,8 @@ extends TileMap
 class_name MineGrid
 
 signal tile_dug(noise_amount: float)
+## The player dug out a gas rock (milestone 29); Main releases a cloud.
+signal gas_released(world_pos: Vector2)
 
 const TILE_SIZE := 16
 const GRID_WIDTH := 80
@@ -56,6 +58,18 @@ const DECAY_NOISE := 3.0 # per collapse or crumble (PRD: collapses are loud)
 # plain rock over time, faster when the base's light is low.
 const WALL_ATLAS_COORDS := Vector2i(4, 0)
 const WALL_COLOR := Color(0.2, 0.15, 0.1)
+
+# Layer identity (milestone 29, PRD: layers have "their own hazards").
+# Stone holds gas pockets: rock tinted green, readable before you dig it,
+# that releases a gas cloud when the player digs it out. Deep rock is
+# unstable: decay ticks run faster while the player is down there.
+const GAS_ATLAS_COORDS := Vector2i(5, 0)
+const GAS_TINT := Color(0.45, 0.85, 0.25)
+const GAS_TINT_STRENGTH := 0.45
+const GAS_LAYER := 1
+const GAS_POCKET_COUNT := 60
+const UNSTABLE_LAYER := 2
+const UNSTABLE_DECAY_MULTIPLIER := 0.5 # interval x0.5 = twice as fast
 const WALL_TEXTURE_REGION := Rect2i(80, 120, 8, 16)
 const WALL_DECAY_INTERVAL_LIT := 40.0  # seconds per wall lost, base light full
 const WALL_DECAY_INTERVAL_DARK := 8.0  # ...and with the base light out
@@ -100,7 +114,7 @@ func _ready() -> void:
 	_generate_layout()
 
 func _build_tileset() -> void:
-	var colors := LAYER_COLORS + [BEDROCK_COLOR, WALL_COLOR]
+	var colors := LAYER_COLORS + [BEDROCK_COLOR, WALL_COLOR, LAYER_COLORS[GAS_LAYER]]
 	var atlas_width := colors.size()
 	var image := Image.create(TILE_SIZE * atlas_width, TILE_SIZE, false, Image.FORMAT_RGBA8)
 	for i in range(atlas_width):
@@ -120,6 +134,11 @@ func _build_tileset() -> void:
 			var pixel := source_image.get_pixel(grate_x, WALL_TEXTURE_REGION.position.y + y)
 			if not pixel.is_equal_approx(PixelArt.SHEET_BG_COLOR):
 				image.set_pixel(WALL_ATLAS_COORDS.x * TILE_SIZE + x, y, pixel)
+	# Gas rock: the stone tile, tinted green.
+	for x in range(TILE_SIZE):
+		for y in range(TILE_SIZE):
+			var stone := image.get_pixel(GAS_LAYER * TILE_SIZE + x, y)
+			image.set_pixel(GAS_ATLAS_COORDS.x * TILE_SIZE + x, y, stone.lerp(GAS_TINT, GAS_TINT_STRENGTH))
 	var texture := ImageTexture.create_from_image(image)
 
 	var atlas := TileSetAtlasSource.new()
@@ -177,6 +196,7 @@ func _generate_layout() -> void:
 			else:
 				var layer_index := _layer_index_for_row(y)
 				set_cell(0, Vector2i(x, y), source_id, LAYER_ATLAS_COORDS[layer_index])
+	_place_gas_pockets(rng)
 
 	var floor_cells := _find_floor_cells(solid)
 	floor_cells.shuffle()
@@ -348,6 +368,8 @@ func dig_cells(cells: Array, emit_noise: bool = true) -> int:
 	var dug_count := 0
 	for cell in cells:
 		if is_solid(cell) and not is_indestructible(cell):
+			if emit_noise and is_gas(cell): # player digs only; Burrowers tunnel through quietly
+				gas_released.emit(cell_to_world(cell))
 			set_cell(0, cell, -1)
 			_wall_cells.erase(cell)
 			dug_count += 1
@@ -371,7 +393,7 @@ func cells_in_column(world_x: float, y_top: float, y_bottom: float) -> Array:
 func tick_decay(delta: float, player_pos: Vector2) -> float:
 	_run_time += delta
 	_decay_timer += delta
-	var interval: float = lerp(DECAY_INTERVAL_START, DECAY_INTERVAL_END, min(1.0, _run_time / DECAY_RAMP_TIME))
+	var interval := decay_interval(player_pos)
 	if _decay_timer < interval:
 		return 0.0
 	_decay_timer = 0.0
@@ -381,6 +403,27 @@ func tick_decay(delta: float, player_pos: Vector2) -> float:
 	if _crumble_floor(player_pos):
 		noise += DECAY_NOISE
 	return noise
+
+## Seconds between decay ticks: shrinks over the run, and halves while the
+## player is in the unstable deep layer.
+func decay_interval(player_pos: Vector2) -> float:
+	var interval: float = lerp(DECAY_INTERVAL_START, DECAY_INTERVAL_END, min(1.0, _run_time / DECAY_RAMP_TIME))
+	if layer_index_at_world(player_pos) == UNSTABLE_LAYER:
+		interval *= UNSTABLE_DECAY_MULTIPLIER
+	return interval
+
+func _place_gas_pockets(rng: RandomNumberGenerator) -> void:
+	var placed := 0
+	var tries := 0
+	while placed < GAS_POCKET_COUNT and tries < GAS_POCKET_COUNT * 20:
+		tries += 1
+		var cell := Vector2i(rng.randi_range(1, GRID_WIDTH - 2), rng.randi_range(SURFACE_ROWS + 1, GRID_HEIGHT - 2))
+		if _layer_index_for_row(cell.y) == GAS_LAYER and get_cell_atlas_coords(0, cell) == LAYER_ATLAS_COORDS[GAS_LAYER]:
+			set_cell(0, cell, source_id, GAS_ATLAS_COORDS)
+			placed += 1
+
+func is_gas(cell: Vector2i) -> bool:
+	return get_cell_atlas_coords(0, cell) == GAS_ATLAS_COORDS
 
 func _collapse_tunnel() -> bool:
 	var candidates := _dug_cells.filter(func(c): return not is_solid(c) and not is_lit(cell_to_world(c)))

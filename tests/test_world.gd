@@ -139,6 +139,48 @@ func test_locked_tools_are_unavailable_until_bought() -> void:
 	assert_eq(unlocked.ladders_left, Player.LADDERS_PER_RUN, "ladders once unlocked")
 	assert_eq(unlocked.anchors_left, Player.ANCHORS_PER_RUN, "anchors once unlocked")
 
+func test_stone_layer_has_gas_pockets() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var gas_rows: Array = []
+	for x in range(MineGrid.GRID_WIDTH):
+		for y in range(MineGrid.GRID_HEIGHT):
+			if mine.is_gas(Vector2i(x, y)):
+				gas_rows.append(y)
+	assert_eq(gas_rows.size(), MineGrid.GAS_POCKET_COUNT, "all gas pockets placed")
+	assert_true(gas_rows.all(func(y): return mine.layer_index_at_world(mine.cell_to_world(Vector2i(0, y))) == MineGrid.GAS_LAYER), "only in Stone")
+
+func test_digging_gas_releases_a_cloud_that_hurts_inside_it() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var released: Array = []
+	mine.gas_released.connect(func(pos): released.append(pos))
+	var gas_cell := Vector2i(40, 150)
+	var plain_cell := Vector2i(41, 150)
+	mine.set_cell(0, gas_cell, mine.source_id, MineGrid.GAS_ATLAS_COORDS)
+	mine.set_cell(0, plain_cell, mine.source_id, Vector2i(1, 0))
+	mine.dig_cells([plain_cell])
+	assert_true(released.is_empty(), "plain rock releases nothing")
+	mine.dig_cells([gas_cell], false)
+	assert_true(released.is_empty(), "enemy tunnelling doesn't release gas")
+	mine.set_cell(0, gas_cell, mine.source_id, MineGrid.GAS_ATLAS_COORDS)
+	mine.dig_cells([gas_cell])
+	assert_eq(released.size(), 1, "the player digging gas releases it")
+	var inside := _still_player(released[0], 1.0)
+	var outside := _still_player(released[0] + Vector2(GasCloud.RADIUS * 2, 0), 1.0)
+	for target in [inside, outside]:
+		var cloud: GasCloud = add(preload("res://scenes/GasCloud.tscn").instantiate())
+		cloud.player = target
+		cloud.global_position = released[0]
+	await physics_frames(int(60 * (GasCloud.DAMAGE_INTERVAL + 0.2)))
+	assert_true(inside.health < 999, "standing in the cloud hurts")
+	assert_eq(outside.health, 999, "outside the cloud is safe")
+
+func test_deep_rock_decays_faster() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var stone := mine.cell_to_world(Vector2i(40, 150))
+	var deep := mine.cell_to_world(Vector2i(40, 280))
+	assert_eq(mine.layer_index_at_world(deep), MineGrid.UNSTABLE_LAYER, "row 280 is deep rock")
+	assert_eq(mine.decay_interval(deep), mine.decay_interval(stone) * MineGrid.UNSTABLE_DECAY_MULTIPLIER, "deep decay interval halved")
+
 func _open_box(mine: MineGrid, from: Vector2i, to: Vector2i) -> void:
 	for x in range(from.x, to.x + 1):
 		for y in range(from.y, to.y + 1):
