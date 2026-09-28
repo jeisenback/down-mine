@@ -14,6 +14,10 @@ func _run() -> void:
 		if not (file.begins_with("test_") and file.ends_with(".gd")):
 			continue
 		var script: GDScript = load("res://tests/" + file)
+		if script == null or not script.can_instantiate():
+			failed += 1 # a parse error would otherwise skip the whole file
+			print("  FAIL  %s does not compile" % file)
+			continue
 		for method in script.get_script_method_list():
 			var name: String = method.name
 			if not name.begins_with("test_"):

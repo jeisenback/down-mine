@@ -110,6 +110,7 @@ const EVENT_ROOMS := [
 	{"kind": "lift", "layers": [1, 2]},
 	{"kind": "outpost", "layers": [1, 2]},
 	{"kind": "vault", "layers": [2]},
+	{"kind": "gallery", "layers": [1, 2]},
 ]
 const ROOM_SIZE := Vector2i(9, 4)
 const ROOM_MIN_SPACING_TILES := 20.0
@@ -256,7 +257,7 @@ func _carve_event_rooms(solid: Array, rng: RandomNumberGenerator) -> void:
 					_room_cells[Vector2i(x, y)] = true
 					if solid[x][y]:
 						_reserved_floors[Vector2i(x, y)] = true
-			var entry := {"kind": room.kind, "cell": center}
+			var entry := {"kind": room.kind, "cell": center, "rect": Rect2i(top_left, ROOM_SIZE)}
 			if room.kind == "vault":
 				entry["door"] = _seal_vault(solid, top_left)
 			event_rooms.append(entry)
@@ -437,6 +438,10 @@ func _take_spare_floor_cell(accept: Callable) -> Vector2i:
 
 func layer_index_at_world(world_pos: Vector2) -> int:
 	return _layer_index_for_row(clamp(world_to_cell(world_pos).y, SURFACE_ROWS, GRID_HEIGHT - 1))
+
+## Refills an open cell with its layer's rock (the gallery collapse).
+func fill_cell(cell: Vector2i) -> void:
+	set_cell(0, cell, source_id, LAYER_ATLAS_COORDS[_layer_index_for_row(cell.y)])
 
 func is_solid(cell: Vector2i) -> bool:
 	return get_cell_source_id(0, cell) != -1

@@ -58,7 +58,11 @@ ore, who then follows you like a rescued miner. The survivors talk, so
 lingering there fills the noise meter. A relic vault, a chamber walled in
 unbreakable brass-tinted stone, sits in Deep rock: breaking its door is one
 press but very loud (60 noise), and the relic inside is worth 150 ore if
-you get it home.
+you get it home. A collapsing gallery, a room propped with old timbers and
+lined with double-value ore, sits in Stone or Deep rock: step in and its
+ceiling comes down 12s later (loud). Light doesn't stop it; support beams
+do. Anyone still inside is buried (1 damage, dig out), and any ore left
+behind is lost.
 
 **Sound**: every effect (digging, hits, pickups, placing tools, collapses,
 gas, alarms) is synthesized in code at startup (`scripts/sfx.gd`) - no

@@ -120,3 +120,30 @@ func test_vault_door_is_loud_and_relic_pays() -> void:
 	relic.use(main)
 	assert_eq(main.player.currency, Relic.VALUE, "relic adds run ore")
 	Progress.path_override = ""
+
+func test_gallery_collapses_after_entry_and_buries() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	main.stalker.process_mode = Node.PROCESS_MODE_DISABLED
+	var gallery: Gallery = main.mine.get_children().filter(func(n): return n is Gallery)[0]
+	var ore: Array = main.mine.get_children().filter(func(n): return n is OrePickup and gallery.rect.has_point(main.mine.world_to_cell(n.global_position)))
+	assert_eq(ore.size(), Gallery.ORE_COUNT, "rich ore in the gallery")
+	await physics_frames(10)
+	assert_true(gallery._time_left < 0.0, "no countdown before entry")
+
+	main.player.set_physics_process(false) # stand still, no pickups
+	main.player.health = 5
+	main.player.global_position = main.mine.cell_to_world(gallery.rect.position + Vector2i(1, 0))
+	await physics_frames(3)
+	assert_true(gallery._time_left > 0.0, "countdown starts on entry")
+	main.noise_meter.decay_rate = 0.0
+	main.noise_meter.noise = 0.0
+	gallery.collapse()
+	assert_true(main.mine.is_solid(Vector2i(gallery.rect.end.x - 1, gallery.rect.position.y)), "room filled")
+	assert_true(not main.mine.is_solid(main.mine.world_to_cell(main.player.global_position)), "player's cell left open")
+	assert_eq(main.player.health, 5 - Gallery.BURY_DAMAGE, "buried player hurt")
+	assert_eq(main.noise_meter.noise, Gallery.COLLAPSE_NOISE, "collapse is loud")
+	await physics_frames(1)
+	assert_true(ore.all(func(p): return not is_instance_valid(p)), "buried ore lost")
+	Progress.path_override = ""

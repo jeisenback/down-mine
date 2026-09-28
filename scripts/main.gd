@@ -47,6 +47,7 @@ const EVENT_SCENES := {
 	"lift": preload("res://scenes/Lift.tscn"),
 	"outpost": preload("res://scenes/Outpost.tscn"),
 	"vault": preload("res://scenes/Relic.tscn"),
+	"gallery": preload("res://scenes/Gallery.tscn"),
 }
 const EVENT_RANGE := 24.0
 const VaultDoorScene := preload("res://scenes/VaultDoor.tscn")
@@ -129,6 +130,9 @@ func _spawn_events() -> void:
 			event.layer = mine.layer_index_at_world(mine.cell_to_world(room.cell))
 		if event is Outpost:
 			event.main = self
+		if event is Gallery:
+			event.main = self
+			event.rect = room.rect
 		event.global_position = mine.cell_to_world(room.cell)
 		mine.add_child(event)
 		if event is Outpost:
