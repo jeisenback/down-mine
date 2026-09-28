@@ -36,6 +36,7 @@ const MINER_COLORS := {
 var run_ended: bool = false
 var max_depth_reached: int = 0
 var _extract_key_was_pressed: bool = false
+var _fortify_key_was_pressed: bool = false
 var progress: Progress
 var lost_miners: Array[LostMiner] = []
 
@@ -119,7 +120,9 @@ func _process(delta: float) -> void:
 	_update_stranded_compass()
 	hud.update_currency(player.currency)
 	_check_repair(delta)
-	hud.update_base(run_base, get_tree().get_nodes_in_group("burrowers").size() > 0, _near_base(), player.currency)
+	_check_fortify()
+	mine.decay_walls(delta, run_base.light.fuel_fraction())
+	hud.update_base(run_base, get_tree().get_nodes_in_group("burrowers").size() > 0, _near_base(), player.currency, mine.wall_count())
 	max_depth_reached = max(max_depth_reached, _current_depth())
 	_check_extraction()
 
@@ -139,6 +142,21 @@ func _check_repair(delta: float) -> void:
 	if run_base.tick_repair(delta, player.currency):
 		player.currency -= run_base.repair_cost()
 		noise_meter.add_noise(run_base.REPAIR_NOISE)
+
+## Pressing B at the base reinforces the rock around it, nearest tiles
+## first, as many as this run's ore covers.
+func _check_fortify() -> void:
+	var pressed := Input.is_physical_key_pressed(KEY_B)
+	if pressed and not _fortify_key_was_pressed and _near_base():
+		var base_cell := mine.world_to_cell(run_base.global_position)
+		var cells := mine.unreinforced_cells_around(base_cell, run_base.FORTIFY_RADIUS_TILES)
+		var count: int = min(cells.size(), player.currency / run_base.wall_cost())
+		for i in range(count):
+			mine.reinforce(cells[i])
+		if count > 0:
+			player.currency -= count * run_base.wall_cost()
+			noise_meter.add_noise(count * run_base.WALL_NOISE)
+	_fortify_key_was_pressed = pressed
 
 func _check_extraction() -> void:
 	var extract_pressed := Input.is_physical_key_pressed(KEY_E)

@@ -14,6 +14,7 @@ const ATTACK_RANGE := 14.0
 const ATTACK_COOLDOWN := 2.0
 const ANIM_FPS := 6.0
 const FRAME_COUNT := 3
+const WALL_CHEW_TIME := 2.5 # seconds per reinforced tile; plain rock is instant
 
 var mine: MineGrid
 var player: Player
@@ -21,6 +22,7 @@ var target: RunBase
 var health: float = MAX_HEALTH
 var _attack_timer: float = 0.0
 var _anim_time: float = 0.0
+var _chew_timer: float = 0.0
 
 @onready var sprite: Sprite2D = $Sprite2D
 
@@ -49,5 +51,13 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var speed := SPEED * (LIT_SPEED_MULTIPLIER if in_player_light else 1.0)
-	global_position += to_target.normalized() * speed * delta
-	mine.dig_cells([mine.world_to_cell(global_position)], false)
+	var next_position := global_position + to_target.normalized() * speed * delta
+	var next_cell := mine.world_to_cell(next_position)
+	if mine.is_wall(next_cell):
+		_chew_timer += delta
+		if _chew_timer >= WALL_CHEW_TIME:
+			_chew_timer = 0.0
+			mine.dig_cells([next_cell], false)
+		return
+	global_position = next_position
+	mine.dig_cells([next_cell], false)

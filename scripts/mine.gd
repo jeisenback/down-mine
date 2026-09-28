@@ -37,6 +37,16 @@ const LAYER_TEXTURE_REGIONS := [
 const BEDROCK_ATLAS_COORDS := Vector2i(3, 0)
 const BEDROCK_COLOR := Color(0.05, 0.05, 0.06)
 
+# Reinforced rock around the run base (milestone 18): the tileset's iron
+# grate (8x16, drawn twice across) over dark earth. Burrowers must chew
+# through it; the player digs it like normal rock. Walls wear back to
+# plain rock over time, faster when the base's light is low.
+const WALL_ATLAS_COORDS := Vector2i(4, 0)
+const WALL_COLOR := Color(0.2, 0.15, 0.1)
+const WALL_TEXTURE_REGION := Rect2i(80, 120, 8, 16)
+const WALL_DECAY_INTERVAL_LIT := 40.0  # seconds per wall lost, base light full
+const WALL_DECAY_INTERVAL_DARK := 8.0  # ...and with the base light out
+
 # Cellular-automata cave carving: start from a random fill below the
 # solid crust, then smooth a few times so pockets read as caves rather
 # than noise. Standard 4/5-neighbor rule. Fill is denser near the
@@ -63,13 +73,15 @@ var source_id: int = 0
 var lost_miner_cell := Vector2i(-1, -1)
 ## Floor cells no pickup or NPC has claimed yet (shuffled).
 var _spare_floor_cells: Array = []
+var _wall_cells: Array[Vector2i] = []
+var _wall_decay_timer: float = 0.0
 
 func _ready() -> void:
 	_build_tileset()
 	_generate_layout()
 
 func _build_tileset() -> void:
-	var colors := LAYER_COLORS + [BEDROCK_COLOR]
+	var colors := LAYER_COLORS + [BEDROCK_COLOR, WALL_COLOR]
 	var atlas_width := colors.size()
 	var image := Image.create(TILE_SIZE * atlas_width, TILE_SIZE, false, Image.FORMAT_RGBA8)
 	for i in range(atlas_width):
@@ -83,6 +95,12 @@ func _build_tileset() -> void:
 				var pixel := source_image.get_pixel(region.position.x + x, region.position.y + y)
 				if not pixel.is_equal_approx(PixelArt.SHEET_BG_COLOR):
 					image.set_pixel(i * TILE_SIZE + x, y, pixel)
+	for x in range(TILE_SIZE):
+		for y in range(TILE_SIZE):
+			var grate_x := WALL_TEXTURE_REGION.position.x + x % WALL_TEXTURE_REGION.size.x
+			var pixel := source_image.get_pixel(grate_x, WALL_TEXTURE_REGION.position.y + y)
+			if not pixel.is_equal_approx(PixelArt.SHEET_BG_COLOR):
+				image.set_pixel(WALL_ATLAS_COORDS.x * TILE_SIZE + x, y, pixel)
 	var texture := ImageTexture.create_from_image(image)
 
 	var atlas := TileSetAtlasSource.new()
@@ -281,6 +299,7 @@ func dig_cells(cells: Array, emit_noise: bool = true) -> int:
 	for cell in cells:
 		if is_solid(cell) and not is_indestructible(cell):
 			set_cell(0, cell, -1)
+			_wall_cells.erase(cell)
 			dug_count += 1
 	if dug_count > 0 and emit_noise:
 		tile_dug.emit(DIG_NOISE * dug_count)
@@ -294,6 +313,44 @@ func cells_in_column(world_x: float, y_top: float, y_bottom: float) -> Array:
 	for y in range(top_cell.y, bottom_cell.y + 1):
 		cells.append(Vector2i(top_cell.x, y))
 	return cells
+
+func is_wall(cell: Vector2i) -> bool:
+	return get_cell_atlas_coords(0, cell) == WALL_ATLAS_COORDS
+
+func wall_count() -> int:
+	return _wall_cells.size()
+
+## Solid, non-bedrock, not-yet-walled cells within radius of center,
+## nearest first - what fortifying would reinforce, in order.
+func unreinforced_cells_around(center: Vector2i, radius: int) -> Array[Vector2i]:
+	var cells: Array[Vector2i] = []
+	for dx in range(-radius, radius + 1):
+		for dy in range(-radius, radius + 1):
+			var cell := center + Vector2i(dx, dy)
+			if Vector2(dx, dy).length() <= radius and is_solid(cell) and not is_indestructible(cell) and not is_wall(cell):
+				cells.append(cell)
+	cells.sort_custom(func(a, b): return (a - center).length_squared() < (b - center).length_squared())
+	return cells
+
+func reinforce(cell: Vector2i) -> void:
+	set_cell(0, cell, source_id, WALL_ATLAS_COORDS)
+	_wall_cells.append(cell)
+
+## Wears one random wall back to plain rock every interval; the interval
+## shrinks as the base light dims (PRD: structures decay faster in the
+## dark, sharing the light's clock).
+func decay_walls(delta: float, base_light_fraction: float) -> void:
+	if _wall_cells.is_empty():
+		_wall_decay_timer = 0.0
+		return
+	_wall_decay_timer += delta
+	var interval: float = lerp(WALL_DECAY_INTERVAL_DARK, WALL_DECAY_INTERVAL_LIT, base_light_fraction)
+	if _wall_decay_timer < interval:
+		return
+	_wall_decay_timer = 0.0
+	var cell: Vector2i = _wall_cells.pick_random()
+	_wall_cells.erase(cell)
+	set_cell(0, cell, source_id, LAYER_ATLAS_COORDS[_layer_index_for_row(cell.y)])
 
 func world_to_cell(world_pos: Vector2) -> Vector2i:
 	return local_to_map(to_local(world_pos))

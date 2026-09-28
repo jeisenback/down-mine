@@ -14,6 +14,11 @@ const MAX_HEALTH := 3
 const REPAIR_TIME := 3.0
 const REPAIR_ORE_COST := 10
 const REPAIR_NOISE := 20.0
+# Fortifying (B at the base) reinforces rock within this many tiles, per
+# tile paid from run ore (repair crew discount it too) and noisy.
+const FORTIFY_RADIUS_TILES := 5
+const WALL_ORE_COST := 2
+const WALL_NOISE := 2.0
 
 @onready var light: MineLight = $MineLight
 
@@ -28,6 +33,9 @@ func needs_repair() -> bool:
 
 func repair_cost() -> int:
 	return roundi(REPAIR_ORE_COST * repair_cost_multiplier)
+
+func wall_cost() -> int:
+	return max(1, roundi(WALL_ORE_COST * repair_cost_multiplier))
 
 ## Advances repair while the player holds the key here. Returns true when
 ## a point of health completes - the caller pays repair_cost() and makes

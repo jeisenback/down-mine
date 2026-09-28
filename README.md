@@ -17,13 +17,17 @@ darkness. No crew, hub, or stranding yet.
 - `R` — place a rope at your feet (consumable, climbable with `W`/`S`, decays over time — faster in the dark)
 - `E` — extract at the run base (banks ore, ends the run)
 - `F` — hold at the run base to repair it (1 health per 3s, 10 of this run's ore per point, noisy)
+- `B` — at the run base, fortify: reinforce the rock within 5 tiles (2 of this run's ore per tile, noisy)
 - `1`-`3` — on the run summary (the hub), buy an upgrade with banked ore: lantern tank (+15s light), hard hat (+1 health), crew bunk (+1 crew slot, up to 4)
 - `4`-`9` — on the hub, put a rescued miner on the crew or take them off
 - `Enter` — start a new run from the run summary (banked ore and upgrades are saved between runs)
 
 **Noise and the base**: when the noise meter fills, a Burrower surfaces
 below you and tunnels to the run base. Your light slows it; flaring kills
-it. If it takes the base from 3 health to 0, the run fails.
+it. If it takes the base from 3 health to 0, the run fails. Reinforced
+walls around the base cost a Burrower 2.5s each to chew through (tunnels
+you dug near the base are open road), and wear back to plain rock over
+time - much faster when the base's light is low.
 
 **Falling**: landings hurt based on impact speed. Drops under 7 tiles are
 free (so plain digging down is safe), 7+ costs 1 health, +1 per 3 more
