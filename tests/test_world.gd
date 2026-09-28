@@ -183,8 +183,10 @@ func test_support_stops_collapse_nearby() -> void:
 	mine.dig_cells([near, far])
 	var support: Support = add(preload("res://scenes/Support.tscn").instantiate())
 	support.global_position = mine.cell_to_world(near + Vector2i(1, 0))
+	# Player well away from both: decay also crumbles floors within 20
+	# tiles of the player, which could reopen the collapsed far tunnel.
 	for i in range(20):
-		mine.tick_decay(10.0, mine.cell_to_world(Vector2i(20, 250)))
+		mine.tick_decay(10.0, mine.cell_to_world(Vector2i(60, 250)))
 	assert_true(not mine.is_solid(near), "supported tunnel stays open")
 	assert_true(mine.is_solid(far), "unsupported dark tunnel collapsed")
 
@@ -315,3 +317,45 @@ func test_vault_is_sealed_but_for_its_door() -> void:
 	var right := door.x + MineGrid.ROOM_SIZE.x + 1
 	assert_true(mine.is_indestructible(Vector2i(right, door.y)), "bedrock far wall")
 	assert_true(mine.is_indestructible(Vector2i(vault.cell.x, door.y - MineGrid.ROOM_SIZE.y)), "bedrock ceiling")
+
+## Clears a patch of mine and lays a floor, a 1-tile bump and a 2-tile
+## wall; returns the floor-standing cell left of the bump.
+func _step_course(mine: MineGrid) -> Vector2i:
+	var origin := Vector2i(10, 30)
+	for x in range(origin.x, origin.x + 20):
+		for y in range(origin.y, origin.y + 8):
+			mine.set_cell(0, Vector2i(x, y), -1)
+	for x in range(origin.x, origin.x + 20):
+		mine.fill_cell(Vector2i(x, origin.y + 8))
+	mine.fill_cell(Vector2i(origin.x + 6, origin.y + 7))  # 1-tile bump
+	mine.fill_cell(Vector2i(origin.x + 12, origin.y + 7)) # 2-tile wall
+	mine.fill_cell(Vector2i(origin.x + 12, origin.y + 6))
+	return Vector2i(origin.x + 5, origin.y + 7)
+
+func test_step_up_climbs_one_tile_but_not_two() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var start := _step_course(mine)
+	var player: Player = add(PlayerScene.instantiate())
+	player.mine = mine
+	player.global_position = mine.cell_to_world(start)
+	await physics_frames(10)
+	var floor_y := player.global_position.y
+	player._try_step_up(1.0)
+	assert_true(player.global_position.y < floor_y - 15.0, "stepped onto the bump")
+	player.global_position = mine.cell_to_world(start + Vector2i(6, 0))
+	await physics_frames(10)
+	var before := player.global_position
+	player._try_step_up(1.0)
+	assert_eq(player.global_position, before, "2-tile wall still blocks")
+
+func test_releasing_jump_cuts_it_short() -> void:
+	var player: Player = add(PlayerScene.instantiate())
+	player.set_physics_process(false)
+	player.velocity.y = Player.JUMP_VELOCITY
+	player._jump_rising = true
+	player._apply_jump_cut(true)
+	assert_eq(player.velocity.y, Player.JUMP_VELOCITY, "held: full jump")
+	player._apply_jump_cut(false)
+	assert_eq(player.velocity.y, Player.JUMP_VELOCITY * Player.JUMP_CUT, "released: cut")
+	player._apply_jump_cut(false)
+	assert_eq(player.velocity.y, Player.JUMP_VELOCITY * Player.JUMP_CUT, "cut only once")

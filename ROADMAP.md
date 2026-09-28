@@ -32,6 +32,8 @@ dictates.
   grapple pulls to, and the traversal miner's rope-life/ladder bonuses.
 - ~~**M28 - Hub tool unlocks.**~~ Done: lamps, ladders and anchors are
   hub unlocks; the grapple and ropes stay free as the baseline.
+- ~~**M38 - Movement feel.**~~ Done: step up 1-tile bumps; release jump
+  early for a short hop. Possible next: ledge grab for 2-tile ledges.
 
 ## Content and presentation
 
