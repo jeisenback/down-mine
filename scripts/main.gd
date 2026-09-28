@@ -1,8 +1,16 @@
 extends Node2D
 class_name Main
 
-# How close to the run base counts as "there" for extracting.
-const EXTRACTION_RADIUS := 32.0
+# How close to the run base counts as "there" (repair, fortify, refuel).
+const BASE_RADIUS := 32.0
+# Standing at the base refills the lantern from the base's own light -
+# the PRD's shared light/structure clock: refuelling dims the base,
+# which makes its walls wear faster.
+const BASE_REFUEL_RATE := 6.0 # fuel/s moved from base light to lantern
+# Planting the base (milestone 19): once per run, anywhere below the
+# crust. The flag stands this far above the floor the player is on.
+const BASE_PLANT_NOISE := 15.0
+const BASE_FLAG_HEIGHT_ABOVE_PLAYER := 15.0
 
 # Burrowers surface this far below the player - the noise came from
 # there - and tunnel to the base, so the player can race or chase them.
@@ -37,6 +45,8 @@ var run_ended: bool = false
 var max_depth_reached: int = 0
 var _extract_key_was_pressed: bool = false
 var _fortify_key_was_pressed: bool = false
+var _plant_key_was_pressed: bool = false
+var base_planted: bool = false
 var progress: Progress
 var lost_miners: Array[LostMiner] = []
 
@@ -121,8 +131,10 @@ func _process(delta: float) -> void:
 	hud.update_currency(player.currency)
 	_check_repair(delta)
 	_check_fortify()
+	_check_refuel(delta)
+	_check_plant()
 	mine.decay_walls(delta, run_base.light.fuel_fraction())
-	hud.update_base(run_base, get_tree().get_nodes_in_group("burrowers").size() > 0, _near_base(), player.currency, mine.wall_count())
+	hud.update_base(run_base, get_tree().get_nodes_in_group("burrowers").size() > 0, _near_base(), player.currency, mine.wall_count(), _can_plant(), _at_surface())
 	max_depth_reached = max(max_depth_reached, _current_depth())
 	_check_extraction()
 
@@ -133,7 +145,36 @@ func _current_depth() -> int:
 	return max(0, cell.y - mine.SURFACE_ROWS)
 
 func _near_base() -> bool:
-	return player.global_position.distance_to(run_base.global_position) < EXTRACTION_RADIUS
+	return player.global_position.distance_to(run_base.global_position) < BASE_RADIUS
+
+## Above the crust = out of the mine. Extraction happens here, not at the
+## base, so a base planted deep is a forward camp, not a way out: the
+## climb home stays the hard part (PRD traversal pillar).
+func _at_surface() -> bool:
+	return player.global_position.y < mine.SURFACE_ROWS * mine.TILE_SIZE
+
+func _can_plant() -> bool:
+	return not base_planted and player.is_on_floor() and not _at_surface()
+
+## P moves the run base - flag, light, repair, walls, Burrower target -
+## to where the player stands. Walls left behind wear away as usual.
+func _check_plant() -> void:
+	var pressed := Input.is_physical_key_pressed(KEY_P)
+	if pressed and not _plant_key_was_pressed and _can_plant():
+		base_planted = true
+		run_base.global_position = player.global_position - Vector2(0, BASE_FLAG_HEIGHT_ABOVE_PLAYER)
+		run_base.repair_progress = 0.0
+		noise_meter.add_noise(BASE_PLANT_NOISE)
+	_plant_key_was_pressed = pressed
+
+func _check_refuel(delta: float) -> void:
+	if not _near_base():
+		return
+	var room := player.light.max_fuel - player.light.fuel
+	var amount: float = min(BASE_REFUEL_RATE * delta, room, run_base.light.fuel)
+	if amount > 0.0:
+		player.light.add_fuel(amount)
+		run_base.light.fuel -= amount
 
 ## Holding F at the base repairs it, paid from this run's ore.
 func _check_repair(delta: float) -> void:
@@ -144,13 +185,13 @@ func _check_repair(delta: float) -> void:
 		noise_meter.add_noise(run_base.REPAIR_NOISE)
 
 ## Pressing B at the base reinforces the rock around it, nearest tiles
-## first, as many as this run's ore covers.
+## first: one batch per press, as many as this run's ore covers.
 func _check_fortify() -> void:
 	var pressed := Input.is_physical_key_pressed(KEY_B)
 	if pressed and not _fortify_key_was_pressed and _near_base():
 		var base_cell := mine.world_to_cell(run_base.global_position)
 		var cells := mine.unreinforced_cells_around(base_cell, run_base.FORTIFY_RADIUS_TILES)
-		var count: int = min(cells.size(), player.currency / run_base.wall_cost())
+		var count: int = min(cells.size(), run_base.FORTIFY_BATCH_TILES, player.currency / run_base.wall_cost())
 		for i in range(count):
 			mine.reinforce(cells[i])
 		if count > 0:
@@ -160,7 +201,7 @@ func _check_fortify() -> void:
 
 func _check_extraction() -> void:
 	var extract_pressed := Input.is_physical_key_pressed(KEY_E)
-	if extract_pressed and not _extract_key_was_pressed and _near_base():
+	if extract_pressed and not _extract_key_was_pressed and _at_surface():
 		_extract()
 	_extract_key_was_pressed = extract_pressed
 

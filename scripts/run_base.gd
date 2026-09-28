@@ -15,8 +15,11 @@ const REPAIR_TIME := 3.0
 const REPAIR_ORE_COST := 10
 const REPAIR_NOISE := 20.0
 # Fortifying (B at the base) reinforces rock within this many tiles, per
-# tile paid from run ore (repair crew discount it too) and noisy.
+# tile paid from run ore (repair crew discount it too) and noisy. Each
+# press does one batch of the nearest tiles: a base planted in solid rock
+# has ~50 in range, and doing them all at once filled the noise meter.
 const FORTIFY_RADIUS_TILES := 5
+const FORTIFY_BATCH_TILES := 12
 const WALL_ORE_COST := 2
 const WALL_NOISE := 2.0
 

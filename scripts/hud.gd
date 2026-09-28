@@ -64,7 +64,7 @@ func update_noise(value: float, fraction: float) -> void:
 func update_currency(amount: int) -> void:
 	ore_label.text = "Ore: %d" % amount
 
-func update_base(run_base: RunBase, under_attack: bool, player_at_base: bool, run_ore: int, walls: int) -> void:
+func update_base(run_base: RunBase, under_attack: bool, player_at_base: bool, run_ore: int, walls: int, can_plant: bool, at_surface: bool) -> void:
 	var text := "Base: %d/%d  walls %d" % [run_base.health, run_base.MAX_HEALTH, walls]
 	if under_attack:
 		text += "  UNDER ATTACK"
@@ -77,6 +77,10 @@ func update_base(run_base: RunBase, under_attack: bool, player_at_base: bool, ru
 			text += "  hold F to repair (%d ore)" % run_base.repair_cost()
 	if player_at_base:
 		text += "  B: fortify (%d ore/tile)" % run_base.wall_cost()
+	if can_plant:
+		text += "  P: plant base here"
+	if at_surface:
+		text += "  E: extract"
 	base_label.text = text
 	base_label.modulate = Color(1, 0.4, 0.3) if under_attack else Color(1, 1, 1)
 

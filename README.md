@@ -15,9 +15,10 @@ darkness. No crew, hub, or stranding yet.
 - `Shift` — flare the light (brighter, burns fuel faster; the only thing that hurts a Burrower)
 - `Q` — fire the grapple straight up (reusable, pulls you to the first solid ceiling within range)
 - `R` — place a rope at your feet (consumable, climbable with `W`/`S`, decays over time — faster in the dark)
-- `E` — extract at the run base (banks ore, ends the run)
+- `E` — extract anywhere at the surface, above the crust (banks ore, ends the run)
+- `P` — once per run, plant the run base where you stand (below the crust, on a floor)
 - `F` — hold at the run base to repair it (1 health per 3s, 10 of this run's ore per point, noisy)
-- `B` — at the run base, fortify: reinforce the rock within 5 tiles (2 of this run's ore per tile, noisy)
+- `B` — at the run base, fortify: reinforce the 12 nearest plain rock tiles within 5 tiles (2 of this run's ore per tile, noisy); press again for more
 - `1`-`3` — on the run summary (the hub), buy an upgrade with banked ore: lantern tank (+15s light), hard hat (+1 health), crew bunk (+1 crew slot, up to 4)
 - `4`-`9` — on the hub, put a rescued miner on the crew or take them off
 - `Enter` — start a new run from the run summary (banked ore and upgrades are saved between runs)
@@ -47,6 +48,11 @@ they were lost in: the hub shows where, they drift one layer deeper for
 every run that ends without rescuing them, and drifting past Deep rock
 kills them. In their layer, an arrow in their shirt colour points to them.
 You can escort several miners at once; they follow in single file.
+
+**The run base**: starts at the surface; plant it deeper as a forward
+camp. Standing at it refills your lantern from the base's light (which
+makes its walls wear faster). Extraction is always at the surface, so a
+deep base doesn't shorten the climb home.
 
 **Run it**: open the project folder in Godot 4.3+ and press Play (main scene
 is `scenes/Main.tscn`).
