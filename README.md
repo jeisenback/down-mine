@@ -18,10 +18,12 @@ darkness. No crew, hub, or stranding yet.
 - `R` — place a rope at your feet (consumable, climbable with `W`/`S`, decays over time — faster in the dark)
 - `T` — place a ladder standing up from your feet (hub unlock; 4 per run; climbs faster and lasts longer than a rope; noisy)
 - `G` — hammer in an anchor where you stand (hub unlock; 2 per run); `Q` then pulls you straight to the nearest anchor within 10 tiles in line of sight (over a ledge's lip), before trying a ceiling
-- `E` — extract anywhere at the surface, above the crust (banks ore, ends the run)
+- `E` — extract anywhere at the surface, above the crust (banks ore, ends the run); in the mine, use a nearby camp or lift
 - `P` — once per run, plant the run base where you stand (below the crust, on a floor)
 - `F` — hold at the run base to repair it (1 health per 3s, 10 of this run's ore per point, noisy)
 - `B` — at the run base, fortify: reinforce the 12 nearest plain rock tiles within 5 tiles (2 of this run's ore per tile, noisy); press again for more
+- `1` — build a support beam where you stand (15 of this run's ore): stops collapses and crumbling within 3 tiles; wears out, faster in the dark
+- `2` / `3` — at the run base, build a beacon (30 ore: base light reaches 50% further but burns 50% faster) or an alarm bell (20 ore: warns when noise nears the Burrower threshold); one each per run
 - `1`-`6` — on the run summary (the hub), spend banked ore: lantern tank (+15s light), hard hat (+1 health), crew bunk (+1 crew slot, up to 4), or unlock lamps (40), ladders (60) or anchors (100). The grapple and ropes are always available.
 - `A`-`J` — on the hub, put a rescued miner on the crew or take them off
 - `Enter` — start a new run from the run summary (banked ore and upgrades are saved between runs)
@@ -42,6 +44,19 @@ tinted rock that releases a lingering gas cloud when you dig it out
 (1 health per 1.5s inside). Deep rock is unstable: decay runs twice as
 fast while you're down there, and your first descent wakes a second
 Stalker. The HUD names your layer and its hazard.
+
+**Mine events**: each run carves a few rooms into the rock. An abandoned
+camp waits in every layer: search it once for light, ore (more the deeper
+it is) and the next page of the old crew's journal, which carries over
+between runs; searching lights its lantern, which you can relight later
+from your own light. An old lift sits in Stone or Deep rock: repair it for
+30 ore (loud), then ride it once straight up to the surface, escorts and
+all.
+
+**Sound**: every effect (digging, hits, pickups, placing tools, collapses,
+gas, alarms) is synthesized in code at startup (`scripts/sfx.gd`) - no
+audio files. Collapses fade with distance and go quiet past 16 tiles, so
+you hear the mine closing in around you.
 
 **Mine decay**: in darkness, tunnels you dug refill with rock and cave
 floors near you crumble away, a little faster as the run goes on. Light

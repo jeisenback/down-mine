@@ -51,6 +51,7 @@ const DECAY_RAMP_TIME := 480.0 # seconds into the run to reach the end interval
 const CRUMBLE_RADIUS_TILES := 20
 const CRUMBLE_SAMPLE_TRIES := 20
 const DECAY_NOISE := 3.0 # per collapse or crumble (PRD: collapses are loud)
+const COLLAPSE_HEARING_TILES := 16.0
 
 # Reinforced rock around the run base (milestone 18): the tileset's iron
 # grate (8x16, drawn twice across) over dark earth. Burrowers must chew
@@ -94,6 +95,19 @@ const OrePickupScene := preload("res://scenes/OrePickup.tscn")
 const LOST_MINER_MIN_ROW := 20
 const LOST_MINER_MAX_ROW := 70
 
+# Event rooms (milestone 33): open chambers carved each run, each holding
+# one mine event that Main places (see Main._spawn_events). One entry per
+# room; the layer is picked from the listed ones.
+const EVENT_ROOMS := [
+	{"kind": "camp", "layers": [0]},
+	{"kind": "camp", "layers": [1]},
+	{"kind": "camp", "layers": [2]},
+	{"kind": "lift", "layers": [1, 2]},
+]
+const ROOM_SIZE := Vector2i(9, 4)
+const ROOM_MIN_SPACING_TILES := 20.0
+const ROOM_PLACE_TRIES := 50
+
 var source_id: int = 0
 ## Where Main should place this run's lost miner, or (-1, -1) if no floor
 ## cell fits the band.
@@ -106,6 +120,11 @@ var _wall_decay_timer: float = 0.0
 var _dug_cells: Array[Vector2i] = []
 ## Floor cells with a pickup or NPC standing on them; these never crumble.
 var _reserved_floors: Dictionary = {}
+## This run's event rooms: {"kind", "cell"}, cell = floor-standing
+## center of the room.
+var event_rooms: Array = []
+## Open cells and floors of the event rooms; no pickups, gas or crumbling.
+var _room_cells: Dictionary = {}
 var _decay_timer: float = 0.0
 var _run_time: float = 0.0
 
@@ -186,6 +205,7 @@ func _generate_layout() -> void:
 		_reinforce_boundaries(solid)
 		for x in range(GRID_WIDTH):
 			solid[x][SURFACE_ROWS] = true
+	_carve_event_rooms(solid, rng)
 
 	for x in range(GRID_WIDTH):
 		for y in range(GRID_HEIGHT):
@@ -198,12 +218,44 @@ func _generate_layout() -> void:
 				set_cell(0, Vector2i(x, y), source_id, LAYER_ATLAS_COORDS[layer_index])
 	_place_gas_pockets(rng)
 
-	var floor_cells := _find_floor_cells(solid)
+	var floor_cells := _find_floor_cells(solid).filter(func(c): return not _room_cells.has(c))
 	floor_cells.shuffle()
 	_scatter_fuel_deposits(floor_cells)
 	_scatter_ore_deposits(floor_cells)
 	_spare_floor_cells = floor_cells.slice(min(FUEL_DEPOSIT_COUNT + ORE_DEPOSIT_COUNT, floor_cells.size()))
 	_pick_lost_miner_cell()
+
+## Clears a ROOM_SIZE chamber per EVENT_ROOMS entry, on a solid floor,
+## spaced apart. A room that finds no spot is skipped.
+func _carve_event_rooms(solid: Array, rng: RandomNumberGenerator) -> void:
+	for room in EVENT_ROOMS:
+		var layer: int = room.layers[rng.randi_range(0, room.layers.size() - 1)]
+		var rows := _layer_rows(layer)
+		for i in range(ROOM_PLACE_TRIES):
+			var top_left := Vector2i(rng.randi_range(2, GRID_WIDTH - 2 - ROOM_SIZE.x),
+				rng.randi_range(max(rows.x, SURFACE_ROWS + 2), rows.y - ROOM_SIZE.y - 1))
+			var center := top_left + Vector2i(ROOM_SIZE.x / 2, ROOM_SIZE.y - 1)
+			if event_rooms.any(func(r): return Vector2(r.cell - center).length() < ROOM_MIN_SPACING_TILES):
+				continue
+			for x in range(top_left.x, top_left.x + ROOM_SIZE.x):
+				for y in range(top_left.y, top_left.y + ROOM_SIZE.y + 1):
+					solid[x][y] = y == top_left.y + ROOM_SIZE.y # open room, solid floor row
+					_room_cells[Vector2i(x, y)] = true
+					if solid[x][y]:
+						_reserved_floors[Vector2i(x, y)] = true
+			event_rooms.append({"kind": room.kind, "cell": center})
+			break
+
+## First and last row (inclusive) of a depth layer.
+func _layer_rows(layer: int) -> Vector2i:
+	var first := -1
+	var last := -1
+	for y in range(SURFACE_ROWS, GRID_HEIGHT - 1):
+		if _layer_index_for_row(y) == layer:
+			if first < 0:
+				first = y
+			last = y
+	return Vector2i(first, last)
 
 func _is_boundary(x: int, y: int) -> bool:
 	return x == 0 or x == GRID_WIDTH - 1 or y == GRID_HEIGHT - 1
@@ -377,6 +429,7 @@ func dig_cells(cells: Array, emit_noise: bool = true) -> int:
 				_dug_cells.append(cell)
 	if dug_count > 0 and emit_noise:
 		tile_dug.emit(DIG_NOISE * dug_count)
+		Sfx.play("dig")
 	return dug_count
 
 ## All cells in one column between two world-space y bounds, inclusive.
@@ -398,11 +451,18 @@ func tick_decay(delta: float, player_pos: Vector2) -> float:
 		return 0.0
 	_decay_timer = 0.0
 	var noise := 0.0
-	if _collapse_tunnel():
-		noise += DECAY_NOISE
-	if _crumble_floor(player_pos):
-		noise += DECAY_NOISE
+	for cell in [_collapse_tunnel(), _crumble_floor(player_pos)]:
+		if cell.x >= 0:
+			noise += DECAY_NOISE
+			_play_collapse(cell, player_pos)
 	return noise
+
+## Rumble for a collapse or crumble, fading with distance; silent past
+## COLLAPSE_HEARING_TILES so the far side of the mine doesn't chatter.
+func _play_collapse(cell: Vector2i, player_pos: Vector2) -> void:
+	var tiles := cell_to_world(cell).distance_to(player_pos) / TILE_SIZE
+	if tiles <= COLLAPSE_HEARING_TILES:
+		Sfx.play("collapse", -3.0 - tiles)
 
 ## Seconds between decay ticks: shrinks over the run, and halves while the
 ## player is in the unstable deep layer.
@@ -418,6 +478,8 @@ func _place_gas_pockets(rng: RandomNumberGenerator) -> void:
 	while placed < GAS_POCKET_COUNT and tries < GAS_POCKET_COUNT * 20:
 		tries += 1
 		var cell := Vector2i(rng.randi_range(1, GRID_WIDTH - 2), rng.randi_range(SURFACE_ROWS + 1, GRID_HEIGHT - 2))
+		if _room_cells.has(cell):
+			continue
 		if _layer_index_for_row(cell.y) == GAS_LAYER and get_cell_atlas_coords(0, cell) == LAYER_ATLAS_COORDS[GAS_LAYER]:
 			set_cell(0, cell, source_id, GAS_ATLAS_COORDS)
 			placed += 1
@@ -425,26 +487,31 @@ func _place_gas_pockets(rng: RandomNumberGenerator) -> void:
 func is_gas(cell: Vector2i) -> bool:
 	return get_cell_atlas_coords(0, cell) == GAS_ATLAS_COORDS
 
-func _collapse_tunnel() -> bool:
-	var candidates := _dug_cells.filter(func(c): return not is_solid(c) and not is_lit(cell_to_world(c)))
+## Refills one dark dug cell; returns it, or (-1, -1) if none.
+func _collapse_tunnel() -> Vector2i:
+	var candidates := _dug_cells.filter(func(c): return not is_solid(c) and not is_lit(cell_to_world(c)) \
+		and not Support.protects(get_tree(), cell_to_world(c)))
 	if candidates.is_empty():
-		return false
+		return Vector2i(-1, -1)
 	var cell: Vector2i = candidates.pick_random()
 	_dug_cells.erase(cell)
 	set_cell(0, cell, source_id, LAYER_ATLAS_COORDS[_layer_index_for_row(cell.y)])
-	return true
+	return cell
 
-func _crumble_floor(player_pos: Vector2) -> bool:
+## Drops one dark cave floor near the player; returns it, or (-1, -1).
+func _crumble_floor(player_pos: Vector2) -> Vector2i:
 	var center := world_to_cell(player_pos)
 	for i in range(CRUMBLE_SAMPLE_TRIES):
 		var cell := center + Vector2i(randi_range(-CRUMBLE_RADIUS_TILES, CRUMBLE_RADIUS_TILES), randi_range(-CRUMBLE_RADIUS_TILES, CRUMBLE_RADIUS_TILES))
 		if cell.y <= SURFACE_ROWS or not is_solid(cell) or is_indestructible(cell) or is_wall(cell):
 			continue
+		if Support.protects(get_tree(), cell_to_world(cell)):
+			continue
 		if is_solid(cell + Vector2i.UP) or _reserved_floors.has(cell) or is_lit(cell_to_world(cell)):
 			continue
 		set_cell(0, cell, -1)
-		return true
-	return false
+		return cell
+	return Vector2i(-1, -1)
 
 ## Inside any MineLight's current radius (same test ropes use).
 func is_lit(world_pos: Vector2) -> bool:

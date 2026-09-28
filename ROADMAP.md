@@ -23,6 +23,9 @@ dictates.
 - ~~**M26 - Veteran quirks.**~~ Done: six quirks, one per Veteran,
   distinct across the roster.
 
+- ~~**M32 - Base buildings.**~~ Done: support beams, a beacon and an
+  alarm bell, paid from run ore.
+
 ## Traversal depth
 
 - ~~**M27 - Ladders and anchors.**~~ Done: ladders (T), anchors (G) the
@@ -37,8 +40,23 @@ dictates.
 - ~~**M30 - Art pass.**~~ Done: fuel, ore, the Stalker and ropes use
   tileset art. The base flag, lamps, ladders and anchors keep their
   drawn shapes - the pack has nothing that fits them.
-- **M31 - Sound.** Digging, collapses, enemy cues - noise is a core
-  mechanic, so audio feedback matters.
+- ~~**M31 - Sound.**~~ Done: eight synthesized effects; collapses fade
+  with distance.
+
+## Mine events
+
+- ~~**M33 - Event rooms, camps and the lift.**~~ Done: rooms carved each
+  run; an abandoned camp per layer (light, ore, journal pages, a
+  relightable lantern); an old lift that repairs for ore and noise and
+  rides once to the surface.
+- **M34 - Survivor outpost.** A lit, living camp: trade ore for tools,
+  recruit a miner; staying makes noise.
+- **M35 - Relic vault.** A reinforced chamber holding a valuable relic;
+  loud to break into.
+- **M36 - Collapsing gallery.** Rich ore under a ceiling that comes down
+  on a timer once you enter.
+- **M37 - Nest.** Stalker eggs in the deep; flare them out and the layer
+  is safer for the rest of the run.
 
 ## Open design questions (from the PRD)
 

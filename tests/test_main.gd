@@ -18,3 +18,56 @@ func test_main_scene_loads_and_runs() -> void:
 	assert_true(main.player != null and main.player.health > 0, "player alive after a moment")
 	assert_true(main.hud.layer_label.text != "", "HUD updating")
 	Progress.path_override = ""
+
+func test_buildings_cost_ore_and_bell_warns() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(10)
+	main.stalker.process_mode = Node.PROCESS_MODE_DISABLED
+	main.player.global_position = main.run_base.global_position + Vector2(0, 15)
+	await physics_frames(10)
+	main.player.currency = 100
+	assert_true(not main.build_support(), "no supports at the surface")
+	assert_true(main.build_beacon(), "beacon built at the base")
+	assert_true(not main.build_beacon(), "one beacon per run")
+	assert_true(main.build_bell(), "bell built")
+	assert_eq(main.player.currency, 100 - RunBase.BEACON_ORE_COST - RunBase.BELL_ORE_COST, "paid from run ore")
+	main.noise_meter.decay_rate = 0.0
+	main.noise_meter.noise = main.noise_meter.threshold * 0.8
+	await physics_frames(2)
+	assert_true(main.hud.noise_label.text.contains("LOUD"), "bell warns near the threshold")
+	main.noise_meter.noise = 0.0
+	main.noise_meter.add_noise(0.0)
+	await physics_frames(2)
+	assert_true(not main.hud.noise_label.text.contains("LOUD"), "warning clears when quiet")
+	Progress.path_override = ""
+
+func test_camp_search_and_lift_ride() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	main.stalker.process_mode = Node.PROCESS_MODE_DISABLED
+	var events := main.get_tree().get_nodes_in_group("mine_events")
+	var camp: Camp = events.filter(func(e): return e is Camp)[0]
+	var lift: Lift = events.filter(func(e): return e is Lift)[0]
+
+	main.player.light.fuel = 10.0
+	var pages: int = main.progress.journal_read
+	camp.use(main)
+	assert_eq(main.player.currency, Camp.ORE_BY_LAYER[camp.layer], "camp gives ore")
+	assert_true(main.player.light.fuel > 10.0, "camp gives light")
+	assert_eq(main.progress.journal_read, min(pages + 1, Progress.JOURNAL.size()), "a journal page read")
+	assert_eq(camp.prompt(main), "", "lantern lit, nothing to do")
+	camp.use(main)
+	assert_eq(main.player.currency, Camp.ORE_BY_LAYER[camp.layer], "searched only once")
+
+	main.player.currency = Lift.REPAIR_ORE
+	lift.use(main)
+	assert_eq(main.player.currency, 0, "repair paid")
+	assert_true(main.noise_meter.noise > 0.0, "repair is loud")
+	main.player.global_position = lift.global_position
+	lift.use(main)
+	assert_true(main._at_surface(), "ride ends at the surface")
+	lift.use(main)
+	assert_eq(lift.state, Lift.State.USED, "one ride only")
+	Progress.path_override = ""

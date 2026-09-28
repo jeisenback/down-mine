@@ -37,6 +37,11 @@ func _ready() -> void:
 	sprite.texture = PixelArt.with_shirt(sprite.texture, shirt_color)
 	$MineLight/PointLight2D.color = shirt_color.lightened(0.4)
 
+## Moves straight to pos and forgets the trail (the lift ride).
+func teleport_to(pos: Vector2) -> void:
+	_trail.clear()
+	global_position = pos
+
 func _physics_process(delta: float) -> void:
 	if stationary:
 		return

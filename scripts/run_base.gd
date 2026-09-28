@@ -22,10 +22,20 @@ const FORTIFY_RADIUS_TILES := 5
 const FORTIFY_BATCH_TILES := 12
 const WALL_ORE_COST := 2
 const WALL_NOISE := 2.0
+# Base buildings (milestone 32), one of each per run, paid from run ore.
+# Beacon: the base light reaches further (a bigger refuge) but burns
+# faster. Alarm bell: warns when noise nears the Burrower threshold.
+const BEACON_ORE_COST := 30
+const BEACON_RADIUS_MULTIPLIER := 1.5
+const BEACON_BURN_MULTIPLIER := 1.5
+const BELL_ORE_COST := 20
+const BUILD_NOISE := 10.0
 
 @onready var light: MineLight = $MineLight
 
 var health: int = MAX_HEALTH
+var has_beacon: bool = false
+var has_bell: bool = false
 var repair_cost_multiplier: float = 1.0
 var repair_speed_multiplier: float = 1.0
 ## 0..1 toward the next point of health.
@@ -33,6 +43,17 @@ var repair_progress: float = 0.0
 
 func _ready() -> void:
 	light.add_to_group("snuffable") # Snuffers hunt the base light too
+
+func build_beacon() -> void:
+	has_beacon = true
+	light.radius_max *= BEACON_RADIUS_MULTIPLIER
+	light.radius_min *= BEACON_RADIUS_MULTIPLIER
+	light.burn_rate *= BEACON_BURN_MULTIPLIER
+	$Beacon.visible = true
+
+func build_bell() -> void:
+	has_bell = true
+	$Bell.visible = true
 
 func needs_repair() -> bool:
 	return health > 0 and health < MAX_HEALTH
@@ -61,6 +82,7 @@ func take_hit(amount: int) -> void:
 	if health <= 0:
 		return
 	health = max(0, health - amount)
+	Sfx.play("alarm")
 	health_changed.emit(health, MAX_HEALTH)
 	if health == 0:
 		fell.emit()

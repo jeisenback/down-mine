@@ -36,6 +36,18 @@ const GasCloudScene := preload("res://scenes/GasCloud.tscn")
 const StalkerScene := preload("res://scenes/Stalker.tscn")
 const DEEP_STALKER_SPAWN_TILES := 12
 
+# Buildings (milestone 32): support beams anywhere; beacon and bell at base.
+const SupportScene := preload("res://scenes/Support.tscn")
+const SUPPORT_ORE_COST := 15
+const BELL_WARNING_FRACTION := 0.75
+
+# Mine events (milestone 33): scenes by EVENT_ROOMS kind, used with E.
+const EVENT_SCENES := {
+	"camp": preload("res://scenes/Camp.tscn"),
+	"lift": preload("res://scenes/Lift.tscn"),
+}
+const EVENT_RANGE := 24.0
+
 const LostMinerScene := preload("res://scenes/LostMiner.tscn")
 # Signs leading to each stranded miner (milestone 25); Veterans leave more.
 const StrandedSignScene := preload("res://scenes/StrandedSign.tscn")
@@ -76,6 +88,8 @@ var lamps_left: int = LAMPS_PER_RUN
 var _lamp_key_was_pressed: bool = false
 var _snuffer_timer: float = 0.0
 var _deep_stalker_spawned: bool = false
+var _build_keys_down: Dictionary = {}
+var _bell_ringing: bool = false
 var progress: Progress
 var lost_miners: Array[LostMiner] = []
 var crew_at_base: Array[LostMiner] = []
@@ -102,6 +116,34 @@ func _ready() -> void:
 	_configure_camera_limits()
 	_spawn_lost_miners()
 	_spawn_crew()
+	_spawn_events()
+	Sfx.warm_up()
+
+func _spawn_events() -> void:
+	for room in mine.event_rooms:
+		var event: Node2D = EVENT_SCENES[room.kind].instantiate()
+		if event is Camp:
+			event.layer = mine.layer_index_at_world(mine.cell_to_world(room.cell))
+		event.global_position = mine.cell_to_world(room.cell)
+		mine.add_child(event)
+
+## The closest mine event within reach, or null.
+func _nearest_event() -> Node2D:
+	var nearest: Node2D = null
+	for event in get_tree().get_nodes_in_group("mine_events"):
+		var d := player.global_position.distance_to(event.global_position)
+		if d < EVENT_RANGE and (nearest == null or d < player.global_position.distance_to(nearest.global_position)):
+			nearest = event
+	return nearest
+
+## The lift's ride: player and escorts to the surface above world_x.
+func ride_to_surface(world_x: float) -> void:
+	var cell := Vector2i(mine.world_to_cell(Vector2(world_x, 0)).x, mine.SURFACE_ROWS - 1)
+	var target := mine.cell_to_world(cell)
+	player.global_position = target
+	player.velocity = Vector2.ZERO
+	for miner in _escorts():
+		miner.teleport_to(target)
 
 ## The crew wait at the run base (PRD: they can be caught in a base
 ## attack or left behind when a run fails - see _fail_run).
@@ -189,6 +231,8 @@ func _process(delta: float) -> void:
 	_check_refuel(delta)
 	_check_plant()
 	_check_lamp()
+	_check_builds()
+	_check_bell()
 	_check_snuffer_spawn(delta)
 	hud.update_tools({
 		"Lamps": lamps_left if progress.has_unlock("lamps") or lamps_left > 0 else -1,
@@ -242,10 +286,20 @@ func _action_prompts() -> Array:
 			else:
 				prompts.append("F (hold): repair, %d ore" % run_base.repair_cost())
 		prompts.append("B: fortify, %d ore/tile" % run_base.wall_cost())
+		if not run_base.has_beacon:
+			prompts.append("2: beacon, %d ore" % run_base.BEACON_ORE_COST)
+		if not run_base.has_bell:
+			prompts.append("3: bell, %d ore" % run_base.BELL_ORE_COST)
+	if not _at_surface() and player.currency >= SUPPORT_ORE_COST:
+		prompts.append("1: support, %d ore" % SUPPORT_ORE_COST)
 	if _can_plant():
 		prompts.append("P: plant base here")
 	if _at_surface():
 		prompts.append("E: extract")
+	else:
+		var event := _nearest_event()
+		if event and event.prompt(self) != "":
+			prompts.append(event.prompt(self))
 	return prompts
 
 func _near_base() -> bool:
@@ -272,11 +326,62 @@ func _check_plant() -> void:
 		noise_meter.add_noise(BASE_PLANT_NOISE)
 	_plant_key_was_pressed = pressed
 
+## Number keys build (milestone 32), paid from this run's ore: 1 a
+## support beam where you stand, 2 a beacon and 3 an alarm bell at the
+## base (one each per run). The hub reads these keys only while paused.
+func _check_builds() -> void:
+	for key in [KEY_1, KEY_2, KEY_3]:
+		var pressed := Input.is_physical_key_pressed(key)
+		if pressed and not _build_keys_down.get(key, false):
+			match key:
+				KEY_1: build_support()
+				KEY_2: build_beacon()
+				KEY_3: build_bell()
+		_build_keys_down[key] = pressed
+
+func build_support() -> bool:
+	if _at_surface() or not player.is_on_floor() or player.currency < SUPPORT_ORE_COST:
+		return false
+	var support: Support = SupportScene.instantiate()
+	mine.add_child(support)
+	support.global_position = player.global_position
+	_pay_for_build(SUPPORT_ORE_COST)
+	return true
+
+func build_beacon() -> bool:
+	if not _near_base() or run_base.has_beacon or player.currency < run_base.BEACON_ORE_COST:
+		return false
+	run_base.build_beacon()
+	_pay_for_build(run_base.BEACON_ORE_COST)
+	return true
+
+func build_bell() -> bool:
+	if not _near_base() or run_base.has_bell or player.currency < run_base.BELL_ORE_COST:
+		return false
+	run_base.build_bell()
+	_pay_for_build(run_base.BELL_ORE_COST)
+	return true
+
+func _pay_for_build(cost: int) -> void:
+	player.currency -= cost
+	noise_meter.add_noise(run_base.BUILD_NOISE)
+	Sfx.play("place")
+
+## With a bell at the base, noise past BELL_WARNING_FRACTION of the
+## Burrower threshold rings once and turns the HUD noise line red.
+func _check_bell() -> void:
+	var loud := run_base.has_bell and noise_meter.noise >= noise_meter.threshold * BELL_WARNING_FRACTION
+	if loud and not _bell_ringing:
+		Sfx.play("alarm", -4.0)
+	_bell_ringing = loud
+	hud.set_noise_warning(loud)
+
 ## L sets a lamp down where the player stands.
 func _check_lamp() -> void:
 	var pressed := Input.is_physical_key_pressed(KEY_L)
 	if pressed and not _lamp_key_was_pressed and lamps_left > 0 and player.is_on_floor():
 		lamps_left -= 1
+		Sfx.play("place")
 		var lamp: Lamp = LampScene.instantiate()
 		lamp.global_position = player.global_position
 		mine.add_child(lamp)
@@ -343,8 +448,11 @@ func _check_fortify() -> void:
 
 func _check_extraction() -> void:
 	var extract_pressed := Input.is_physical_key_pressed(KEY_E)
-	if extract_pressed and not _extract_key_was_pressed and _at_surface():
-		_extract()
+	if extract_pressed and not _extract_key_was_pressed:
+		if _at_surface():
+			_extract()
+		elif _nearest_event():
+			_nearest_event().use(self)
 	_extract_key_was_pressed = extract_pressed
 
 func _extract() -> void:
@@ -361,6 +469,7 @@ func _on_tile_dug(noise_amount: float) -> void:
 	noise_meter.add_noise(noise_amount)
 
 func _on_noise_threshold() -> void:
+	Sfx.play("alarm", -6.0) # something heard you
 	var burrower: Burrower = BurrowerScene.instantiate()
 	burrower.mine = mine
 	burrower.player = player

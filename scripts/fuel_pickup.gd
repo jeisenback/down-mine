@@ -21,4 +21,5 @@ func _process(delta: float) -> void:
 func _on_body_entered(body: Node) -> void:
 	if body is Player:
 		(body as Player).light.add_fuel(fuel_amount)
+		Sfx.play("fuel")
 		queue_free()

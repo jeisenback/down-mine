@@ -11,4 +11,5 @@ func _ready() -> void:
 func _on_body_entered(body: Node) -> void:
 	if body is Player:
 		(body as Player).add_currency(value)
+		Sfx.play("ore")
 		queue_free()
