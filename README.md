@@ -57,6 +57,9 @@ they were lost in: the hub shows where, they drift one layer deeper for
 every run that ends without rescuing them, and drifting past Deep rock
 kills them. In their layer, an arrow in their shirt colour points to them.
 You can escort several miners at once; they follow in single file.
+Your crew wait at the run base. If the run fails - you die or the base
+falls - they are stranded in the base's layer and lose their bonus until
+rescued (experience intact), so planting the base deep is a gamble.
 
 **The run base**: starts at the surface; plant it deeper as a forward
 camp. Standing at it refills your lantern from the base's light (which

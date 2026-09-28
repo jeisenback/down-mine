@@ -62,7 +62,8 @@ var levels: Dictionary = {}
 var roster: Array = []
 ## Names of roster members picked for the crew at the hub.
 var crew_names: Array = []
-## Stranded NPCs: [{"name": String, "type": String, "layer": int}, ...]
+## Stranded NPCs: [{"name": String, "type": String, "layer": int}, ...],
+## plus "runs"/"found_in" for former crew, restored on rescue.
 var stranded: Array = []
 
 static func load_saved(path: String = SAVE_PATH) -> Progress:
@@ -164,10 +165,11 @@ func pick_new_npc_type() -> String:
 
 ## Settles NPC state at the end of a run and saves. rescued: miners
 ## extracted with the player (with the layer they were found in).
-## newly_stranded: miners being escorted when the run failed, with the
-## layer they were lost in. On extraction the crew gains a run of
-## experience. Every other stranded miner drifts a layer deeper. Returns
-## summary lines for the hub.
+## newly_stranded: miners being escorted, or crew left at the base, when
+## the run failed, with the layer they were lost in; crew leave the
+## roster (and their bonus) until rescued. On extraction the crew gains a
+## run of experience. Every other stranded miner drifts a layer deeper.
+## Returns summary lines for the hub.
 func end_run(rescued: Array, newly_stranded: Array, extracted: bool) -> Array:
 	var notes: Array = []
 	if extracted:
@@ -178,12 +180,21 @@ func end_run(rescued: Array, newly_stranded: Array, extracted: bool) -> Array:
 				notes.append("%s is now %s" % [display_name(member), rank_of(member).name])
 	var settled := {}
 	for npc in rescued:
-		roster.append({"name": npc.name, "type": npc.type, "runs": 0, "found_in": npc.found_in})
+		# A rescued former crew member keeps their experience and history.
+		var history: Dictionary = _stranded_entry(npc.name)
+		roster.append({"name": npc.name, "type": npc.type,
+			"runs": history.get("runs", 0), "found_in": history.get("found_in", npc.found_in)})
 		if crew_names.size() < crew_slots():
 			crew_names.append(npc.name) # fill a free slot by default
 		settled[npc.name] = true
-		notes.append("Rescued %s - joins the roster" % npc.name)
+		notes.append("Rescued %s - joins the roster" % display_name(roster[-1]))
 	for npc in newly_stranded:
+		var member: Dictionary = _roster_entry(npc.name)
+		if not member.is_empty():
+			roster.erase(member)
+			crew_names.erase(npc.name)
+			npc["runs"] = member.get("runs", 0) # string keys, like the rest of the save
+			npc["found_in"] = member.get("found_in", 0)
 		settled[npc.name] = true
 		notes.append("%s is stranded in the %s" % [npc.name, LAYER_NAMES[npc.layer]])
 	var still_stranded: Array = []
@@ -198,6 +209,18 @@ func end_run(rescued: Array, newly_stranded: Array, extracted: bool) -> Array:
 	stranded = still_stranded + newly_stranded
 	save()
 	return notes
+
+func _roster_entry(npc_name: String) -> Dictionary:
+	for member in roster:
+		if member.name == npc_name:
+			return member
+	return {}
+
+func _stranded_entry(npc_name: String) -> Dictionary:
+	for npc in stranded:
+		if npc.name == npc_name:
+			return npc
+	return {}
 
 func apply_to(player: Player, noise_meter: NoiseMeter, run_base: RunBase) -> void:
 	player.light.max_fuel += level("lantern") * LANTERN_FUEL_PER_LEVEL

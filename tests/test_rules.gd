@@ -58,6 +58,20 @@ func test_crew_gain_experience_only_on_extraction() -> void:
 	assert_eq(p.rank_of(p.roster[0]).name, "Seasoned", "rank at 2 runs")
 	assert_true(notes.any(func(n): return "Seasoned" in n), "rank-up announced")
 
+func test_stranded_crew_leave_roster_and_keep_history() -> void:
+	var p := _progress()
+	p.roster = [{"name": "Fenn", "type": "repair", "runs": 6, "found_in": 2}]
+	p.crew_names = ["Fenn"]
+	p.end_run([], [{"name": "Fenn", "type": "repair", "layer": 1}], false)
+	assert_true(p.roster.is_empty(), "stranded crew leave the roster")
+	assert_true(p.crew().is_empty(), "and the crew (no bonus)")
+	assert_eq(p.stranded[0].runs, 6, "experience travels with them")
+	var notes := p.end_run([{"name": "Fenn", "type": "repair", "found_in": 1}], [], true)
+	assert_eq(p.roster[0].runs, 6, "rescue restores experience")
+	assert_eq(p.roster[0].found_in, 2, "and history")
+	assert_eq(p.crew_names, ["Fenn"], "back on the crew")
+	assert_true(notes.any(func(n): return "Fenn the Mender" in n), "rescued as a Veteran")
+
 func test_veteran_bonus_and_title() -> void:
 	var p := _progress()
 	var vet := {"name": "Ezra", "type": "noise", "runs": 5}

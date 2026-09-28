@@ -23,6 +23,8 @@ var was_stranded: bool = false
 ## Layer index they were found in, kept as roster history.
 var found_in: int = 0
 var following: bool = false
+## Crew waiting at the run base (milestone 24): shown, never picked up.
+var stationary: bool = false
 ## Trail points behind the player. Main sets this at pickup so a second
 ## escort walks behind the first instead of on top of them.
 var follow_delay: int = FOLLOW_DELAY_POINTS
@@ -36,6 +38,8 @@ func _ready() -> void:
 	$MineLight/PointLight2D.color = shirt_color.lightened(0.4)
 
 func _physics_process(delta: float) -> void:
+	if stationary:
+		return
 	if not following:
 		if global_position.distance_to(player.global_position) < PICKUP_RANGE:
 			following = true
