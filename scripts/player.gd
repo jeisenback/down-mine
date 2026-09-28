@@ -92,6 +92,8 @@ var _ropes_touching: Array = []
 var _anim_time: float = 0.0
 ## GRAPPLE_RANGE after crew bonuses (Progress.apply_to).
 var grapple_range: float = GRAPPLE_RANGE
+## SAFE_FALL_TILES after crew quirks (Progress.apply_to).
+var safe_fall_tiles: float = SAFE_FALL_TILES
 var _was_on_floor: bool = true
 
 func _ready() -> void:
@@ -223,19 +225,19 @@ func _move() -> void:
 	_was_on_floor = is_on_floor()
 
 func _on_landed(fall_speed: float) -> void:
-	var damage := fall_damage_for_speed(fall_speed)
+	var damage := fall_damage_for_speed(fall_speed, safe_fall_tiles)
 	if damage > 0:
 		made_noise.emit(FALL_NOISE_PER_DAMAGE * damage)
 		take_hit(damage)
 
 ## Converts landing speed to tiles of free fall (v^2 / 2g), then to damage.
-static func fall_damage_for_speed(fall_speed: float) -> int:
+static func fall_damage_for_speed(fall_speed: float, safe_tiles: float = SAFE_FALL_TILES) -> int:
 	if fall_speed <= 0.0:
 		return 0
 	var fall_tiles := fall_speed * fall_speed / (2.0 * GRAVITY) / MineGrid.TILE_SIZE
-	if fall_tiles < SAFE_FALL_TILES:
+	if fall_tiles < safe_tiles:
 		return 0
-	return 1 + int((fall_tiles - SAFE_FALL_TILES) / FALL_TILES_PER_EXTRA_DAMAGE)
+	return 1 + int((fall_tiles - safe_tiles) / FALL_TILES_PER_EXTRA_DAMAGE)
 
 ## Scans straight up from the player's cell for the first solid cell
 ## within grapple_range. On a hit, starts pulling toward a point just

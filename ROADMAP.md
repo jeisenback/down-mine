@@ -20,8 +20,8 @@ dictates.
   stranded in its layer when a run fails.
 - ~~**M25 - Stranding signs.**~~ Done: glowing shirt scraps lead to each
   stranded miner; Veterans leave more, brighter ones.
-- **M26 - Veteran quirks.** One small quirk per Veteran, flavour plus a
-  minor effect.
+- ~~**M26 - Veteran quirks.**~~ Done: six quirks, one per Veteran,
+  distinct across the roster.
 
 ## Traversal depth
 
