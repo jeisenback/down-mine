@@ -50,8 +50,9 @@ func _ready() -> void:
 	run_base.fell.connect(_on_base_fell)
 	hud.new_run_requested.connect(_start_new_run)
 	hud.upgrade_requested.connect(_on_upgrade_requested)
+	hud.crew_toggle_requested.connect(_on_crew_toggle_requested)
 	progress = Progress.load_saved()
-	progress.apply_to(player)
+	progress.apply_to(player, noise_meter)
 	hud.update_banked(progress.banked_ore)
 	_configure_camera_limits()
 	_spawn_lost_miners()
@@ -62,7 +63,7 @@ func _spawn_lost_miners() -> void:
 	var taken := (progress.roster + progress.stranded).map(func(m): return m.name)
 	var names := MINER_COLORS.keys().filter(func(n): return not n in taken)
 	if mine.lost_miner_cell.x >= 0 and not names.is_empty():
-		_spawn_miner(names.pick_random(), "light", mine.lost_miner_cell, false)
+		_spawn_miner(names.pick_random(), progress.pick_new_npc_type(), mine.lost_miner_cell, false)
 	for npc in progress.stranded:
 		var cell := mine.take_floor_cell_in_layer(npc.layer)
 		if cell.x >= 0:
@@ -83,7 +84,7 @@ func _spawn_miner(miner_name: String, npc_type: String, cell: Vector2i, was_stra
 func _on_miner_picked_up(miner: LostMiner) -> void:
 	var escorts := _escorts()
 	miner.follow_delay = LostMiner.FOLLOW_DELAY_POINTS * escorts.size()
-	hud.update_escort(", ".join(escorts.map(func(m): return m.miner_name)))
+	hud.update_escort(", ".join(escorts.map(func(m): return "%s (%s)" % [m.miner_name, Progress.NPC_TYPES[m.npc_type].label])))
 
 func _escorts() -> Array:
 	return lost_miners.filter(func(m): return m.following)
@@ -192,4 +193,10 @@ func _start_new_run() -> void:
 func _on_upgrade_requested(id: String) -> void:
 	if progress.try_buy(id):
 		hud.update_banked(progress.banked_ore)
+		hud.refresh_hub(progress)
+
+## Hub crew picker, by roster index. Takes effect next run.
+func _on_crew_toggle_requested(roster_index: int) -> void:
+	if roster_index < progress.roster.size():
+		progress.toggle_crew(progress.roster[roster_index].name)
 		hud.refresh_hub(progress)

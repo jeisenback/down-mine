@@ -16,7 +16,8 @@ darkness. No crew, hub, or stranding yet.
 - `Q` — fire the grapple straight up (reusable, pulls you to the first solid ceiling within range)
 - `R` — place a rope at your feet (consumable, climbable with `W`/`S`, decays over time — faster in the dark)
 - `E` — extract at the run base (banks ore, ends the run)
-- `1`/`2` — on the run summary (the hub), buy an upgrade with banked ore: lantern tank (+15s light) or hard hat (+1 health)
+- `1`-`3` — on the run summary (the hub), buy an upgrade with banked ore: lantern tank (+15s light), hard hat (+1 health), crew bunk (+1 crew slot, up to 4)
+- `4`-`9` — on the hub, put a rescued miner on the crew or take them off
 - `Enter` — start a new run from the run summary (banked ore and upgrades are saved between runs)
 
 **Noise and the base**: when the noise meter fills, a Burrower surfaces
@@ -29,9 +30,11 @@ tiles. Hard landings also make noise.
 
 **Lost miners**: each run hides one lost miner (faintly lit, each with their own shirt colour) on a
 cave floor partway down. Touch them and they follow your trail; extract
-with them and they join the roster. Your first rescued miner is your
-crew: light type, so your lantern burns 20% slower and reaches 15%
-further. Fail the run while escorting and they are stranded in the layer
+with them and they join the roster. Each miner has a type that helps
+while they are on your crew: Light (lantern burns 20% slower, reaches
+15% further), Noise (everything 25% quieter) or Traversal (grapple
+reaches 50% further). New finds lean toward types you don't have yet.
+You start with one crew slot; pick who fills it at the hub. Fail the run while escorting and they are stranded in the layer
 they were lost in: the hub shows where, they drift one layer deeper for
 every run that ends without rescuing them, and drifting past Deep rock
 kills them. In their layer, an arrow in their shirt colour points to them.

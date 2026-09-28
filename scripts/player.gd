@@ -32,7 +32,7 @@ const JUMP_BUFFER_TIME := 0.12
 # back up. Fires straight up, pulls to just below the first solid
 # ceiling within range. A miss (nothing in range) still costs half the
 # cooldown so spamming it isn't free.
-const GRAPPLE_RANGE := 96.0 # 6 tiles
+const GRAPPLE_RANGE := 96.0 # 6 tiles, before crew bonuses
 const GRAPPLE_PULL_SPEED := 500.0
 const GRAPPLE_COOLDOWN := 0.6
 
@@ -90,6 +90,8 @@ var _rope_place_was_pressed: bool = false
 var _rope_place_timer: float = 0.0
 var _ropes_touching: Array = []
 var _anim_time: float = 0.0
+## GRAPPLE_RANGE after crew bonuses (Progress.apply_to).
+var grapple_range: float = GRAPPLE_RANGE
 var _was_on_floor: bool = true
 
 func _ready() -> void:
@@ -236,14 +238,14 @@ static func fall_damage_for_speed(fall_speed: float) -> int:
 	return 1 + int((fall_tiles - SAFE_FALL_TILES) / FALL_TILES_PER_EXTRA_DAMAGE)
 
 ## Scans straight up from the player's cell for the first solid cell
-## within GRAPPLE_RANGE. On a hit, starts pulling toward a point just
+## within grapple_range. On a hit, starts pulling toward a point just
 ## below it. On a miss, still costs half the cooldown so spamming it
 ## isn't free.
 func _try_fire_grapple() -> void:
 	if mine == null:
 		return
 	var start_cell := mine.world_to_cell(global_position)
-	var max_cells := int(GRAPPLE_RANGE / mine.TILE_SIZE)
+	var max_cells := int(grapple_range / mine.TILE_SIZE)
 	for i in range(1, max_cells + 1):
 		var cell := Vector2i(start_cell.x, start_cell.y - i)
 		if mine.is_solid(cell):

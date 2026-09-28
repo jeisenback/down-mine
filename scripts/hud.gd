@@ -6,6 +6,8 @@ class_name HUD
 signal new_run_requested
 ## Hub purchase, by Progress upgrade id (keys 1, 2, ... on the summary).
 signal upgrade_requested(id: String)
+## Crew picker, by roster index (the keys after the upgrade keys).
+signal crew_toggle_requested(roster_index: int)
 
 const COMPASS_MARGIN := 40.0
 # Below this distance, hide the arrow instead of pointing it - arctan2 of
@@ -42,8 +44,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if key.physical_keycode in [KEY_ENTER, KEY_KP_ENTER]:
 		new_run_requested.emit()
 	var index := key.physical_keycode - KEY_1
-	if index >= 0 and index < Progress.UPGRADE_ORDER.size():
+	if index < 0 or index > 8:
+		return
+	if index < Progress.UPGRADE_ORDER.size():
 		upgrade_requested.emit(Progress.UPGRADE_ORDER[index])
+	else:
+		crew_toggle_requested.emit(index - Progress.UPGRADE_ORDER.size())
 
 func update_fuel(fraction: float) -> void:
 	fuel_label.text = "Light: %d%%" % int(fraction * 100)
@@ -118,13 +124,16 @@ func refresh_hub(progress: Progress) -> void:
 		lines.append("[%d] %s (%s)  Lv %d/%d  - %s" % [
 			i + 1, upgrade.name, upgrade.effect, progress.level(id), upgrade.max_level, price])
 	lines.append("")
-	var crew := progress.crew()
-	if crew.is_empty():
-		lines.append("Crew: none yet - find lost miners in the mine")
-	for member in crew:
-		lines.append("Crew: %s (%s: %s)" % [member.name, Progress.NPC_TYPES[member.type].label, Progress.NPC_TYPES[member.type].effect])
-	if progress.roster.size() > crew.size():
-		lines.append("Waiting at the hub: %d" % (progress.roster.size() - crew.size()))
+	lines.append("Crew %d/%d" % [progress.crew().size(), progress.crew_slots()])
+	if progress.roster.is_empty():
+		lines.append("No one yet - find lost miners in the mine")
+	var first_key := Progress.UPGRADE_ORDER.size() + 1
+	for i in range(progress.roster.size()):
+		var member: Dictionary = progress.roster[i]
+		var type_info: Dictionary = Progress.NPC_TYPES[member.type]
+		var on_crew := "  [CREW]" if member.name in progress.crew_names else ""
+		var key_label := "[%d] " % (first_key + i) if first_key + i <= 9 else ""
+		lines.append("%s%s - %s: %s%s" % [key_label, member.name, type_info.label, type_info.effect, on_crew])
 	for npc in progress.stranded:
 		var last_layer: bool = npc.layer == Progress.LAYER_NAMES.size() - 1
 		var fate := "lost for good if not rescued next run" if last_layer else "drifts to the %s if not rescued" % Progress.LAYER_NAMES[npc.layer + 1]
