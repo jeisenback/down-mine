@@ -21,3 +21,33 @@ static func keyed(texture: Texture2D) -> Texture2D:
 	var result := ImageTexture.create_from_image(image)
 	_keyed_cache[texture] = result
 	return result
+
+## The player sheet's shirt: main, shadow, and mid-shade reds. NPCs swap
+## these for their own colour so each reads as a different person while
+## skin, hair and boots stay natural.
+const SHIRT_MAIN := Color8(198, 91, 79)
+const SHIRT_SHADOW := Color8(174, 49, 35)
+const SHIRT_MID := Color8(178, 84, 74)
+
+static var _shirt_cache: Dictionary = {}
+
+static func with_shirt(texture: Texture2D, shirt: Color) -> Texture2D:
+	var key := [texture, shirt]
+	if _shirt_cache.has(key):
+		return _shirt_cache[key]
+	var image := keyed(texture).get_image()
+	var swaps := {
+		SHIRT_MAIN: shirt,
+		SHIRT_SHADOW: shirt.darkened(0.35),
+		SHIRT_MID: shirt.darkened(0.15),
+	}
+	for x in range(image.get_width()):
+		for y in range(image.get_height()):
+			var pixel := image.get_pixel(x, y)
+			for from in swaps:
+				if pixel.is_equal_approx(from):
+					image.set_pixel(x, y, swaps[from])
+					break
+	var result := ImageTexture.create_from_image(image)
+	_shirt_cache[key] = result
+	return result

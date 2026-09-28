@@ -10,7 +10,21 @@ const BURROWER_SPAWN_OFFSET_TILES := 10
 const BurrowerScene := preload("res://scenes/Burrower.tscn")
 
 const LostMinerScene := preload("res://scenes/LostMiner.tscn")
-const MINER_NAMES := ["Ada", "Bram", "Cole", "Dita", "Ezra", "Fenn", "Greta", "Hale", "Iris", "Jory"]
+# Each miner has their own shirt colour (and matching glow), so the same
+# miner always looks the same and two miners never read as one. All
+# distinct from the player's red shirt.
+const MINER_COLORS := {
+	"Ada": Color(0.25, 0.45, 0.95),  # blue
+	"Bram": Color(0.2, 0.7, 0.3),    # green
+	"Cole": Color(0.6, 0.3, 0.85),   # violet
+	"Dita": Color(0.95, 0.8, 0.2),   # yellow
+	"Ezra": Color(0.2, 0.75, 0.8),   # cyan
+	"Fenn": Color(0.95, 0.4, 0.7),   # pink
+	"Greta": Color(0.92, 0.92, 0.92), # white
+	"Hale": Color(0.5, 0.32, 0.18),  # brown
+	"Iris": Color(0.65, 0.9, 0.2),   # lime
+	"Jory": Color(0.15, 0.2, 0.5),   # navy
+}
 
 @onready var mine: MineGrid = $Mine
 @onready var run_base: RunBase = $RunBase
@@ -47,12 +61,13 @@ func _spawn_lost_miner() -> void:
 	if mine.lost_miner_cell.x < 0:
 		return
 	var taken := progress.roster.map(func(m): return m.name)
-	var names := MINER_NAMES.filter(func(n): return not n in taken)
+	var names := MINER_COLORS.keys().filter(func(n): return not n in taken)
 	if names.is_empty():
-		names = MINER_NAMES
+		names = MINER_COLORS.keys()
 	lost_miner = LostMinerScene.instantiate()
 	lost_miner.player = player
 	lost_miner.miner_name = names.pick_random()
+	lost_miner.shirt_color = MINER_COLORS[lost_miner.miner_name]
 	lost_miner.global_position = mine.cell_to_world(mine.lost_miner_cell)
 	lost_miner.picked_up.connect(func(): hud.update_escort(lost_miner.miner_name))
 	add_child(lost_miner)

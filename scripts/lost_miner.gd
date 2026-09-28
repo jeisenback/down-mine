@@ -16,6 +16,7 @@ const RUN_ANIM_FPS := 12.0
 
 var player: Player
 var miner_name: String = ""
+var shirt_color: Color = Color(1, 1, 1)
 var npc_type: String = "light"
 var following: bool = false
 var _trail: Array[Vector2] = []
@@ -24,7 +25,8 @@ var _anim_time: float = 0.0
 @onready var sprite: Sprite2D = $Sprite2D
 
 func _ready() -> void:
-	sprite.texture = PixelArt.keyed(sprite.texture)
+	sprite.texture = PixelArt.with_shirt(sprite.texture, shirt_color)
+	$MineLight/PointLight2D.color = shirt_color.lightened(0.4)
 
 func _physics_process(delta: float) -> void:
 	if not following:
