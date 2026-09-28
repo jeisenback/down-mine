@@ -17,6 +17,7 @@ const COMPASS_MARGIN := 40.0
 const ARRIVAL_RADIUS := 32.0
 # Hub roster keys A-J: one per possible miner (10 names).
 const ROSTER_KEYS := 10
+const MESSAGE_SECONDS := 8.0
 
 @onready var fuel_label: Label = $Margin/VBox/FuelLabel
 @onready var health_label: Label = $Margin/VBox/HealthLabel
@@ -36,9 +37,16 @@ const ROSTER_KEYS := 10
 var _summary_header: String = ""
 var _noise_warning: bool = false
 var _noise_value: float = 0.0
+var _message: String = ""
+var _message_time: float = 0.0
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+
+func _process(delta: float) -> void:
+	_message_time -= delta
+	if _message_time <= 0.0:
+		_message = ""
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not run_summary.visible:
@@ -87,10 +95,16 @@ func update_base(run_base: RunBase, under_attack: bool, walls: int) -> void:
 	base_label.modulate = Color(1, 0.4, 0.3) if under_attack else Color(1, 1, 1)
 
 ## Context actions (repair, fortify, plant, extract), one line along the
-## bottom of the screen, hidden when there is nothing to do.
+## bottom of the screen, hidden when there is nothing to do. A message
+## (show_message) sits on the line above for a few seconds.
 func update_prompts(prompts: Array) -> void:
-	prompt_label.text = "     ".join(prompts)
-	prompt_label.visible = not prompts.is_empty()
+	var lines := ([_message] if _message != "" else []) + (["     ".join(prompts)] if not prompts.is_empty() else [])
+	prompt_label.text = "\n".join(lines)
+	prompt_label.visible = not lines.is_empty()
+
+func show_message(text: String) -> void:
+	_message = text
+	_message_time = MESSAGE_SECONDS
 
 ## Placed tools left this run, by name; -1 means not unlocked (hidden).
 ## Ropes are unlimited, so not listed.

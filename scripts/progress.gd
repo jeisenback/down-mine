@@ -8,6 +8,19 @@ class_name Progress
 
 const SAVE_PATH := "user://save.cfg"
 
+# The old crew's journal (milestone 33): one page per camp searched, in
+# order across runs.
+const JOURNAL := [
+	"Day 3. The seam runs deeper than the survey said. Hollis wants to push on.",
+	"Day 9. Lamps die faster down here. Something drinks the light.",
+	"Day 12. Heard digging below us at night. None of us were digging.",
+	"Day 15. Hollis got an old lift working. It groans, but it climbs.",
+	"Day 20. Marta went for fuel and did not come back. We tore up her shirt for markers.",
+	"Day 23. The stone breathes green in the cracks. Do not swing a pick near it.",
+	"Day 31. Found another camp, older than ours. Same pages. Same handwriting.",
+	"Last page. If you are reading this, keep your light high and your voice low.",
+]
+
 # Hub upgrades. cost_per_level scales linearly: level n costs n * cost.
 const UPGRADES := {
 	"lantern": {"name": "Lantern tank", "effect": "+15s light", "cost_per_level": 30, "max_level": 3},
@@ -88,6 +101,7 @@ var crew_names: Array = []
 ## Stranded NPCs: [{"name": String, "type": String, "layer": int}, ...],
 ## plus "runs"/"found_in" for former crew, restored on rescue.
 var stranded: Array = []
+var journal_read: int = 0
 
 ## When set, load_saved() uses this path instead - the Main smoke test
 ## points it at the test save so it never reads the player's real one.
@@ -105,6 +119,7 @@ static func load_saved(path: String = SAVE_PATH) -> Progress:
 			progress.levels[id] = int(config.get_value("upgrades", id, 0))
 		progress.roster = config.get_value("npcs", "roster", [])
 		progress.stranded = config.get_value("npcs", "stranded", [])
+		progress.journal_read = int(config.get_value("lore", "journal_read", 0))
 		# Saves from before the crew picker: keep their implicit crew.
 		var default_crew := progress.roster.slice(0, BASE_CREW_SLOTS).map(func(m): return m.name)
 		progress.crew_names = config.get_value("npcs", "crew", default_crew)
@@ -141,7 +156,17 @@ func save() -> void:
 	config.set_value("npcs", "roster", roster)
 	config.set_value("npcs", "stranded", stranded)
 	config.set_value("npcs", "crew", crew_names)
+	config.set_value("lore", "journal_read", journal_read)
 	config.save(save_path)
+
+## The next unread journal page, marked read and saved right away (the
+## page is found whether or not the run ends well).
+func read_journal_page() -> String:
+	if journal_read >= JOURNAL.size():
+		return "The rest of the journal is water-stained and unreadable."
+	journal_read += 1
+	save()
+	return "Journal %d/%d: %s" % [journal_read, JOURNAL.size(), JOURNAL[journal_read - 1]]
 
 func level(id: String) -> int:
 	return levels.get(id, 0)

@@ -288,3 +288,13 @@ func test_decay_collapses_dark_tunnels_but_spares_lit_ones() -> void:
 		mine.tick_decay(10.0, mine.cell_to_world(lit_cell)) # one decay tick per call
 	assert_true(mine.is_solid(dark_cell), "dark tunnel collapsed")
 	assert_true(not mine.is_solid(lit_cell), "lit tunnel spared")
+
+func test_mine_carves_event_rooms() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	assert_eq(mine.event_rooms.filter(func(r): return r.kind == "camp").size(), 3, "a camp per layer")
+	var lifts := mine.event_rooms.filter(func(r): return r.kind == "lift")
+	assert_eq(lifts.size(), 1, "one lift")
+	assert_true(mine._layer_index_for_row(lifts[0].cell.y) >= 1, "lift below topsoil")
+	for room in mine.event_rooms:
+		assert_true(not mine.is_solid(room.cell), "room is open")
+		assert_true(mine.is_solid(room.cell + Vector2i.DOWN), "room has a floor")

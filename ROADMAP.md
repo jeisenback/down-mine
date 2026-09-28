@@ -43,6 +43,21 @@ dictates.
 - ~~**M31 - Sound.**~~ Done: eight synthesized effects; collapses fade
   with distance.
 
+## Mine events
+
+- ~~**M33 - Event rooms, camps and the lift.**~~ Done: rooms carved each
+  run; an abandoned camp per layer (light, ore, journal pages, a
+  relightable lantern); an old lift that repairs for ore and noise and
+  rides once to the surface.
+- **M34 - Survivor outpost.** A lit, living camp: trade ore for tools,
+  recruit a miner; staying makes noise.
+- **M35 - Relic vault.** A reinforced chamber holding a valuable relic;
+  loud to break into.
+- **M36 - Collapsing gallery.** Rich ore under a ceiling that comes down
+  on a timer once you enter.
+- **M37 - Nest.** Stalker eggs in the deep; flare them out and the layer
+  is safer for the rest of the run.
+
 ## Open design questions (from the PRD)
 
 - Does a run have a final goal or ending at the deepest layer?

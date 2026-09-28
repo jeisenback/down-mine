@@ -95,6 +95,19 @@ const OrePickupScene := preload("res://scenes/OrePickup.tscn")
 const LOST_MINER_MIN_ROW := 20
 const LOST_MINER_MAX_ROW := 70
 
+# Event rooms (milestone 33): open chambers carved each run, each holding
+# one mine event that Main places (see Main._spawn_events). One entry per
+# room; the layer is picked from the listed ones.
+const EVENT_ROOMS := [
+	{"kind": "camp", "layers": [0]},
+	{"kind": "camp", "layers": [1]},
+	{"kind": "camp", "layers": [2]},
+	{"kind": "lift", "layers": [1, 2]},
+]
+const ROOM_SIZE := Vector2i(9, 4)
+const ROOM_MIN_SPACING_TILES := 20.0
+const ROOM_PLACE_TRIES := 50
+
 var source_id: int = 0
 ## Where Main should place this run's lost miner, or (-1, -1) if no floor
 ## cell fits the band.
@@ -107,6 +120,11 @@ var _wall_decay_timer: float = 0.0
 var _dug_cells: Array[Vector2i] = []
 ## Floor cells with a pickup or NPC standing on them; these never crumble.
 var _reserved_floors: Dictionary = {}
+## This run's event rooms: {"kind", "cell"}, cell = floor-standing
+## center of the room.
+var event_rooms: Array = []
+## Open cells and floors of the event rooms; no pickups, gas or crumbling.
+var _room_cells: Dictionary = {}
 var _decay_timer: float = 0.0
 var _run_time: float = 0.0
 
@@ -187,6 +205,7 @@ func _generate_layout() -> void:
 		_reinforce_boundaries(solid)
 		for x in range(GRID_WIDTH):
 			solid[x][SURFACE_ROWS] = true
+	_carve_event_rooms(solid, rng)
 
 	for x in range(GRID_WIDTH):
 		for y in range(GRID_HEIGHT):
@@ -199,12 +218,44 @@ func _generate_layout() -> void:
 				set_cell(0, Vector2i(x, y), source_id, LAYER_ATLAS_COORDS[layer_index])
 	_place_gas_pockets(rng)
 
-	var floor_cells := _find_floor_cells(solid)
+	var floor_cells := _find_floor_cells(solid).filter(func(c): return not _room_cells.has(c))
 	floor_cells.shuffle()
 	_scatter_fuel_deposits(floor_cells)
 	_scatter_ore_deposits(floor_cells)
 	_spare_floor_cells = floor_cells.slice(min(FUEL_DEPOSIT_COUNT + ORE_DEPOSIT_COUNT, floor_cells.size()))
 	_pick_lost_miner_cell()
+
+## Clears a ROOM_SIZE chamber per EVENT_ROOMS entry, on a solid floor,
+## spaced apart. A room that finds no spot is skipped.
+func _carve_event_rooms(solid: Array, rng: RandomNumberGenerator) -> void:
+	for room in EVENT_ROOMS:
+		var layer: int = room.layers[rng.randi_range(0, room.layers.size() - 1)]
+		var rows := _layer_rows(layer)
+		for i in range(ROOM_PLACE_TRIES):
+			var top_left := Vector2i(rng.randi_range(2, GRID_WIDTH - 2 - ROOM_SIZE.x),
+				rng.randi_range(max(rows.x, SURFACE_ROWS + 2), rows.y - ROOM_SIZE.y - 1))
+			var center := top_left + Vector2i(ROOM_SIZE.x / 2, ROOM_SIZE.y - 1)
+			if event_rooms.any(func(r): return Vector2(r.cell - center).length() < ROOM_MIN_SPACING_TILES):
+				continue
+			for x in range(top_left.x, top_left.x + ROOM_SIZE.x):
+				for y in range(top_left.y, top_left.y + ROOM_SIZE.y + 1):
+					solid[x][y] = y == top_left.y + ROOM_SIZE.y # open room, solid floor row
+					_room_cells[Vector2i(x, y)] = true
+					if solid[x][y]:
+						_reserved_floors[Vector2i(x, y)] = true
+			event_rooms.append({"kind": room.kind, "cell": center})
+			break
+
+## First and last row (inclusive) of a depth layer.
+func _layer_rows(layer: int) -> Vector2i:
+	var first := -1
+	var last := -1
+	for y in range(SURFACE_ROWS, GRID_HEIGHT - 1):
+		if _layer_index_for_row(y) == layer:
+			if first < 0:
+				first = y
+			last = y
+	return Vector2i(first, last)
 
 func _is_boundary(x: int, y: int) -> bool:
 	return x == 0 or x == GRID_WIDTH - 1 or y == GRID_HEIGHT - 1
@@ -427,6 +478,8 @@ func _place_gas_pockets(rng: RandomNumberGenerator) -> void:
 	while placed < GAS_POCKET_COUNT and tries < GAS_POCKET_COUNT * 20:
 		tries += 1
 		var cell := Vector2i(rng.randi_range(1, GRID_WIDTH - 2), rng.randi_range(SURFACE_ROWS + 1, GRID_HEIGHT - 2))
+		if _room_cells.has(cell):
+			continue
 		if _layer_index_for_row(cell.y) == GAS_LAYER and get_cell_atlas_coords(0, cell) == LAYER_ATLAS_COORDS[GAS_LAYER]:
 			set_cell(0, cell, source_id, GAS_ATLAS_COORDS)
 			placed += 1

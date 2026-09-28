@@ -18,7 +18,7 @@ darkness. No crew, hub, or stranding yet.
 - `R` — place a rope at your feet (consumable, climbable with `W`/`S`, decays over time — faster in the dark)
 - `T` — place a ladder standing up from your feet (hub unlock; 4 per run; climbs faster and lasts longer than a rope; noisy)
 - `G` — hammer in an anchor where you stand (hub unlock; 2 per run); `Q` then pulls you straight to the nearest anchor within 10 tiles in line of sight (over a ledge's lip), before trying a ceiling
-- `E` — extract anywhere at the surface, above the crust (banks ore, ends the run)
+- `E` — extract anywhere at the surface, above the crust (banks ore, ends the run); in the mine, use a nearby camp or lift
 - `P` — once per run, plant the run base where you stand (below the crust, on a floor)
 - `F` — hold at the run base to repair it (1 health per 3s, 10 of this run's ore per point, noisy)
 - `B` — at the run base, fortify: reinforce the 12 nearest plain rock tiles within 5 tiles (2 of this run's ore per tile, noisy); press again for more
@@ -44,6 +44,14 @@ tinted rock that releases a lingering gas cloud when you dig it out
 (1 health per 1.5s inside). Deep rock is unstable: decay runs twice as
 fast while you're down there, and your first descent wakes a second
 Stalker. The HUD names your layer and its hazard.
+
+**Mine events**: each run carves a few rooms into the rock. An abandoned
+camp waits in every layer: search it once for light, ore (more the deeper
+it is) and the next page of the old crew's journal, which carries over
+between runs; searching lights its lantern, which you can relight later
+from your own light. An old lift sits in Stone or Deep rock: repair it for
+30 ore (loud), then ride it once straight up to the surface, escorts and
+all.
 
 **Sound**: every effect (digging, hits, pickups, placing tools, collapses,
 gas, alarms) is synthesized in code at startup (`scripts/sfx.gd`) - no

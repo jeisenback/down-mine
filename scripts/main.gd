@@ -41,6 +41,13 @@ const SupportScene := preload("res://scenes/Support.tscn")
 const SUPPORT_ORE_COST := 15
 const BELL_WARNING_FRACTION := 0.75
 
+# Mine events (milestone 33): scenes by EVENT_ROOMS kind, used with E.
+const EVENT_SCENES := {
+	"camp": preload("res://scenes/Camp.tscn"),
+	"lift": preload("res://scenes/Lift.tscn"),
+}
+const EVENT_RANGE := 24.0
+
 const LostMinerScene := preload("res://scenes/LostMiner.tscn")
 # Signs leading to each stranded miner (milestone 25); Veterans leave more.
 const StrandedSignScene := preload("res://scenes/StrandedSign.tscn")
@@ -109,7 +116,34 @@ func _ready() -> void:
 	_configure_camera_limits()
 	_spawn_lost_miners()
 	_spawn_crew()
+	_spawn_events()
 	Sfx.warm_up()
+
+func _spawn_events() -> void:
+	for room in mine.event_rooms:
+		var event: Node2D = EVENT_SCENES[room.kind].instantiate()
+		if event is Camp:
+			event.layer = mine.layer_index_at_world(mine.cell_to_world(room.cell))
+		event.global_position = mine.cell_to_world(room.cell)
+		mine.add_child(event)
+
+## The closest mine event within reach, or null.
+func _nearest_event() -> Node2D:
+	var nearest: Node2D = null
+	for event in get_tree().get_nodes_in_group("mine_events"):
+		var d := player.global_position.distance_to(event.global_position)
+		if d < EVENT_RANGE and (nearest == null or d < player.global_position.distance_to(nearest.global_position)):
+			nearest = event
+	return nearest
+
+## The lift's ride: player and escorts to the surface above world_x.
+func ride_to_surface(world_x: float) -> void:
+	var cell := Vector2i(mine.world_to_cell(Vector2(world_x, 0)).x, mine.SURFACE_ROWS - 1)
+	var target := mine.cell_to_world(cell)
+	player.global_position = target
+	player.velocity = Vector2.ZERO
+	for miner in _escorts():
+		miner.teleport_to(target)
 
 ## The crew wait at the run base (PRD: they can be caught in a base
 ## attack or left behind when a run fails - see _fail_run).
@@ -262,6 +296,10 @@ func _action_prompts() -> Array:
 		prompts.append("P: plant base here")
 	if _at_surface():
 		prompts.append("E: extract")
+	else:
+		var event := _nearest_event()
+		if event and event.prompt(self) != "":
+			prompts.append(event.prompt(self))
 	return prompts
 
 func _near_base() -> bool:
@@ -410,8 +448,11 @@ func _check_fortify() -> void:
 
 func _check_extraction() -> void:
 	var extract_pressed := Input.is_physical_key_pressed(KEY_E)
-	if extract_pressed and not _extract_key_was_pressed and _at_surface():
-		_extract()
+	if extract_pressed and not _extract_key_was_pressed:
+		if _at_surface():
+			_extract()
+		elif _nearest_event():
+			_nearest_event().use(self)
 	_extract_key_was_pressed = extract_pressed
 
 func _extract() -> void:
