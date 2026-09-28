@@ -82,6 +82,13 @@ func test_burrower_must_chew_through_walls() -> void:
 func test_sign_trail_spreads_from_far_to_near() -> void:
 	var mine: MineGrid = add(MineScene.instantiate())
 	var center := Vector2i(40, 150)
+	# A fixed candidate set - one floor cell per tile of distance - so the
+	# test doesn't depend on how many cave floors the random map put here
+	# (a sparse map can't offer a cell near every target distance).
+	var spare: Array = []
+	for d in range(1, 21):
+		spare.append(center + Vector2i(d, 0))
+	mine._spare_floor_cells = spare
 	var cells := mine.take_trail_cells(center, 5, 2.0, 18.0)
 	assert_eq(cells.size(), 5, "five signs placed")
 	var distances := cells.map(func(c): return Vector2(c - center).length())
