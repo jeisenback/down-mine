@@ -101,3 +101,22 @@ func test_outpost_trades_recruits_and_is_noisy() -> void:
 	await physics_frames(30)
 	assert_true(main.noise_meter.noise > 0.0, "staying at the outpost is noisy")
 	Progress.path_override = ""
+
+func test_vault_door_is_loud_and_relic_pays() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	main.stalker.process_mode = Node.PROCESS_MODE_DISABLED
+	var events := main.get_tree().get_nodes_in_group("mine_events")
+	var door: VaultDoor = events.filter(func(e): return e is VaultDoor)[0]
+	var relic: Relic = events.filter(func(e): return e is Relic)[0]
+	main.noise_meter.decay_rate = 0.0
+	main.noise_meter.noise = 0.0
+	door.use(main)
+	assert_eq(main.noise_meter.noise, VaultDoor.BREAK_NOISE, "breaking in is loud")
+	await physics_frames(1)
+	assert_true(not is_instance_valid(door), "door gone")
+	main.player.currency = 0
+	relic.use(main)
+	assert_eq(main.player.currency, Relic.VALUE, "relic adds run ore")
+	Progress.path_override = ""

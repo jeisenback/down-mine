@@ -38,6 +38,11 @@ const LAYER_TEXTURE_REGIONS := [
 # can never open a path out of the generated area.
 const BEDROCK_ATLAS_COORDS := Vector2i(3, 0)
 const BEDROCK_COLOR := Color(0.05, 0.05, 0.06)
+# The relic vault's shell (milestone 35): indestructible like bedrock, but
+# deep stone tinted brass so it reads as a built chamber.
+const VAULT_ATLAS_COORDS := Vector2i(6, 0)
+const VAULT_TINT := Color(0.75, 0.6, 0.3)
+const VAULT_TINT_STRENGTH := 0.4
 
 # Mine decay (milestone 21, PRD: "tunnels collapse and floors crumble").
 # Each tick, one tunnel cell the player dug refills with rock and one cave
@@ -104,6 +109,7 @@ const EVENT_ROOMS := [
 	{"kind": "camp", "layers": [2]},
 	{"kind": "lift", "layers": [1, 2]},
 	{"kind": "outpost", "layers": [1, 2]},
+	{"kind": "vault", "layers": [2]},
 ]
 const ROOM_SIZE := Vector2i(9, 4)
 const ROOM_MIN_SPACING_TILES := 20.0
@@ -126,6 +132,8 @@ var _reserved_floors: Dictionary = {}
 var event_rooms: Array = []
 ## Open cells and floors of the event rooms; no pickups, gas or crumbling.
 var _room_cells: Dictionary = {}
+## Bedrock shell of the relic vault (milestone 35).
+var _vault_cells: Dictionary = {}
 var _decay_timer: float = 0.0
 var _run_time: float = 0.0
 
@@ -134,7 +142,7 @@ func _ready() -> void:
 	_generate_layout()
 
 func _build_tileset() -> void:
-	var colors := LAYER_COLORS + [BEDROCK_COLOR, WALL_COLOR, LAYER_COLORS[GAS_LAYER]]
+	var colors := LAYER_COLORS + [BEDROCK_COLOR, WALL_COLOR, LAYER_COLORS[GAS_LAYER], LAYER_COLORS[2]]
 	var atlas_width := colors.size()
 	var image := Image.create(TILE_SIZE * atlas_width, TILE_SIZE, false, Image.FORMAT_RGBA8)
 	for i in range(atlas_width):
@@ -159,6 +167,8 @@ func _build_tileset() -> void:
 		for y in range(TILE_SIZE):
 			var stone := image.get_pixel(GAS_LAYER * TILE_SIZE + x, y)
 			image.set_pixel(GAS_ATLAS_COORDS.x * TILE_SIZE + x, y, stone.lerp(GAS_TINT, GAS_TINT_STRENGTH))
+			var deep := image.get_pixel(2 * TILE_SIZE + x, y)
+			image.set_pixel(VAULT_ATLAS_COORDS.x * TILE_SIZE + x, y, deep.lerp(VAULT_TINT, VAULT_TINT_STRENGTH))
 	var texture := ImageTexture.create_from_image(image)
 
 	var atlas := TileSetAtlasSource.new()
@@ -214,6 +224,8 @@ func _generate_layout() -> void:
 				continue
 			if _is_boundary(x, y):
 				set_cell(0, Vector2i(x, y), source_id, BEDROCK_ATLAS_COORDS)
+			elif _vault_cells.has(Vector2i(x, y)):
+				set_cell(0, Vector2i(x, y), source_id, VAULT_ATLAS_COORDS)
 			else:
 				var layer_index := _layer_index_for_row(y)
 				set_cell(0, Vector2i(x, y), source_id, LAYER_ATLAS_COORDS[layer_index])
@@ -244,8 +256,33 @@ func _carve_event_rooms(solid: Array, rng: RandomNumberGenerator) -> void:
 					_room_cells[Vector2i(x, y)] = true
 					if solid[x][y]:
 						_reserved_floors[Vector2i(x, y)] = true
-			event_rooms.append({"kind": room.kind, "cell": center})
+			var entry := {"kind": room.kind, "cell": center}
+			if room.kind == "vault":
+				entry["door"] = _seal_vault(solid, top_left)
+			event_rooms.append(entry)
 			break
+
+## Rings the room at top_left in bedrock, leaving a 2-tile doorway on its
+## left at floor level (Main puts the vault door there). Returns the
+## doorway's lower cell.
+func _seal_vault(solid: Array, top_left: Vector2i) -> Vector2i:
+	var left := top_left.x - 1
+	var right := top_left.x + ROOM_SIZE.x
+	var top := top_left.y - 1
+	var bottom := top_left.y + ROOM_SIZE.y
+	var door := Vector2i(left, bottom - 1)
+	for x in range(left, right + 1):
+		for y in range(top, bottom + 1):
+			if x != left and x != right and y != top and y != bottom:
+				continue
+			var cell := Vector2i(x, y)
+			_room_cells[cell] = true
+			if cell == door or cell == door + Vector2i.UP:
+				solid[x][y] = false
+			else:
+				solid[x][y] = true
+				_vault_cells[cell] = true
+	return door
 
 ## First and last row (inclusive) of a depth layer.
 func _layer_rows(layer: int) -> Vector2i:
@@ -405,7 +442,7 @@ func is_solid(cell: Vector2i) -> bool:
 	return get_cell_source_id(0, cell) != -1
 
 func is_indestructible(cell: Vector2i) -> bool:
-	return get_cell_atlas_coords(0, cell) == BEDROCK_ATLAS_COORDS
+	return get_cell_atlas_coords(0, cell) in [BEDROCK_ATLAS_COORDS, VAULT_ATLAS_COORDS]
 
 func dig_at_world(world_pos: Vector2) -> bool:
 	return dig_cells([world_to_cell(world_pos)]) > 0
