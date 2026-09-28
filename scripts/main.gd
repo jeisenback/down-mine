@@ -28,6 +28,14 @@ const SnufferScene := preload("res://scenes/Snuffer.tscn")
 const SNUFFER_SPAWN_INTERVAL := 45.0
 const SNUFFER_SPAWN_DISTANCE_TILES := 10
 
+# Layer identity (milestone 29): the HUD names each layer's hazard; gas
+# rock in Stone releases clouds; the first descent into Deep rock wakes a
+# second Stalker, this far off in the dark.
+const LAYER_HAZARDS := ["", "gas pockets", "unstable, a second Stalker"]
+const GasCloudScene := preload("res://scenes/GasCloud.tscn")
+const StalkerScene := preload("res://scenes/Stalker.tscn")
+const DEEP_STALKER_SPAWN_TILES := 12
+
 const LostMinerScene := preload("res://scenes/LostMiner.tscn")
 # Signs leading to each stranded miner (milestone 25); Veterans leave more.
 const StrandedSignScene := preload("res://scenes/StrandedSign.tscn")
@@ -67,6 +75,7 @@ var base_planted: bool = false
 var lamps_left: int = LAMPS_PER_RUN
 var _lamp_key_was_pressed: bool = false
 var _snuffer_timer: float = 0.0
+var _deep_stalker_spawned: bool = false
 var progress: Progress
 var lost_miners: Array[LostMiner] = []
 var crew_at_base: Array[LostMiner] = []
@@ -76,6 +85,7 @@ func _ready() -> void:
 	stalker.player = player
 	stalker.run_base = run_base
 	mine.tile_dug.connect(_on_tile_dug)
+	mine.gas_released.connect(_on_gas_released)
 	player.made_noise.connect(_on_tile_dug) # same amount->noise_meter path, source doesn't matter
 	noise_meter.noise_changed.connect(hud.update_noise)
 	noise_meter.threshold_reached.connect(_on_noise_threshold)
@@ -171,6 +181,7 @@ func _process(delta: float) -> void:
 		return
 	hud.update_fuel(player.light.fuel_fraction())
 	hud.update_health(player.health)
+	_check_layer()
 	hud.update_compass(run_base.global_position - player.global_position)
 	hud.update_currency(player.currency)
 	_check_repair(delta)
@@ -192,6 +203,27 @@ func _process(delta: float) -> void:
 	hud.update_prompts(_action_prompts())
 	max_depth_reached = max(max_depth_reached, _current_depth())
 	_check_extraction()
+
+## HUD layer line, and the deep-rock Stalker on the first descent there.
+func _check_layer() -> void:
+	var layer := mine.layer_index_at_world(player.global_position)
+	var hazard: String = LAYER_HAZARDS[layer]
+	hud.update_layer(Progress.LAYER_NAMES[layer] + (": " + hazard if hazard != "" else ""))
+	if layer == mine.UNSTABLE_LAYER and not _deep_stalker_spawned:
+		_deep_stalker_spawned = true
+		var hunter: Stalker = StalkerScene.instantiate()
+		hunter.player = player
+		hunter.run_base = run_base
+		var side := -1 if randf() < 0.5 else 1
+		hunter.global_position = player.global_position + Vector2(side * DEEP_STALKER_SPAWN_TILES * mine.TILE_SIZE, 0)
+		add_child(hunter)
+
+func _on_gas_released(world_pos: Vector2) -> void:
+	var cloud: GasCloud = GasCloudScene.instantiate()
+	cloud.player = player
+	cloud.global_position = world_pos
+	add_child(cloud)
+	noise_meter.add_noise(GasCloud.RELEASE_NOISE)
 
 ## Depth in tiles below the surface crust, for the run summary. Never
 ## negative even if the player is still above the crust at run start.

@@ -89,7 +89,13 @@ var crew_names: Array = []
 ## plus "runs"/"found_in" for former crew, restored on rescue.
 var stranded: Array = []
 
+## When set, load_saved() uses this path instead - the Main smoke test
+## points it at the test save so it never reads the player's real one.
+static var path_override: String = ""
+
 static func load_saved(path: String = SAVE_PATH) -> Progress:
+	if path_override != "":
+		path = path_override
 	var progress := Progress.new()
 	progress.save_path = path
 	var config := ConfigFile.new()
