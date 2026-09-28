@@ -11,9 +11,8 @@ dictates.
   Stalker damage at low fuel, lamps per run (3), mine decay rate on long
   runs, Burrower speed vs wall chew time, ore costs (repair, fortify,
   upgrades), hub text size (16pt).
-- **M23 - Headless test harness.** Keep a few automated checks for the
-  core rules (fall damage, repair cost, drift, Stalker strike rule) that
-  run with `godot --headless`, so tuning can't silently break them.
+- ~~**M23 - Headless test harness.**~~ Done: `tests/`, run by CI on
+  every pull request.
 
 ## Finish the NPC pillar
 
