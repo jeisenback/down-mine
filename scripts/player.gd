@@ -24,6 +24,14 @@ const MAX_HEALTH := 3
 const COYOTE_TIME := 0.1
 const JUMP_BUFFER_TIME := 0.12
 
+# Grapple: the PRD's "reusable tool, the reliable baseline" for getting
+# back up. Fires straight up, pulls to just below the first solid
+# ceiling within range. A miss (nothing in range) still costs half the
+# cooldown so spamming it isn't free.
+const GRAPPLE_RANGE := 96.0 # 6 tiles
+const GRAPPLE_PULL_SPEED := 500.0
+const GRAPPLE_COOLDOWN := 0.6
+
 @onready var light: MineLight = $MineLight
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
 
@@ -37,11 +45,16 @@ var currency: int = 0
 var _jump_was_pressed: bool = false
 var _coyote_timer: float = 0.0
 var _jump_buffer_timer: float = 0.0
+var _grapple_was_pressed: bool = false
+var _grapple_timer: float = 0.0
+var _grappling: bool = false
+var _grapple_target_y: float = 0.0
 
 func _physics_process(delta: float) -> void:
 	dig_timer = max(0.0, dig_timer - delta)
 	_coyote_timer = max(0.0, _coyote_timer - delta)
 	_jump_buffer_timer = max(0.0, _jump_buffer_timer - delta)
+	_grapple_timer = max(0.0, _grapple_timer - delta)
 
 	var input_dir := 0.0
 	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):
@@ -51,6 +64,19 @@ func _physics_process(delta: float) -> void:
 	if input_dir != 0.0:
 		facing = int(sign(input_dir))
 	_apply_horizontal_movement(input_dir, delta)
+
+	var grapple_pressed := Input.is_physical_key_pressed(KEY_Q)
+	if grapple_pressed and not _grapple_was_pressed and not _grappling and _grapple_timer <= 0.0:
+		_try_fire_grapple()
+	_grapple_was_pressed = grapple_pressed
+
+	if _grappling:
+		velocity.y = -GRAPPLE_PULL_SPEED
+		if global_position.y <= _grapple_target_y:
+			_grappling = false
+			velocity.y = 0.0
+		move_and_slide()
+		return
 
 	if is_on_floor():
 		velocity.y = 0.0
@@ -82,6 +108,25 @@ func _physics_process(delta: float) -> void:
 	light.set_flaring(Input.is_physical_key_pressed(KEY_SHIFT))
 
 	move_and_slide()
+
+## Scans straight up from the player's cell for the first solid cell
+## within GRAPPLE_RANGE. On a hit, starts pulling toward a point just
+## below it. On a miss, still costs half the cooldown so spamming it
+## isn't free.
+func _try_fire_grapple() -> void:
+	if mine == null:
+		return
+	var start_cell := mine.world_to_cell(global_position)
+	var max_cells := int(GRAPPLE_RANGE / mine.TILE_SIZE)
+	for i in range(1, max_cells + 1):
+		var cell := Vector2i(start_cell.x, start_cell.y - i)
+		if mine.is_solid(cell):
+			var target_cell := Vector2i(start_cell.x, cell.y + 1)
+			_grapple_target_y = mine.cell_to_world(target_cell).y
+			_grappling = true
+			_grapple_timer = GRAPPLE_COOLDOWN
+			return
+	_grapple_timer = GRAPPLE_COOLDOWN * 0.5
 
 ## Ramps velocity.x toward the input's target speed instead of snapping to
 ## it, so starting and stopping have weight. Takes input_dir directly
