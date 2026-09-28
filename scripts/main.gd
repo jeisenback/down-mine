@@ -66,6 +66,7 @@ var lost_miners: Array[LostMiner] = []
 func _ready() -> void:
 	player.mine = mine
 	stalker.player = player
+	stalker.run_base = run_base
 	mine.tile_dug.connect(_on_tile_dug)
 	player.made_noise.connect(_on_tile_dug) # same amount->noise_meter path, source doesn't matter
 	noise_meter.noise_changed.connect(hud.update_noise)

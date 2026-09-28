@@ -9,12 +9,21 @@ const ATTACK_RANGE := 14.0
 const ATTACK_COOLDOWN := 1.2
 
 var player: Player
+## The base light is a refuge: inside it the Stalker only retreats, so it
+## never attacks there - it waits at the edge instead.
+var run_base: RunBase
 var state: State = State.LURK
 var attack_timer: float = 0.0
 
 func _physics_process(delta: float) -> void:
 	attack_timer = max(0.0, attack_timer - delta)
 	if player == null:
+		return
+
+	var from_base := global_position - run_base.global_position
+	if from_base.length() < run_base.light.current_radius() - SAFE_LIGHT_MARGIN:
+		velocity = from_base.normalized() * SPEED
+		move_and_slide()
 		return
 
 	var to_player := player.global_position - global_position

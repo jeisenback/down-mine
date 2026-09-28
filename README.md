@@ -60,7 +60,8 @@ You can escort several miners at once; they follow in single file.
 
 **The run base**: starts at the surface; plant it deeper as a forward
 camp. Standing at it refills your lantern from the base's light (which
-makes its walls wear faster). Extraction is always at the surface, so a
+makes its walls wear faster). Stalkers won't enter the base's light, so
+it is a refuge - one that shrinks as you draw on it. Extraction is always at the surface, so a
 deep base doesn't shorten the climb home.
 
 **Run it**: open the project folder in Godot 4.3+ and press Play (main scene
