@@ -4,6 +4,8 @@ class_name HUD
 ## Emitted when the player asks for another run from the run summary.
 ## The HUD runs while the tree is paused (see _ready) so it can hear this.
 signal new_run_requested
+## Hub purchase, by Progress upgrade id (keys 1, 2, ... on the summary).
+signal upgrade_requested(id: String)
 
 const COMPASS_MARGIN := 40.0
 # Below this distance, hide the arrow instead of pointing it - arctan2 of
@@ -21,6 +23,8 @@ const ARRIVAL_RADIUS := 32.0
 @onready var run_summary: ColorRect = $RunSummary
 @onready var run_summary_label: Label = $RunSummary/SummaryLabel
 
+var _summary_header: String = ""
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
@@ -28,8 +32,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not run_summary.visible:
 		return
 	var key := event as InputEventKey
-	if key and key.pressed and not key.echo and key.physical_keycode in [KEY_ENTER, KEY_KP_ENTER]:
+	if not key or not key.pressed or key.echo:
+		return
+	if key.physical_keycode in [KEY_ENTER, KEY_KP_ENTER]:
 		new_run_requested.emit()
+	var index := key.physical_keycode - KEY_1
+	if index >= 0 and index < Progress.UPGRADE_ORDER.size():
+		upgrade_requested.emit(Progress.UPGRADE_ORDER[index])
 
 func update_fuel(fraction: float) -> void:
 	fuel_label.text = "Light: %d%%" % int(fraction * 100)
@@ -65,9 +74,23 @@ func update_compass(to_target: Vector2) -> void:
 ## Right now a run only ever ends by dying or reaching this. Without a
 ## visible outcome it just looked like the game froze - this makes an
 ## ending actually read as an ending.
-func show_run_summary(success: bool, currency: int, depth: int, banked_total: int) -> void:
+func show_run_summary(success: bool, currency: int, depth: int, progress: Progress) -> void:
 	var title := "Extracted!" if success else "Run Failed"
 	var currency_line := "Ore banked: %d" % currency if success else "Ore lost: %d" % currency
-	run_summary_label.text = "%s\n%s\nDepth reached: %d tiles\nTotal banked: %d\n\nPress Enter for a new run" % [
-		title, currency_line, depth, banked_total]
+	_summary_header = "%s\n%s\nDepth reached: %d tiles" % [title, currency_line, depth]
+	refresh_hub(progress)
 	run_summary.visible = true
+
+## The run summary doubles as the hub: spend banked ore, then go back down.
+func refresh_hub(progress: Progress) -> void:
+	var lines := [_summary_header, "", "Banked ore: %d" % progress.banked_ore]
+	for i in range(Progress.UPGRADE_ORDER.size()):
+		var id: String = Progress.UPGRADE_ORDER[i]
+		var upgrade: Dictionary = Progress.UPGRADES[id]
+		var cost := progress.next_cost(id)
+		var price := "MAX" if cost < 0 else "%d ore" % cost
+		lines.append("[%d] %s (%s)  Lv %d/%d  - %s" % [
+			i + 1, upgrade.name, upgrade.effect, progress.level(id), upgrade.max_level, price])
+	lines.append("")
+	lines.append("Press Enter for a new run")
+	run_summary_label.text = "\n".join(lines)
