@@ -16,6 +16,7 @@ darkness. No crew, hub, or stranding yet.
 - `Q` — fire the grapple straight up (reusable, pulls you to the first solid ceiling within range)
 - `R` — place a rope at your feet (consumable, climbable with `W`/`S`, decays over time — faster in the dark)
 - `E` — extract at the run base (banks ore, ends the run)
+- `Enter` — start a new run from the run summary (banked ore is saved between runs)
 
 **Run it**: open the project folder in Godot 4.3+ and press Play (main scene
 is `scenes/Main.tscn`).

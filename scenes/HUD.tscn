@@ -32,6 +32,10 @@ show_percentage = false
 layout_mode = 2
 text = "Ore: 0"
 
+[node name="BankedLabel" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+text = "Banked: 0"
+
 [node name="Compass" type="Node2D" parent="."]
 
 [node name="Arrow" type="Polygon2D" parent="Compass"]
