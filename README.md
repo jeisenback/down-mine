@@ -55,7 +55,9 @@ extraction: Seasoned at 2 runs (bonus x1.5), Veteran at 5 (bonus x2, plus
 a title such as "Ada the Lamplighter"). Fail the run while escorting and they are stranded in the layer
 they were lost in: the hub shows where, they drift one layer deeper for
 every run that ends without rescuing them, and drifting past Deep rock
-kills them. In their layer, an arrow in their shirt colour points to them.
+kills them. Around each one, scraps of their shirt glow faintly on cave
+floors, from ~18 tiles out to right beside them; Veterans leave more and
+brighter ones.
 You can escort several miners at once; they follow in single file.
 Your crew wait at the run base. If the run fails - you die or the base
 falls - they are stranded in the base's layer and lose their bonus until

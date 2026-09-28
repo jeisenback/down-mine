@@ -79,6 +79,21 @@ func test_burrower_must_chew_through_walls() -> void:
 	await physics_frames(150) # WALL_CHEW_TIME is 2.5s
 	assert_true(not mine.is_wall(wall_cell), "chewed through")
 
+func test_sign_trail_spreads_from_far_to_near() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var center := Vector2i(40, 150)
+	var cells := mine.take_trail_cells(center, 5, 2.0, 18.0)
+	assert_eq(cells.size(), 5, "five signs placed")
+	var distances := cells.map(func(c): return Vector2(c - center).length())
+	for d in distances:
+		assert_true(d >= 2.0 and d <= 18.0, "sign within 2-18 tiles (was %.1f)" % d)
+	for i in range(distances.size() - 1):
+		assert_true(distances[i] >= distances[i + 1], "ordered far to near")
+	assert_true(distances[0] > 12.0, "trail starts far out (was %.1f)" % distances[0])
+	assert_true(distances[-1] < 6.0, "trail ends close to the miner (was %.1f)" % distances[-1])
+	var again := mine.take_trail_cells(center, 5, 2.0, 18.0)
+	assert_true(again.all(func(c): return not c in cells), "cells are claimed, never reused")
+
 func test_decay_collapses_dark_tunnels_but_spares_lit_ones() -> void:
 	var mine: MineGrid = add(MineScene.instantiate())
 	var lit_cell := Vector2i(40, 150)
