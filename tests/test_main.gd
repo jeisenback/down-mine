@@ -170,3 +170,27 @@ func test_flaring_burns_the_nest_and_calms_the_deep() -> void:
 	assert_true(not is_instance_valid(main.deep_stalker), "deep Stalker gone")
 	assert_eq(main.hud.layer_label.text, "Deep rock: unstable", "hazard line drops the Stalker")
 	Progress.path_override = ""
+
+func test_heart_wakes_the_mine_and_wins_the_run() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	main.stalker.process_mode = Node.PROCESS_MODE_DISABLED
+	var heart: Heart = main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Heart)[0]
+	var claimed: int = main.progress.hearts_claimed
+	var decay: float = main.mine.decay_multiplier
+	assert_eq(decay, pow(main.CLAIMED_DECAY_STEP, claimed), "claimed Hearts speed up decay")
+	main.noise_meter.decay_rate = 0.0
+	main.noise_meter.noise = 0.0
+	heart.use(main)
+	assert_true(main.carrying_heart, "carrying")
+	assert_eq(main.noise_meter.noise, main.HEART_NOISE, "taking it is loud")
+	assert_eq(main.mine.decay_multiplier, decay * main.HEART_CARRY_DECAY, "mine decays faster")
+	main.player.currency = 10
+	var banked: int = main.progress.banked_ore
+	main._extract()
+	tree.paused = false
+	assert_eq(main.progress.hearts_claimed, claimed + 1, "Heart claimed")
+	assert_eq(main.progress.banked_ore, banked + 10 + main.HEART_ORE, "Heart banks its ore")
+	assert_true(main.hud.run_summary_label.text.contains("The Heart is yours!"), "win title")
+	Progress.path_override = ""

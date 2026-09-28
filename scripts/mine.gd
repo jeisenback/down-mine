@@ -104,6 +104,8 @@ const LOST_MINER_MAX_ROW := 70
 # one mine event that Main places (see Main._spawn_events). One entry per
 # room; the layer is picked from the listed ones.
 const EVENT_ROOMS := [
+	# First, so it always finds room in the bottom band.
+	{"kind": "heart", "layers": [2], "bottom": true},
 	{"kind": "camp", "layers": [0]},
 	{"kind": "camp", "layers": [1]},
 	{"kind": "camp", "layers": [2]},
@@ -137,6 +139,9 @@ var _room_cells: Dictionary = {}
 ## Bedrock shell of the relic vault (milestone 35).
 var _vault_cells: Dictionary = {}
 var _decay_timer: float = 0.0
+## Scales every decay interval: below 1 the mine falls apart faster
+## (claimed Hearts, and a Heart being carried - milestone 40).
+var decay_multiplier: float = 1.0
 var _run_time: float = 0.0
 
 func _ready() -> void:
@@ -246,6 +251,8 @@ func _carve_event_rooms(solid: Array, rng: RandomNumberGenerator) -> void:
 	for room in EVENT_ROOMS:
 		var layer: int = room.layers[rng.randi_range(0, room.layers.size() - 1)]
 		var rows := _layer_rows(layer)
+		if room.get("bottom", false):
+			rows.x = rows.y - ROOM_SIZE.y - 12
 		for i in range(ROOM_PLACE_TRIES):
 			var top_left := Vector2i(rng.randi_range(2, GRID_WIDTH - 2 - ROOM_SIZE.x),
 				rng.randi_range(max(rows.x, SURFACE_ROWS + 2), rows.y - ROOM_SIZE.y - 1))
@@ -514,7 +521,7 @@ func decay_interval(player_pos: Vector2) -> float:
 	var interval: float = lerp(DECAY_INTERVAL_START, DECAY_INTERVAL_END, min(1.0, _run_time / DECAY_RAMP_TIME))
 	if layer_index_at_world(player_pos) == UNSTABLE_LAYER:
 		interval *= UNSTABLE_DECAY_MULTIPLIER
-	return interval
+	return interval * decay_multiplier
 
 func _place_gas_pockets(rng: RandomNumberGenerator) -> void:
 	var placed := 0

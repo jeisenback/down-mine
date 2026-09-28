@@ -36,6 +36,10 @@ PALETTE = {
     "A": (32, 31, 31),     # ash dark
     "h": (137, 194, 118, 110),  # gas light (translucent)
     "H": (105, 158, 88, 90),    # gas
+    "c": (197, 228, 243),  # crystal light
+    "C": (143, 191, 213),  # crystal
+    "v": (92, 123, 138),   # crystal shade
+    "V": (54, 73, 85),     # crystal dark
 }
 
 LAMP = [
@@ -194,6 +198,19 @@ RELIC = [
     ".sgggggggs.",
     "sssssssssss",
 ]
+
+HEART = [
+    "....cC.....",
+    "...cCCv....",
+    "...cCCv....",
+    "..cCCCvv...",
+    "..cCcCvv...",
+    "..cCCCvV...",
+    "...cCCvV...",
+    "...cCvvV...",
+    "....cvV....",
+    "....vVV....",
+] + RELIC[10:]  # on the relic's stone pedestal
 
 SCRAP = [
     "......yyG.",
@@ -359,6 +376,7 @@ SPRITES = {
     "scorch": (scorch(), 30, 100),
     "scrap": (SCRAP, 64, 100),
     "gas_cloud": (gas_cloud(), 0, 120),
+    "heart": (HEART, 66, 120),
 }
 
 
