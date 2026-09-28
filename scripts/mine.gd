@@ -288,6 +288,34 @@ func _pick_lost_miner_cell() -> void:
 func take_floor_cell_in_layer(layer_index: int) -> Vector2i:
 	return _take_spare_floor_cell(func(cell): return _layer_index_for_row(cell.y) == layer_index)
 
+## Up to count unclaimed cave-floor cells between min and max tiles from
+## center, spread evenly by distance (far to near) - where a stranded
+## miner's signs go, so they get denser as you close in. Claims them, so
+## their floors never crumble.
+func take_trail_cells(center: Vector2i, count: int, min_tiles: float, max_tiles: float) -> Array[Vector2i]:
+	var candidates: Array[Vector2i] = []
+	for cell in _spare_floor_cells:
+		var d := Vector2(cell - center).length()
+		if d >= min_tiles and d <= max_tiles:
+			candidates.append(cell)
+	# Aim each sign at an evenly spaced distance, max down to min, taking
+	# the closest-matching cell. (Picking evenly through a distance-sorted
+	# list skews far: there is more floor area at larger radii.)
+	var picked: Array[Vector2i] = []
+	for i in range(count):
+		if candidates.is_empty():
+			break
+		var target: float = lerp(max_tiles, min_tiles, i / float(max(1, count - 1)))
+		var best: Vector2i = candidates[0]
+		for cell in candidates:
+			if absf(Vector2(cell - center).length() - target) < absf(Vector2(best - center).length() - target):
+				best = cell
+		candidates.erase(best)
+		_spare_floor_cells.erase(best)
+		_reserved_floors[best + Vector2i.DOWN] = true
+		picked.append(best)
+	return picked
+
 func _take_spare_floor_cell(accept: Callable) -> Vector2i:
 	for i in range(_spare_floor_cells.size()):
 		var cell: Vector2i = _spare_floor_cells[i]

@@ -27,8 +27,6 @@ const ARRIVAL_RADIUS := 32.0
 @onready var lamp_label: Label = $Margin/VBox/LampLabel
 @onready var prompt_label: Label = $PromptLabel
 @onready var compass: Node2D = $Compass
-@onready var stranded_compass: Node2D = $StrandedCompass
-@onready var stranded_arrow: Polygon2D = $StrandedCompass/Arrow
 @onready var run_summary: ColorRect = $RunSummary
 @onready var run_summary_label: Label = $RunSummary/SummaryLabel
 
@@ -96,14 +94,6 @@ func update_banked(amount: int) -> void:
 ## rotate.
 func update_compass(to_target: Vector2) -> void:
 	_point_arrow(compass, to_target)
-
-## Second arrow, in a stranded miner's shirt colour (see Main).
-func update_stranded_compass(to_target: Vector2, color: Color) -> void:
-	stranded_arrow.color = color
-	_point_arrow(stranded_compass, to_target)
-
-func hide_stranded_compass() -> void:
-	stranded_compass.visible = false
 
 func _point_arrow(arrow: Node2D, to_target: Vector2) -> void:
 	if to_target.length_squared() < ARRIVAL_RADIUS * ARRIVAL_RADIUS:

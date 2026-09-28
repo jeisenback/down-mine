@@ -18,8 +18,8 @@ dictates.
 
 - ~~**M24 - Crew join runs.**~~ Done: crew wait at the base and are
   stranded in its layer when a run fails.
-- **M25 - Stranding signs.** Replace the HUD arrow with in-world signs
-  (dropped gear, wall marks, faint lights); Veterans leave clearer ones.
+- ~~**M25 - Stranding signs.**~~ Done: glowing shirt scraps lead to each
+  stranded miner; Veterans leave more, brighter ones.
 - **M26 - Veteran quirks.** One small quirk per Veteran, flavour plus a
   minor effect.
 

@@ -29,6 +29,12 @@ const SNUFFER_SPAWN_INTERVAL := 45.0
 const SNUFFER_SPAWN_DISTANCE_TILES := 10
 
 const LostMinerScene := preload("res://scenes/LostMiner.tscn")
+# Signs leading to each stranded miner (milestone 25); Veterans leave more.
+const StrandedSignScene := preload("res://scenes/StrandedSign.tscn")
+const SIGN_COUNT := 5
+const VETERAN_SIGN_COUNT := 8
+const SIGN_MIN_TILES := 2.0
+const SIGN_MAX_TILES := 18.0
 # Each miner has their own shirt colour (and matching glow), so the same
 # miner always looks the same and two miners never read as one. All
 # distinct from the player's red shirt.
@@ -117,6 +123,20 @@ func _spawn_lost_miners() -> void:
 		var cell := mine.take_floor_cell_in_layer(npc.layer)
 		if cell.x >= 0:
 			_spawn_miner(npc.name, npc.type, cell, true)
+			_place_signs(npc, cell)
+
+## The PRD's in-mine signs: scraps of the stranded miner's shirt on cave
+## floors around them, spread from far to near so they get denser as the
+## player closes in. The hub says which layer; the signs say where.
+func _place_signs(npc: Dictionary, miner_cell: Vector2i) -> void:
+	var veteran: bool = progress.rank_of(npc).name == "Veteran"
+	var count := VETERAN_SIGN_COUNT if veteran else SIGN_COUNT
+	for cell in mine.take_trail_cells(miner_cell, count, SIGN_MIN_TILES, SIGN_MAX_TILES):
+		var marker: StrandedSign = StrandedSignScene.instantiate()
+		marker.color = MINER_COLORS.get(npc.name, Color(1, 1, 1))
+		marker.veteran = veteran
+		marker.global_position = mine.cell_to_world(cell)
+		mine.add_child(marker)
 
 func _spawn_miner(miner_name: String, npc_type: String, cell: Vector2i, was_stranded: bool) -> void:
 	var miner: LostMiner = LostMinerScene.instantiate()
@@ -139,21 +159,6 @@ func _on_miner_picked_up(miner: LostMiner) -> void:
 func _escorts() -> Array:
 	return lost_miners.filter(func(m): return m.following)
 
-## The PRD's in-mine "signs" for stranded miners, simplified: while the
-## player is in a stranded miner's layer, an arrow in their shirt colour
-## points to the nearest one. The hub already told them which layer.
-func _update_stranded_compass() -> void:
-	var player_layer := mine.layer_index_at_world(player.global_position)
-	var nearest: LostMiner = null
-	for miner in lost_miners:
-		if miner.was_stranded and not miner.following and mine.layer_index_at_world(miner.global_position) == player_layer:
-			if nearest == null or player.global_position.distance_to(miner.global_position) < player.global_position.distance_to(nearest.global_position):
-				nearest = miner
-	if nearest == null:
-		hud.hide_stranded_compass()
-	else:
-		hud.update_stranded_compass(nearest.global_position - player.global_position, nearest.shirt_color)
-
 func _configure_camera_limits() -> void:
 	var camera := player.get_node("Camera2D") as Camera2D
 	camera.limit_right = mine.GRID_WIDTH * mine.TILE_SIZE
@@ -165,7 +170,6 @@ func _process(delta: float) -> void:
 	hud.update_fuel(player.light.fuel_fraction())
 	hud.update_health(player.health)
 	hud.update_compass(run_base.global_position - player.global_position)
-	_update_stranded_compass()
 	hud.update_currency(player.currency)
 	_check_repair(delta)
 	_check_fortify()
