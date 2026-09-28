@@ -67,6 +67,11 @@ deep base doesn't shorten the climb home.
 **Run it**: open the project folder in Godot 4.3+ and press Play (main scene
 is `scenes/Main.tscn`).
 
+**Run the tests**: `godot --headless --fixed-fps 60 -s tests/run_tests.gd`
+(exits non-zero on failure; CI runs it on every pull request). Test
+scripts are `tests/test_*.gd`, extending `TestCase`; every `test_*`
+method runs. Tests write to their own save file, never the real one.
+
 **Play in a browser**: every push to `main` builds the Web export and
 publishes it to GitHub Pages (`.github/workflows/web.yml`). One-time
 setup: repo Settings -> Pages -> Source: "GitHub Actions". Click the game

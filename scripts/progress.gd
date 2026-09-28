@@ -53,6 +53,9 @@ const BASE_CREW_SLOTS := 1
 # through neglect). Matches MineGrid's depth bands.
 const LAYER_NAMES := ["Topsoil", "Stone", "Deep rock"]
 
+## Where save() writes. Tests point this elsewhere so they never touch
+## the player's real save.
+var save_path: String = SAVE_PATH
 var banked_ore: int = 0
 var levels: Dictionary = {}
 ## Rescued NPCs, oldest first: [{"name": String, "type": String}, ...]
@@ -62,10 +65,11 @@ var crew_names: Array = []
 ## Stranded NPCs: [{"name": String, "type": String, "layer": int}, ...]
 var stranded: Array = []
 
-static func load_saved() -> Progress:
+static func load_saved(path: String = SAVE_PATH) -> Progress:
 	var progress := Progress.new()
+	progress.save_path = path
 	var config := ConfigFile.new()
-	if config.load(SAVE_PATH) == OK:
+	if config.load(path) == OK:
 		progress.banked_ore = int(config.get_value("bank", "ore", 0))
 		for id in UPGRADES:
 			progress.levels[id] = int(config.get_value("upgrades", id, 0))
@@ -84,7 +88,7 @@ func save() -> void:
 	config.set_value("npcs", "roster", roster)
 	config.set_value("npcs", "stranded", stranded)
 	config.set_value("npcs", "crew", crew_names)
-	config.save(SAVE_PATH)
+	config.save(save_path)
 
 func level(id: String) -> int:
 	return levels.get(id, 0)

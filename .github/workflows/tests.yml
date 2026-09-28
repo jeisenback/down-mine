@@ -1,0 +1,30 @@
+# Runs the headless test suite (tests/run_tests.gd) on every pull request
+# and on pushes to main.
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+env:
+  GODOT_VERSION: "4.5"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -sSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot
+
+      - name: Run tests
+        run: |
+          # The import pass builds the class_name cache the scripts rely on.
+          "$RUNNER_TEMP/godot" --headless --import
+          "$RUNNER_TEMP/godot" --headless --fixed-fps 60 -s tests/run_tests.gd
