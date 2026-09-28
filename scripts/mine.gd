@@ -111,6 +111,7 @@ const EVENT_ROOMS := [
 	{"kind": "outpost", "layers": [1, 2]},
 	{"kind": "vault", "layers": [2]},
 	{"kind": "gallery", "layers": [1, 2]},
+	{"kind": "nest", "layers": [2]},
 ]
 const ROOM_SIZE := Vector2i(9, 4)
 const ROOM_MIN_SPACING_TILES := 20.0

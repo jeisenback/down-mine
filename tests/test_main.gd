@@ -147,3 +147,26 @@ func test_gallery_collapses_after_entry_and_buries() -> void:
 	await physics_frames(1)
 	assert_true(ore.all(func(p): return not is_instance_valid(p)), "buried ore lost")
 	Progress.path_override = ""
+
+func test_flaring_burns_the_nest_and_calms_the_deep() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	main.stalker.process_mode = Node.PROCESS_MODE_DISABLED
+	var nest: Nest = main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Nest)[0]
+	main.player.set_physics_process(false) # no input: flaring set by hand
+	main.player.global_position = nest.global_position
+	await tree.create_timer(0.2).timeout # physics frames alone may not run _process
+	assert_true(is_instance_valid(main.deep_stalker), "deep Stalker woke on arrival")
+	assert_eq(nest.burn, 0.0, "no burn without a flare")
+	main.noise_meter.decay_rate = 0.0
+	main.noise_meter.noise = 0.0
+	main.player.light.is_flaring = true
+	main.player.light.fuel = main.player.light.max_fuel
+	await tree.create_timer(Nest.BURN_SECONDS + 0.3).timeout
+	assert_true(nest.destroyed and main.nest_destroyed, "flaring burned the nest")
+	assert_true(main.noise_meter.noise >= Nest.BURN_NOISE, "burning is loud") # decay may add a little
+	await tree.create_timer(0.1).timeout
+	assert_true(not is_instance_valid(main.deep_stalker), "deep Stalker gone")
+	assert_eq(main.hud.layer_label.text, "Deep rock: unstable", "hazard line drops the Stalker")
+	Progress.path_override = ""

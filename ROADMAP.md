@@ -55,8 +55,8 @@ dictates.
   door breaks with 60 noise; the relic is worth 150 ore.
 - ~~**M36 - Collapsing gallery.**~~ Done: double-value ore; the room
   fills with rock 12s after you enter unless supports hold it.
-- **M37 - Nest.** Stalker eggs in the deep; flare them out and the layer
-  is safer for the rest of the run.
+- ~~**M37 - Nest.**~~ Done: flare beside the eggs for 2s to burn them;
+  the deep's second Stalker is gone for the run.
 
 ## Open design questions (from the PRD)
 
