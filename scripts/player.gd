@@ -74,6 +74,8 @@ func _physics_process(delta: float) -> void:
 		_dig_staircase()
 	elif digging_down:
 		_dig_straight_down()
+	elif digging_forward and jump_pressed:
+		_dig_straight_up()
 	elif digging_forward:
 		_dig_forward()
 
@@ -96,6 +98,21 @@ func _dig_straight_down() -> void:
 	var half_extents: Vector2 = (collision_shape.shape as RectangleShape2D).size / 2.0
 	var half_tile: float = mine.TILE_SIZE / 2.0
 	var target := global_position + Vector2(0.0, half_extents.y + half_tile)
+	if mine.dig_at_world(target):
+		dig_timer = DIG_COOLDOWN
+
+## Digs the tile directly above the player's head - the return trip's
+## answer to _dig_straight_down(). Unlike digging down, gravity doesn't
+## carry the player up through the cleared gap: it has to be paired with
+## jumping into the new space, then dug again near the top of the arc.
+## Triggered by holding Space (dig) + Up/W (the jump key) together, so it
+## doesn't collide with either action alone.
+func _dig_straight_up() -> void:
+	if dig_timer > 0.0 or mine == null:
+		return
+	var half_extents: Vector2 = (collision_shape.shape as RectangleShape2D).size / 2.0
+	var half_tile: float = mine.TILE_SIZE / 2.0
+	var target := global_position + Vector2(0.0, -(half_extents.y + half_tile))
 	if mine.dig_at_world(target):
 		dig_timer = DIG_COOLDOWN
 
