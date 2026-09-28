@@ -20,6 +20,8 @@ var shirt_color: Color = Color(1, 1, 1)
 var npc_type: String = "light"
 ## True for a miner stranded on an earlier run (vs. this run's new find).
 var was_stranded: bool = false
+## Layer index they were found in, kept as roster history.
+var found_in: int = 0
 var following: bool = false
 ## Trail points behind the player. Main sets this at pickup so a second
 ## escort walks behind the first instead of on top of them.

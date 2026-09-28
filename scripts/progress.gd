@@ -20,16 +20,25 @@ const HARD_HAT_HEALTH_PER_LEVEL := 1
 
 # NPC types (PRD: light, repair, noise, traversal). A crew member's type
 # improves its system while on the crew; two of a type stack. Repair
-# waits for base repair to exist.
+# waits for base repair to exist. Bonuses are fractions at rank
+# strength 1.0; veterans scale them (see RANKS). title: veteran epithet.
 const NPC_TYPES := {
-	"light": {"label": "Light", "effect": "lantern burns 20% slower, reaches 15% further"},
-	"noise": {"label": "Noise", "effect": "everything you do is 25% quieter"},
-	"traversal": {"label": "Traversal", "effect": "grapple reaches 50% further"},
+	"light": {"label": "Light", "title": "Lamplighter"},
+	"noise": {"label": "Noise", "title": "Whisper"},
+	"traversal": {"label": "Traversal", "title": "Climber"},
 }
-const LIGHT_CREW_BURN_MULTIPLIER := 0.8
-const LIGHT_CREW_RADIUS_MULTIPLIER := 1.15
-const NOISE_CREW_MULTIPLIER := 0.75
-const TRAVERSAL_CREW_GRAPPLE_MULTIPLIER := 1.5
+const LIGHT_BURN_REDUCTION := 0.2
+const LIGHT_RADIUS_BONUS := 0.15
+const NOISE_REDUCTION := 0.25
+const TRAVERSAL_GRAPPLE_BONUS := 0.5
+
+# Veterans (PRD): crew gain a run of experience each time a run they were
+# on ends in extraction. Rank scales their bonus; Veterans earn a title.
+const RANKS := [
+	{"name": "Rookie", "runs": 0, "strength": 1.0},
+	{"name": "Seasoned", "runs": 2, "strength": 1.5},
+	{"name": "Veteran", "runs": 5, "strength": 2.0},
+]
 # PRD: types missing from the roster spawn more often.
 const MISSING_TYPE_WEIGHT := 3
 # PRD default: 1 starting slot, 4 max via the crew bunk upgrade.
@@ -109,6 +118,30 @@ func toggle_crew(npc_name: String) -> void:
 		crew_names.append(npc_name)
 	save()
 
+func rank_of(member: Dictionary) -> Dictionary:
+	var rank: Dictionary = RANKS[0]
+	for r in RANKS:
+		if member.get("runs", 0) >= r.runs:
+			rank = r
+	return rank
+
+func display_name(member: Dictionary) -> String:
+	if rank_of(member).name == "Veteran":
+		return "%s the %s" % [member.name, NPC_TYPES[member.type].title]
+	return member.name
+
+func effect_text(member: Dictionary) -> String:
+	var strength: float = rank_of(member).strength
+	match member.type:
+		"light":
+			return "lantern burn -%d%%, reach +%d%%" % [
+				roundi(LIGHT_BURN_REDUCTION * strength * 100), roundi(LIGHT_RADIUS_BONUS * strength * 100)]
+		"noise":
+			return "noise -%d%%" % roundi(NOISE_REDUCTION * strength * 100)
+		"traversal":
+			return "grapple reach +%d%%" % roundi(TRAVERSAL_GRAPPLE_BONUS * strength * 100)
+	return ""
+
 ## Type for a newly found miner, weighted toward types the roster lacks.
 func pick_new_npc_type() -> String:
 	var owned := roster.map(func(m): return m.type)
@@ -119,14 +152,22 @@ func pick_new_npc_type() -> String:
 	return pool.pick_random()
 
 ## Settles NPC state at the end of a run and saves. rescued: miners
-## extracted with the player. newly_stranded: miners being escorted when
-## the run failed, with the layer they were lost in. Every other stranded
-## miner drifts a layer deeper. Returns summary lines for the hub.
-func end_run(rescued: Array, newly_stranded: Array) -> Array:
+## extracted with the player (with the layer they were found in).
+## newly_stranded: miners being escorted when the run failed, with the
+## layer they were lost in. On extraction the crew gains a run of
+## experience. Every other stranded miner drifts a layer deeper. Returns
+## summary lines for the hub.
+func end_run(rescued: Array, newly_stranded: Array, extracted: bool) -> Array:
 	var notes: Array = []
+	if extracted:
+		for member in crew(): # before rescues, so newcomers don't gain a run
+			var old_rank: String = rank_of(member).name
+			member.runs = member.get("runs", 0) + 1
+			if rank_of(member).name != old_rank:
+				notes.append("%s is now %s" % [display_name(member), rank_of(member).name])
 	var settled := {}
 	for npc in rescued:
-		roster.append({"name": npc.name, "type": npc.type})
+		roster.append({"name": npc.name, "type": npc.type, "runs": 0, "found_in": npc.found_in})
 		if crew_names.size() < crew_slots():
 			crew_names.append(npc.name) # fill a free slot by default
 		settled[npc.name] = true
@@ -152,10 +193,11 @@ func apply_to(player: Player, noise_meter: NoiseMeter) -> void:
 	player.light.fuel = player.light.max_fuel
 	player.health += level("hard_hat") * HARD_HAT_HEALTH_PER_LEVEL
 	for member in crew():
+		var strength: float = rank_of(member).strength
 		if member.type == "light":
-			player.light.burn_rate *= LIGHT_CREW_BURN_MULTIPLIER
-			player.light.radius_max *= LIGHT_CREW_RADIUS_MULTIPLIER
+			player.light.burn_rate *= 1.0 - LIGHT_BURN_REDUCTION * strength
+			player.light.radius_max *= 1.0 + LIGHT_RADIUS_BONUS * strength
 		elif member.type == "noise":
-			noise_meter.noise_multiplier *= NOISE_CREW_MULTIPLIER
+			noise_meter.noise_multiplier *= 1.0 - NOISE_REDUCTION * strength
 		elif member.type == "traversal":
-			player.grapple_range *= TRAVERSAL_CREW_GRAPPLE_MULTIPLIER
+			player.grapple_range *= 1.0 + TRAVERSAL_GRAPPLE_BONUS * strength

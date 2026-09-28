@@ -130,10 +130,12 @@ func refresh_hub(progress: Progress) -> void:
 	var first_key := Progress.UPGRADE_ORDER.size() + 1
 	for i in range(progress.roster.size()):
 		var member: Dictionary = progress.roster[i]
-		var type_info: Dictionary = Progress.NPC_TYPES[member.type]
 		var on_crew := "  [CREW]" if member.name in progress.crew_names else ""
 		var key_label := "[%d] " % (first_key + i) if first_key + i <= 9 else ""
-		lines.append("%s%s - %s: %s%s" % [key_label, member.name, type_info.label, type_info.effect, on_crew])
+		var runs: int = member.get("runs", 0)
+		var history := "%d run%s, from %s" % [runs, "" if runs == 1 else "s", Progress.LAYER_NAMES[member.get("found_in", 0)]]
+		lines.append("%s%s - %s %s: %s (%s)%s" % [key_label, progress.display_name(member),
+			progress.rank_of(member).name, Progress.NPC_TYPES[member.type].label, progress.effect_text(member), history, on_crew])
 	for npc in progress.stranded:
 		var last_layer: bool = npc.layer == Progress.LAYER_NAMES.size() - 1
 		var fate := "lost for good if not rescued next run" if last_layer else "drifts to the %s if not rescued" % Progress.LAYER_NAMES[npc.layer + 1]

@@ -77,6 +77,7 @@ func _spawn_miner(miner_name: String, npc_type: String, cell: Vector2i, was_stra
 	miner.was_stranded = was_stranded
 	miner.shirt_color = MINER_COLORS.get(miner_name, Color(1, 1, 1))
 	miner.global_position = mine.cell_to_world(cell)
+	miner.found_in = mine.layer_index_at_world(miner.global_position)
 	miner.picked_up.connect(_on_miner_picked_up.bind(miner))
 	add_child(miner)
 	lost_miners.append(miner)
@@ -139,8 +140,8 @@ func _extract() -> void:
 	progress.banked_ore += player.currency
 	progress.save()
 	hud.update_banked(progress.banked_ore)
-	var rescued := _escorts().map(func(m): return {"name": m.miner_name, "type": m.npc_type})
-	var notes := progress.end_run(rescued, [])
+	var rescued := _escorts().map(func(m): return {"name": m.miner_name, "type": m.npc_type, "found_in": m.found_in})
+	var notes := progress.end_run(rescued, [], true)
 	hud.show_run_summary("Extracted!", true, player.currency, max_depth_reached, progress, notes)
 	get_tree().paused = true
 
@@ -176,7 +177,7 @@ func _fail_run(title: String) -> void:
 	# PRD: miners lost during an escort are stranded where they were lost.
 	var newly_stranded := _escorts().map(func(m): return {
 		"name": m.miner_name, "type": m.npc_type, "layer": mine.layer_index_at_world(m.global_position)})
-	var notes := progress.end_run([], newly_stranded)
+	var notes := progress.end_run([], newly_stranded, false)
 	hud.show_run_summary(title, false, player.currency, max_depth_reached, progress, notes)
 	get_tree().paused = true
 

@@ -34,7 +34,10 @@ with them and they join the roster. Each miner has a type that helps
 while they are on your crew: Light (lantern burns 20% slower, reaches
 15% further), Noise (everything 25% quieter) or Traversal (grapple
 reaches 50% further). New finds lean toward types you don't have yet.
-You start with one crew slot; pick who fills it at the hub. Fail the run while escorting and they are stranded in the layer
+You start with one crew slot; pick who fills it at the hub.
+Crew gain a run of experience whenever a run they were on ends in
+extraction: Seasoned at 2 runs (bonus x1.5), Veteran at 5 (bonus x2, plus
+a title such as "Ada the Lamplighter"). Fail the run while escorting and they are stranded in the layer
 they were lost in: the hub shows where, they drift one layer deeper for
 every run that ends without rescuing them, and drifting past Deep rock
 kills them. In their layer, an arrow in their shirt colour points to them.
