@@ -86,6 +86,7 @@ func _ready() -> void:
 	hud.crew_toggle_requested.connect(_on_crew_toggle_requested)
 	progress = Progress.load_saved()
 	progress.apply_to(player, noise_meter, run_base)
+	lamps_left += progress.extra_lamps()
 	hud.update_banked(progress.banked_ore)
 	_configure_camera_limits()
 	_spawn_lost_miners()

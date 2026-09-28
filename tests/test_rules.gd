@@ -72,6 +72,42 @@ func test_stranded_crew_leave_roster_and_keep_history() -> void:
 	assert_eq(p.crew_names, ["Fenn"], "back on the crew")
 	assert_true(notes.any(func(n): return "Fenn the Mender" in n), "rescued as a Veteran")
 
+func test_promotion_to_veteran_grants_a_quirk() -> void:
+	var p := _progress()
+	p.roster = [{"name": "Greta", "type": "noise", "runs": 4}]
+	p.crew_names = ["Greta"]
+	var notes := p.end_run([], [], true)
+	assert_true(p.roster[0].has("quirk"), "new Veteran has a quirk")
+	assert_true(p.roster[0].quirk in Progress.QUIRKS, "quirk is a known one")
+	assert_true(notes.any(func(n): return "quirk" in n), "quirk announced")
+	var vets: Array = []
+	for i in range(Progress.QUIRKS.size()):
+		vets.append({"name": "V%d" % i, "type": "light", "runs": 5})
+	p.roster = vets
+	p._assign_missing_quirks()
+	var quirks := vets.map(func(v): return v.quirk)
+	for q in Progress.QUIRKS:
+		assert_true(q in quirks, "no repeats until every quirk is taken (%s missing)" % q)
+	var seasoned := {"name": "Hale", "type": "light", "runs": 2}
+	p.roster.append(seasoned)
+	p._assign_missing_quirks()
+	assert_true(not seasoned.has("quirk"), "only Veterans get quirks")
+
+func test_quirk_survives_stranding_and_rescue() -> void:
+	var p := _progress()
+	p.roster = [{"name": "Iris", "type": "light", "runs": 7, "quirk": "pack_rat"}]
+	p.crew_names = ["Iris"]
+	assert_eq(p.extra_lamps(), 1, "pack rat on the crew adds a lamp")
+	p.end_run([], [{"name": "Iris", "type": "light", "layer": 0}], false)
+	assert_eq(p.extra_lamps(), 0, "no lamp while stranded")
+	p.end_run([{"name": "Iris", "type": "light", "found_in": 0}], [], true)
+	assert_eq(p.roster[0].get("quirk", ""), "pack_rat", "quirk kept through rescue")
+
+func test_sure_footed_raises_safe_fall() -> void:
+	var seven := _speed_for_fall(7.5)
+	assert_eq(Player.fall_damage_for_speed(seven), 1, "7.5 tiles hurts by default")
+	assert_eq(Player.fall_damage_for_speed(seven, Player.SAFE_FALL_TILES + Progress.SURE_FOOTED_TILES), 0, "sure-footed takes it")
+
 func test_veteran_bonus_and_title() -> void:
 	var p := _progress()
 	var vet := {"name": "Ezra", "type": "noise", "runs": 5}

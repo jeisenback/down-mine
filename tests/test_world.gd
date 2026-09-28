@@ -79,6 +79,27 @@ func test_burrower_must_chew_through_walls() -> void:
 	await physics_frames(150) # WALL_CHEW_TIME is 2.5s
 	assert_true(not mine.is_wall(wall_cell), "chewed through")
 
+func test_quirks_apply_their_effects() -> void:
+	var player := _still_player(Vector2.ZERO, 1.0)
+	var base := _base(Vector2(-500, 0))
+	var meter: NoiseMeter = add(NoiseMeter.new())
+	var p := Progress.new()
+	p.save_path = TEST_SAVE_PATH
+	p.roster = [
+		{"name": "A", "type": "light", "runs": 0, "quirk": "night_eyes"},
+		{"name": "B", "type": "light", "runs": 0, "quirk": "deep_lungs"},
+		{"name": "C", "type": "light", "runs": 0, "quirk": "sure_footed"},
+		{"name": "D", "type": "light", "runs": 0, "quirk": "hums"},
+	]
+	p.crew_names = ["A", "B", "C", "D"]
+	var radius_min := player.light.radius_min
+	var max_fuel := player.light.max_fuel
+	p.apply_to(player, meter, base)
+	assert_eq(player.light.radius_min, radius_min + Progress.NIGHT_EYES_MIN_RADIUS_BONUS, "night eyes")
+	assert_eq(player.light.max_fuel, max_fuel + Progress.DEEP_LUNGS_FUEL, "deep lungs")
+	assert_eq(player.safe_fall_tiles, Player.SAFE_FALL_TILES + Progress.SURE_FOOTED_TILES, "sure-footed")
+	assert_true(meter.noise_multiplier > 1.0, "hums makes you louder")
+
 func test_sign_trail_spreads_from_far_to_near() -> void:
 	var mine: MineGrid = add(MineScene.instantiate())
 	var center := Vector2i(40, 150)

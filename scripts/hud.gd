@@ -137,6 +137,8 @@ func refresh_hub(progress: Progress) -> void:
 		var key_label := "[%d] " % (first_key + i) if first_key + i <= 9 else ""
 		var runs: int = member.get("runs", 0)
 		var history := "%d run%s, from %s" % [runs, "" if runs == 1 else "s", Progress.LAYER_NAMES[member.get("found_in", 0)]]
+		if member.has("quirk"):
+			history += "; " + Progress.QUIRKS[member.quirk].name
 		lines.append("%s%s - %s %s: %s (%s)%s" % [key_label, progress.display_name(member),
 			progress.rank_of(member).name, Progress.NPC_TYPES[member.type].label, progress.effect_text(member), history, on_crew])
 	for npc in progress.stranded:

@@ -43,6 +43,22 @@ const RANKS := [
 	{"name": "Seasoned", "runs": 2, "strength": 1.5},
 	{"name": "Veteran", "runs": 5, "strength": 2.0},
 ]
+# Veteran quirks (PRD: veterans pick up "quirks"): one per Veteran,
+# assigned on promotion, a small effect while they are on the crew. Most
+# help; one is a mild downside, for character.
+const QUIRKS := {
+	"night_eyes": {"name": "Night eyes", "effect": "lantern never dims as small"},
+	"deep_lungs": {"name": "Deep lungs", "effect": "+10s lantern fuel"},
+	"sure_footed": {"name": "Sure-footed", "effect": "safe falls 1 tile higher"},
+	"pack_rat": {"name": "Pack rat", "effect": "+1 lamp per run"},
+	"tinkerer": {"name": "Tinkerer", "effect": "repairs 10% faster"},
+	"hums": {"name": "Hums while working", "effect": "everything 10% louder"},
+}
+const NIGHT_EYES_MIN_RADIUS_BONUS := 12.0
+const DEEP_LUNGS_FUEL := 10.0
+const SURE_FOOTED_TILES := 1.0
+const TINKERER_REPAIR_SPEED := 1.1
+const HUMS_NOISE := 1.1
 # PRD: types missing from the roster spawn more often.
 const MISSING_TYPE_WEIGHT := 3
 # PRD default: 1 starting slot, 4 max via the crew bunk upgrade.
@@ -79,7 +95,30 @@ static func load_saved(path: String = SAVE_PATH) -> Progress:
 		# Saves from before the crew picker: keep their implicit crew.
 		var default_crew := progress.roster.slice(0, BASE_CREW_SLOTS).map(func(m): return m.name)
 		progress.crew_names = config.get_value("npcs", "crew", default_crew)
+		progress._assign_missing_quirks() # Veterans from before quirks existed
 	return progress
+
+## Gives every Veteran without a quirk a random one, preferring quirks no
+## one on the roster has yet so Veterans stay distinct. Returns who got one.
+func _assign_missing_quirks() -> Array:
+	var assigned: Array = []
+	for member in roster:
+		if rank_of(member).name == "Veteran" and not member.has("quirk"):
+			var held := roster.map(func(m): return m.get("quirk", ""))
+			var fresh := QUIRKS.keys().filter(func(q): return not q in held)
+			member["quirk"] = (fresh if not fresh.is_empty() else QUIRKS.keys()).pick_random()
+			assigned.append(member)
+	return assigned
+
+func quirk_text(member: Dictionary) -> String:
+	if not member.has("quirk"):
+		return ""
+	var quirk: Dictionary = QUIRKS[member.quirk]
+	return "%s (%s)" % [quirk.name, quirk.effect]
+
+## Extra lamps per run from crew quirks.
+func extra_lamps() -> int:
+	return crew().filter(func(m): return m.get("quirk", "") == "pack_rat").size()
 
 func save() -> void:
 	var config := ConfigFile.new()
@@ -178,12 +217,16 @@ func end_run(rescued: Array, newly_stranded: Array, extracted: bool) -> Array:
 			member.runs = member.get("runs", 0) + 1
 			if rank_of(member).name != old_rank:
 				notes.append("%s is now %s" % [display_name(member), rank_of(member).name])
+		for member in _assign_missing_quirks():
+			notes.append("%s picked up a quirk: %s" % [display_name(member), quirk_text(member)])
 	var settled := {}
 	for npc in rescued:
 		# A rescued former crew member keeps their experience and history.
 		var history: Dictionary = _stranded_entry(npc.name)
 		roster.append({"name": npc.name, "type": npc.type,
 			"runs": history.get("runs", 0), "found_in": history.get("found_in", npc.found_in)})
+		if history.has("quirk"):
+			roster[-1]["quirk"] = history.quirk
 		if crew_names.size() < crew_slots():
 			crew_names.append(npc.name) # fill a free slot by default
 		settled[npc.name] = true
@@ -195,6 +238,8 @@ func end_run(rescued: Array, newly_stranded: Array, extracted: bool) -> Array:
 			crew_names.erase(npc.name)
 			npc["runs"] = member.get("runs", 0) # string keys, like the rest of the save
 			npc["found_in"] = member.get("found_in", 0)
+			if member.has("quirk"):
+				npc["quirk"] = member.quirk
 		settled[npc.name] = true
 		notes.append("%s is stranded in the %s" % [npc.name, LAYER_NAMES[npc.layer]])
 	var still_stranded: Array = []
@@ -238,3 +283,16 @@ func apply_to(player: Player, noise_meter: NoiseMeter, run_base: RunBase) -> voi
 		elif member.type == "repair":
 			run_base.repair_cost_multiplier *= 1.0 - REPAIR_COST_REDUCTION * strength
 			run_base.repair_speed_multiplier *= 1.0 + REPAIR_SPEED_BONUS * strength
+		match member.get("quirk", ""):
+			"night_eyes":
+				player.light.radius_min += NIGHT_EYES_MIN_RADIUS_BONUS
+			"deep_lungs":
+				player.light.max_fuel += DEEP_LUNGS_FUEL
+				player.light.fuel = player.light.max_fuel
+			"sure_footed":
+				player.safe_fall_tiles += SURE_FOOTED_TILES
+			"tinkerer":
+				run_base.repair_speed_multiplier *= TINKERER_REPAIR_SPEED
+			"hums":
+				noise_meter.noise_multiplier *= HUMS_NOISE
+			# pack_rat: extra_lamps(), read by Main
