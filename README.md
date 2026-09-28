@@ -67,6 +67,11 @@ deep base doesn't shorten the climb home.
 **Run it**: open the project folder in Godot 4.3+ and press Play (main scene
 is `scenes/Main.tscn`).
 
+**Play in a browser**: every push to `main` builds the Web export and
+publishes it to GitHub Pages (`.github/workflows/web.yml`). One-time
+setup: repo Settings -> Pages -> Source: "GitHub Actions". Click the game
+once to give it keyboard focus. Saves live in the browser's storage.
+
 ## Project layout
 
 - `scenes/` — Main, Player, Mine, Stalker, HUD
