@@ -25,6 +25,9 @@ var found_in: int = 0
 var following: bool = false
 ## Crew waiting at the run base (milestone 24): shown, never picked up.
 var stationary: bool = false
+## Ore to recruit this miner at a survivor outpost (milestone 34); while
+## above 0 they stay put and are a mine event (E recruits).
+var recruit_cost: int = 0
 ## Trail points behind the player. Main sets this at pickup so a second
 ## escort walks behind the first instead of on top of them.
 var follow_delay: int = FOLLOW_DELAY_POINTS
@@ -36,6 +39,24 @@ var _anim_time: float = 0.0
 func _ready() -> void:
 	sprite.texture = PixelArt.with_shirt(sprite.texture, shirt_color)
 	$MineLight/PointLight2D.color = shirt_color.lightened(0.4)
+	if recruit_cost > 0:
+		stationary = true
+		add_to_group("mine_events")
+
+func prompt(main: Node) -> String:
+	if main.player.currency < recruit_cost:
+		return "%s joins for %d ore" % [miner_name, recruit_cost]
+	return "E: recruit %s (%s), %d ore" % [miner_name, Progress.NPC_TYPES[npc_type].label, recruit_cost]
+
+func use(main: Node) -> void:
+	if main.player.currency < recruit_cost:
+		return
+	main.player.currency -= recruit_cost
+	recruit_cost = 0
+	remove_from_group("mine_events")
+	stationary = false
+	following = true
+	picked_up.emit()
 
 ## Moves straight to pos and forgets the trail (the lift ride).
 func teleport_to(pos: Vector2) -> void:

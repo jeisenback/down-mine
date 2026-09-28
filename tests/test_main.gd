@@ -71,3 +71,33 @@ func test_camp_search_and_lift_ride() -> void:
 	lift.use(main)
 	assert_eq(lift.state, Lift.State.USED, "one ride only")
 	Progress.path_override = ""
+
+func test_outpost_trades_recruits_and_is_noisy() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	main.stalker.process_mode = Node.PROCESS_MODE_DISABLED
+	var events := main.get_tree().get_nodes_in_group("mine_events")
+	var outpost: Outpost = events.filter(func(e): return e is Outpost)[0]
+	var survivor: LostMiner = events.filter(func(e): return e is LostMiner)[0]
+
+	main.player.currency = Outpost.PACK_ORE * 3 + Outpost.RECRUIT_ORE
+	var ladders: int = main.player.ladders_left
+	for i in range(3):
+		outpost.use(main)
+	assert_eq(outpost.stock, 0, "stock runs out")
+	assert_eq(main.player.ladders_left, ladders + Outpost.STOCK * Outpost.PACK.ladders, "packs add ladders")
+	assert_eq(main.player.currency, Outpost.PACK_ORE + Outpost.RECRUIT_ORE, "paid per pack, not past stock")
+
+	main.player.currency = Outpost.RECRUIT_ORE
+	survivor.use(main)
+	assert_eq(main.player.currency, 0, "recruit paid")
+	assert_true(survivor.following and survivor in main._escorts(), "survivor joins as an escort")
+	assert_true(not survivor.is_in_group("mine_events"), "no longer an event")
+
+	main.noise_meter.decay_rate = 0.0
+	main.noise_meter.noise = 0.0
+	main.player.global_position = outpost.global_position
+	await physics_frames(30)
+	assert_true(main.noise_meter.noise > 0.0, "staying at the outpost is noisy")
+	Progress.path_override = ""

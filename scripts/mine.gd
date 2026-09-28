@@ -103,6 +103,7 @@ const EVENT_ROOMS := [
 	{"kind": "camp", "layers": [1]},
 	{"kind": "camp", "layers": [2]},
 	{"kind": "lift", "layers": [1, 2]},
+	{"kind": "outpost", "layers": [1, 2]},
 ]
 const ROOM_SIZE := Vector2i(9, 4)
 const ROOM_MIN_SPACING_TILES := 20.0

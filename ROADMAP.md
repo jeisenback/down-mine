@@ -49,8 +49,8 @@ dictates.
   run; an abandoned camp per layer (light, ore, journal pages, a
   relightable lantern); an old lift that repairs for ore and noise and
   rides once to the surface.
-- **M34 - Survivor outpost.** A lit, living camp: trade ore for tools,
-  recruit a miner; staying makes noise.
+- ~~**M34 - Survivor outpost.**~~ Done: a lit camp in Stone or Deep;
+  trade ore for supply packs, recruit its survivor; lingering is noisy.
 - **M35 - Relic vault.** A reinforced chamber holding a valuable relic;
   loud to break into.
 - **M36 - Collapsing gallery.** Rich ore under a ceiling that comes down

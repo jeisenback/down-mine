@@ -294,6 +294,7 @@ func test_mine_carves_event_rooms() -> void:
 	assert_eq(mine.event_rooms.filter(func(r): return r.kind == "camp").size(), 3, "a camp per layer")
 	var lifts := mine.event_rooms.filter(func(r): return r.kind == "lift")
 	assert_eq(lifts.size(), 1, "one lift")
+	assert_eq(mine.event_rooms.filter(func(r): return r.kind == "outpost").size(), 1, "one outpost")
 	assert_true(mine._layer_index_for_row(lifts[0].cell.y) >= 1, "lift below topsoil")
 	for room in mine.event_rooms:
 		assert_true(not mine.is_solid(room.cell), "room is open")
