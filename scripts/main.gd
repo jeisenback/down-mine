@@ -45,6 +45,7 @@ const BELL_WARNING_FRACTION := 0.75
 const EVENT_SCENES := {
 	"camp": preload("res://scenes/Camp.tscn"),
 	"lift": preload("res://scenes/Lift.tscn"),
+	"outpost": preload("res://scenes/Outpost.tscn"),
 }
 const EVENT_RANGE := 24.0
 
@@ -124,8 +125,24 @@ func _spawn_events() -> void:
 		var event: Node2D = EVENT_SCENES[room.kind].instantiate()
 		if event is Camp:
 			event.layer = mine.layer_index_at_world(mine.cell_to_world(room.cell))
+		if event is Outpost:
+			event.main = self
 		event.global_position = mine.cell_to_world(room.cell)
 		mine.add_child(event)
+		if event is Outpost:
+			_spawn_survivor(event.global_position + Outpost.SURVIVOR_OFFSET)
+
+## The outpost's recruitable survivor, named like a new find.
+func _spawn_survivor(pos: Vector2) -> void:
+	var names := _free_miner_names()
+	if names.is_empty():
+		return
+	_spawn_miner(names.pick_random(), progress.pick_new_npc_type(), mine.world_to_cell(pos), false, Outpost.RECRUIT_ORE)
+
+## Miner names not on the roster, stranded, or already in this mine.
+func _free_miner_names() -> Array:
+	var taken := (progress.roster + progress.stranded).map(func(m): return m.name) + lost_miners.map(func(m): return m.miner_name)
+	return MINER_COLORS.keys().filter(func(n): return not n in taken)
 
 ## The closest mine event within reach, or null.
 func _nearest_event() -> Node2D:
@@ -169,8 +186,7 @@ func _place_crew_at_base() -> void:
 ## This run's new find (named from miners not on the roster or stranded),
 ## plus every stranded miner, placed in the layer they have drifted to.
 func _spawn_lost_miners() -> void:
-	var taken := (progress.roster + progress.stranded).map(func(m): return m.name)
-	var names := MINER_COLORS.keys().filter(func(n): return not n in taken)
+	var names := _free_miner_names()
 	if mine.lost_miner_cell.x >= 0 and not names.is_empty():
 		_spawn_miner(names.pick_random(), progress.pick_new_npc_type(), mine.lost_miner_cell, false)
 	for npc in progress.stranded:
@@ -192,12 +208,13 @@ func _place_signs(npc: Dictionary, miner_cell: Vector2i) -> void:
 		marker.global_position = mine.cell_to_world(cell)
 		mine.add_child(marker)
 
-func _spawn_miner(miner_name: String, npc_type: String, cell: Vector2i, was_stranded: bool) -> void:
+func _spawn_miner(miner_name: String, npc_type: String, cell: Vector2i, was_stranded: bool, recruit_cost: int = 0) -> void:
 	var miner: LostMiner = LostMinerScene.instantiate()
 	miner.player = player
 	miner.miner_name = miner_name
 	miner.npc_type = npc_type
 	miner.was_stranded = was_stranded
+	miner.recruit_cost = recruit_cost
 	miner.shirt_color = MINER_COLORS.get(miner_name, Color(1, 1, 1))
 	miner.global_position = mine.cell_to_world(cell)
 	miner.found_in = mine.layer_index_at_world(miner.global_position)
@@ -236,8 +253,8 @@ func _process(delta: float) -> void:
 	_check_snuffer_spawn(delta)
 	hud.update_tools({
 		"Lamps": lamps_left if progress.has_unlock("lamps") or lamps_left > 0 else -1,
-		"Ladders": player.ladders_left if progress.has_unlock("ladders") else -1,
-		"Anchors": player.anchors_left if progress.has_unlock("anchors") else -1,
+		"Ladders": player.ladders_left if progress.has_unlock("ladders") or player.ladders_left > 0 else -1,
+		"Anchors": player.anchors_left if progress.has_unlock("anchors") or player.anchors_left > 0 else -1,
 	}, get_tree().get_nodes_in_group("snuffers").size() > 0)
 	mine.decay_walls(delta, run_base.light.fuel_fraction())
 	var decay_noise := mine.tick_decay(delta, player.global_position)
