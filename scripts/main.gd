@@ -150,6 +150,9 @@ func _process(delta: float) -> void:
 	_check_snuffer_spawn(delta)
 	hud.update_lamps(lamps_left, get_tree().get_nodes_in_group("snuffers").size() > 0)
 	mine.decay_walls(delta, run_base.light.fuel_fraction())
+	var decay_noise := mine.tick_decay(delta, player.global_position)
+	if decay_noise > 0.0:
+		noise_meter.add_noise(decay_noise)
 	hud.update_base(run_base, get_tree().get_nodes_in_group("burrowers").size() > 0, _near_base(), player.currency, mine.wall_count(), _can_plant(), _at_surface())
 	max_depth_reached = max(max_depth_reached, _current_depth())
 	_check_extraction()

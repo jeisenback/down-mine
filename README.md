@@ -35,6 +35,10 @@ time - much faster when the base's light is low.
 at a time). It drifts through rock to the lamp or base light furthest from
 you and drains it dry. Your light drives it off; flaring kills it.
 
+**Mine decay**: in darkness, tunnels you dug refill with rock and cave
+floors near you crumble away, a little faster as the run goes on. Light
+(yours, lamps, the base, miners) protects the ground around it.
+
 **Falling**: landings hurt based on impact speed. Drops under 7 tiles are
 free (so plain digging down is safe), 7+ costs 1 health, +1 per 3 more
 tiles. Hard landings also make noise.

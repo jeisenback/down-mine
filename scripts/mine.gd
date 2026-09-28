@@ -37,6 +37,19 @@ const LAYER_TEXTURE_REGIONS := [
 const BEDROCK_ATLAS_COORDS := Vector2i(3, 0)
 const BEDROCK_COLOR := Color(0.05, 0.05, 0.06)
 
+# Mine decay (milestone 21, PRD: "tunnels collapse and floors crumble").
+# Each tick, one tunnel cell the player dug refills with rock and one cave
+# floor near the player drops away - but only in darkness, so every light
+# (lantern, lamps, base, miners) protects the ground around it and nothing
+# collapses on the player. Ticks speed up as the run goes on. Floors under
+# pickups and NPCs never crumble, so nothing is left floating.
+const DECAY_INTERVAL_START := 4.0
+const DECAY_INTERVAL_END := 1.5
+const DECAY_RAMP_TIME := 480.0 # seconds into the run to reach the end interval
+const CRUMBLE_RADIUS_TILES := 20
+const CRUMBLE_SAMPLE_TRIES := 20
+const DECAY_NOISE := 3.0 # per collapse or crumble (PRD: collapses are loud)
+
 # Reinforced rock around the run base (milestone 18): the tileset's iron
 # grate (8x16, drawn twice across) over dark earth. Burrowers must chew
 # through it; the player digs it like normal rock. Walls wear back to
@@ -75,6 +88,12 @@ var lost_miner_cell := Vector2i(-1, -1)
 var _spare_floor_cells: Array = []
 var _wall_cells: Array[Vector2i] = []
 var _wall_decay_timer: float = 0.0
+## Cells the player has dug (tunnels that can collapse).
+var _dug_cells: Array[Vector2i] = []
+## Floor cells with a pickup or NPC standing on them; these never crumble.
+var _reserved_floors: Dictionary = {}
+var _decay_timer: float = 0.0
+var _run_time: float = 0.0
 
 func _ready() -> void:
 	_build_tileset()
@@ -245,6 +264,7 @@ func _scatter_fuel_deposits(floor_cells: Array) -> void:
 		var cell: Vector2i = floor_cells[i]
 		var pickup := FuelPickupScene.instantiate()
 		pickup.position = map_to_local(cell)
+		_reserved_floors[cell + Vector2i.DOWN] = true
 		add_child(pickup)
 
 ## Ore/relic currency, banked on extraction (milestone 8). Value scales
@@ -257,6 +277,7 @@ func _scatter_ore_deposits(floor_cells: Array) -> void:
 		var pickup := OrePickupScene.instantiate()
 		pickup.value = ORE_VALUE_BY_LAYER[_layer_index_for_row(cell.y)]
 		pickup.position = map_to_local(cell)
+		_reserved_floors[cell + Vector2i.DOWN] = true
 		add_child(pickup)
 
 func _pick_lost_miner_cell() -> void:
@@ -272,6 +293,7 @@ func _take_spare_floor_cell(accept: Callable) -> Vector2i:
 		var cell: Vector2i = _spare_floor_cells[i]
 		if accept.call(cell):
 			_spare_floor_cells.remove_at(i)
+			_reserved_floors[cell + Vector2i.DOWN] = true
 			return cell
 	return Vector2i(-1, -1)
 
@@ -301,6 +323,8 @@ func dig_cells(cells: Array, emit_noise: bool = true) -> int:
 			set_cell(0, cell, -1)
 			_wall_cells.erase(cell)
 			dug_count += 1
+			if emit_noise: # player digs; enemy tunnels don't collapse
+				_dug_cells.append(cell)
 	if dug_count > 0 and emit_noise:
 		tile_dug.emit(DIG_NOISE * dug_count)
 	return dug_count
@@ -313,6 +337,50 @@ func cells_in_column(world_x: float, y_top: float, y_bottom: float) -> Array:
 	for y in range(top_cell.y, bottom_cell.y + 1):
 		cells.append(Vector2i(top_cell.x, y))
 	return cells
+
+## One decay tick's worth of collapse + crumble when due. Returns the
+## noise made, for Main to feed the meter.
+func tick_decay(delta: float, player_pos: Vector2) -> float:
+	_run_time += delta
+	_decay_timer += delta
+	var interval: float = lerp(DECAY_INTERVAL_START, DECAY_INTERVAL_END, min(1.0, _run_time / DECAY_RAMP_TIME))
+	if _decay_timer < interval:
+		return 0.0
+	_decay_timer = 0.0
+	var noise := 0.0
+	if _collapse_tunnel():
+		noise += DECAY_NOISE
+	if _crumble_floor(player_pos):
+		noise += DECAY_NOISE
+	return noise
+
+func _collapse_tunnel() -> bool:
+	var candidates := _dug_cells.filter(func(c): return not is_solid(c) and not is_lit(cell_to_world(c)))
+	if candidates.is_empty():
+		return false
+	var cell: Vector2i = candidates.pick_random()
+	_dug_cells.erase(cell)
+	set_cell(0, cell, source_id, LAYER_ATLAS_COORDS[_layer_index_for_row(cell.y)])
+	return true
+
+func _crumble_floor(player_pos: Vector2) -> bool:
+	var center := world_to_cell(player_pos)
+	for i in range(CRUMBLE_SAMPLE_TRIES):
+		var cell := center + Vector2i(randi_range(-CRUMBLE_RADIUS_TILES, CRUMBLE_RADIUS_TILES), randi_range(-CRUMBLE_RADIUS_TILES, CRUMBLE_RADIUS_TILES))
+		if cell.y <= SURFACE_ROWS or not is_solid(cell) or is_indestructible(cell) or is_wall(cell):
+			continue
+		if is_solid(cell + Vector2i.UP) or _reserved_floors.has(cell) or is_lit(cell_to_world(cell)):
+			continue
+		set_cell(0, cell, -1)
+		return true
+	return false
+
+## Inside any MineLight's current radius (same test ropes use).
+func is_lit(world_pos: Vector2) -> bool:
+	for light in get_tree().get_nodes_in_group("mine_lights"):
+		if world_pos.distance_to(light.global_position) < light.current_radius():
+			return true
+	return false
 
 func is_wall(cell: Vector2i) -> bool:
 	return get_cell_atlas_coords(0, cell) == WALL_ATLAS_COORDS
