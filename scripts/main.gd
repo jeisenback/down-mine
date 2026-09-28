@@ -17,6 +17,16 @@ const BASE_FLAG_HEIGHT_ABOVE_PLAYER := 15.0
 const BURROWER_SPAWN_OFFSET_TILES := 10
 const BurrowerScene := preload("res://scenes/Burrower.tscn")
 
+# Placed lights (milestone 20): a few per run, noisy to place.
+const LampScene := preload("res://scenes/Lamp.tscn")
+const LAMPS_PER_RUN := 3
+const LAMP_PLACE_NOISE := 10.0
+# Snuffers: while any lamp is burning, one appears every interval (never
+# more than one at a time), this far from the light it will hunt first.
+const SnufferScene := preload("res://scenes/Snuffer.tscn")
+const SNUFFER_SPAWN_INTERVAL := 45.0
+const SNUFFER_SPAWN_DISTANCE_TILES := 10
+
 const LostMinerScene := preload("res://scenes/LostMiner.tscn")
 # Each miner has their own shirt colour (and matching glow), so the same
 # miner always looks the same and two miners never read as one. All
@@ -47,6 +57,9 @@ var _extract_key_was_pressed: bool = false
 var _fortify_key_was_pressed: bool = false
 var _plant_key_was_pressed: bool = false
 var base_planted: bool = false
+var lamps_left: int = LAMPS_PER_RUN
+var _lamp_key_was_pressed: bool = false
+var _snuffer_timer: float = 0.0
 var progress: Progress
 var lost_miners: Array[LostMiner] = []
 
@@ -133,6 +146,9 @@ func _process(delta: float) -> void:
 	_check_fortify()
 	_check_refuel(delta)
 	_check_plant()
+	_check_lamp()
+	_check_snuffer_spawn(delta)
+	hud.update_lamps(lamps_left, get_tree().get_nodes_in_group("snuffers").size() > 0)
 	mine.decay_walls(delta, run_base.light.fuel_fraction())
 	hud.update_base(run_base, get_tree().get_nodes_in_group("burrowers").size() > 0, _near_base(), player.currency, mine.wall_count(), _can_plant(), _at_surface())
 	max_depth_reached = max(max_depth_reached, _current_depth())
@@ -166,6 +182,43 @@ func _check_plant() -> void:
 		run_base.repair_progress = 0.0
 		noise_meter.add_noise(BASE_PLANT_NOISE)
 	_plant_key_was_pressed = pressed
+
+## L sets a lamp down where the player stands.
+func _check_lamp() -> void:
+	var pressed := Input.is_physical_key_pressed(KEY_L)
+	if pressed and not _lamp_key_was_pressed and lamps_left > 0 and player.is_on_floor():
+		lamps_left -= 1
+		var lamp: Lamp = LampScene.instantiate()
+		lamp.global_position = player.global_position
+		mine.add_child(lamp)
+		noise_meter.add_noise(LAMP_PLACE_NOISE)
+	_lamp_key_was_pressed = pressed
+
+func _check_snuffer_spawn(delta: float) -> void:
+	if get_tree().get_nodes_in_group("lamps").is_empty() or not get_tree().get_nodes_in_group("snuffers").is_empty():
+		_snuffer_timer = 0.0
+		return
+	_snuffer_timer += delta
+	if _snuffer_timer < SNUFFER_SPAWN_INTERVAL:
+		return
+	_snuffer_timer = 0.0
+	var snuffer: Snuffer = SnufferScene.instantiate()
+	snuffer.player = player
+	snuffer.global_position = _snuffer_spawn_position()
+	add_child(snuffer)
+
+## Near the light furthest from the player, in a random direction,
+## clamped inside the mine below the crust.
+func _snuffer_spawn_position() -> Vector2:
+	var far_light: Node2D = null
+	for light in get_tree().get_nodes_in_group("snuffable"):
+		if far_light == null or light.global_position.distance_to(player.global_position) > far_light.global_position.distance_to(player.global_position):
+			far_light = light
+	var offset := Vector2.RIGHT.rotated(randf() * TAU) * SNUFFER_SPAWN_DISTANCE_TILES * mine.TILE_SIZE
+	var cell := mine.world_to_cell(far_light.global_position + offset)
+	cell.x = clamp(cell.x, 1, mine.GRID_WIDTH - 2)
+	cell.y = clamp(cell.y, mine.SURFACE_ROWS, mine.GRID_HEIGHT - 2)
+	return mine.cell_to_world(cell)
 
 func _check_refuel(delta: float) -> void:
 	if not _near_base():

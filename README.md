@@ -14,6 +14,7 @@ darkness. No crew, hub, or stranding yet.
 - `Space` — dig forward (in facing direction); hold with `W`/Up to dig straight up instead
 - `Shift` — flare the light (brighter, burns fuel faster; the only thing that hurts a Burrower)
 - `Q` — fire the grapple straight up (reusable, pulls you to the first solid ceiling within range)
+- `L` — set down a lamp (3 per run; burns ~90s, lights your route, slows rope decay; noisy)
 - `R` — place a rope at your feet (consumable, climbable with `W`/`S`, decays over time — faster in the dark)
 - `E` — extract anywhere at the surface, above the crust (banks ore, ends the run)
 - `P` — once per run, plant the run base where you stand (below the crust, on a floor)
@@ -29,6 +30,10 @@ it. If it takes the base from 3 health to 0, the run fails. Reinforced
 walls around the base cost a Burrower 2.5s each to chew through (tunnels
 you dug near the base are open road), and wear back to plain rock over
 time - much faster when the base's light is low.
+
+**Snuffers**: while any lamp is burning, a Snuffer appears every 45s (one
+at a time). It drifts through rock to the lamp or base light furthest from
+you and drains it dry. Your light drives it off; flaring kills it.
 
 **Falling**: landings hurt based on impact speed. Drops under 7 tiles are
 free (so plain digging down is safe), 7+ costs 1 health, +1 per 3 more

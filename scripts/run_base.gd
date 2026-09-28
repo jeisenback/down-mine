@@ -31,6 +31,9 @@ var repair_speed_multiplier: float = 1.0
 ## 0..1 toward the next point of health.
 var repair_progress: float = 0.0
 
+func _ready() -> void:
+	light.add_to_group("snuffable") # Snuffers hunt the base light too
+
 func needs_repair() -> bool:
 	return health > 0 and health < MAX_HEALTH
 

@@ -24,6 +24,7 @@ const ARRIVAL_RADIUS := 32.0
 @onready var banked_label: Label = $Margin/VBox/BankedLabel
 @onready var base_label: Label = $Margin/VBox/BaseLabel
 @onready var escort_label: Label = $Margin/VBox/EscortLabel
+@onready var lamp_label: Label = $Margin/VBox/LampLabel
 @onready var compass: Node2D = $Compass
 @onready var stranded_compass: Node2D = $StrandedCompass
 @onready var stranded_arrow: Polygon2D = $StrandedCompass/Arrow
@@ -83,6 +84,10 @@ func update_base(run_base: RunBase, under_attack: bool, player_at_base: bool, ru
 		text += "  E: extract"
 	base_label.text = text
 	base_label.modulate = Color(1, 0.4, 0.3) if under_attack else Color(1, 1, 1)
+
+func update_lamps(lamps_left: int, snuffer_hunting: bool) -> void:
+	lamp_label.text = "Lamps: %d%s" % [lamps_left, "  SNUFFER HUNTING" if snuffer_hunting else ""]
+	lamp_label.modulate = Color(0.7, 0.8, 1) if snuffer_hunting else Color(1, 1, 1)
 
 func update_escort(miner_name: String) -> void:
 	escort_label.text = "Escorting: %s" % miner_name
