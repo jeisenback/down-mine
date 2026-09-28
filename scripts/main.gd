@@ -19,6 +19,7 @@ func _ready() -> void:
 	player.mine = mine
 	stalker.player = player
 	mine.tile_dug.connect(_on_tile_dug)
+	player.made_noise.connect(_on_tile_dug) # same amount->noise_meter path, source doesn't matter
 	noise_meter.noise_changed.connect(hud.update_noise)
 	noise_meter.threshold_reached.connect(_on_noise_threshold)
 	player.died.connect(_on_player_died)

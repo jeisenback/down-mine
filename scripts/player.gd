@@ -2,6 +2,10 @@ extends CharacterBody2D
 class_name Player
 
 signal died
+## Emitted for actions that make noise but aren't tile digging (rope
+## placement, later: other placed tools) - Main connects this to the
+## noise meter the same way it connects MineGrid.tile_dug.
+signal made_noise(amount: float)
 
 const SPEED := 120.0
 const ACCELERATION := 900.0  # reaches full speed in ~0.13s
@@ -32,8 +36,19 @@ const GRAPPLE_RANGE := 96.0 # 6 tiles
 const GRAPPLE_PULL_SPEED := 500.0
 const GRAPPLE_COOLDOWN := 0.6
 
+# Ropes: the PRD's consumable traversal tool. Placed at the current cell,
+# climbable while touching it, decays over time (faster in darkness,
+# handled by Rope itself). Placement has a short cooldown and costs noise,
+# per "placed tools... make noise when placed".
+const ROPE_LENGTH_TILES := 6
+const ROPE_PLACE_COOLDOWN := 1.5
+const ROPE_PLACE_NOISE := 15.0
+const CLIMB_SPEED := 80.0
+const RopeScene := preload("res://scenes/Rope.tscn")
+
 @onready var light: MineLight = $MineLight
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
+@onready var rope_detector: Area2D = $RopeDetector
 
 var mine: MineGrid
 var dig_timer: float = 0.0
@@ -49,12 +64,31 @@ var _grapple_was_pressed: bool = false
 var _grapple_timer: float = 0.0
 var _grappling: bool = false
 var _grapple_target_y: float = 0.0
+var _rope_place_was_pressed: bool = false
+var _rope_place_timer: float = 0.0
+var _ropes_touching: Array = []
+
+func _ready() -> void:
+	rope_detector.area_entered.connect(_on_rope_area_entered)
+	rope_detector.area_exited.connect(_on_rope_area_exited)
+
+func _on_rope_area_entered(area: Area2D) -> void:
+	if area is Rope:
+		_ropes_touching.append(area)
+
+func _on_rope_area_exited(area: Area2D) -> void:
+	_ropes_touching.erase(area)
+
+func is_on_rope() -> bool:
+	_ropes_touching = _ropes_touching.filter(func(r): return is_instance_valid(r))
+	return _ropes_touching.size() > 0
 
 func _physics_process(delta: float) -> void:
 	dig_timer = max(0.0, dig_timer - delta)
 	_coyote_timer = max(0.0, _coyote_timer - delta)
 	_jump_buffer_timer = max(0.0, _jump_buffer_timer - delta)
 	_grapple_timer = max(0.0, _grapple_timer - delta)
+	_rope_place_timer = max(0.0, _rope_place_timer - delta)
 
 	var input_dir := 0.0
 	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):
@@ -64,6 +98,11 @@ func _physics_process(delta: float) -> void:
 	if input_dir != 0.0:
 		facing = int(sign(input_dir))
 	_apply_horizontal_movement(input_dir, delta)
+
+	var place_rope_pressed := Input.is_physical_key_pressed(KEY_R)
+	if place_rope_pressed and not _rope_place_was_pressed and _rope_place_timer <= 0.0:
+		_place_rope()
+	_rope_place_was_pressed = place_rope_pressed
 
 	var grapple_pressed := Input.is_physical_key_pressed(KEY_Q)
 	if grapple_pressed and not _grapple_was_pressed and not _grappling and _grapple_timer <= 0.0:
@@ -78,29 +117,39 @@ func _physics_process(delta: float) -> void:
 		move_and_slide()
 		return
 
+	var up_held := Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)
+	var down_held := Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)
+
+	if is_on_rope():
+		velocity.y = 0.0
+		if up_held:
+			velocity.y = -CLIMB_SPEED
+		elif down_held:
+			velocity.y = CLIMB_SPEED
+		move_and_slide()
+		return
+
 	if is_on_floor():
 		velocity.y = 0.0
 		_coyote_timer = COYOTE_TIME
 	else:
 		velocity.y += GRAVITY * delta
 
-	var jump_pressed := Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)
-	if jump_pressed and not _jump_was_pressed:
+	if up_held and not _jump_was_pressed:
 		_jump_buffer_timer = JUMP_BUFFER_TIME
-	_jump_was_pressed = jump_pressed
+	_jump_was_pressed = up_held
 
 	if _jump_buffer_timer > 0.0 and _coyote_timer > 0.0:
 		velocity.y = JUMP_VELOCITY
 		_jump_buffer_timer = 0.0
 		_coyote_timer = 0.0
 
-	var digging_down := Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)
 	var digging_forward := Input.is_physical_key_pressed(KEY_SPACE)
-	if digging_down and input_dir != 0.0:
+	if down_held and input_dir != 0.0:
 		_dig_staircase()
-	elif digging_down:
+	elif down_held:
 		_dig_straight_down()
-	elif digging_forward and jump_pressed:
+	elif digging_forward and up_held:
 		_dig_straight_up()
 	elif digging_forward:
 		_dig_forward()
@@ -127,6 +176,19 @@ func _try_fire_grapple() -> void:
 			_grapple_timer = GRAPPLE_COOLDOWN
 			return
 	_grapple_timer = GRAPPLE_COOLDOWN * 0.5
+
+## Places a Rope anchored at the top of the player's current cell,
+## extending downward. Cell-aligned rather than pixel-exact so climbing
+## it later feels grid-consistent.
+func _place_rope() -> void:
+	if mine == null:
+		return
+	var cell := mine.world_to_cell(global_position)
+	var rope: Rope = RopeScene.instantiate()
+	mine.add_child(rope)
+	rope.global_position = mine.cell_to_world(cell) - Vector2(0.0, mine.TILE_SIZE / 2.0)
+	_rope_place_timer = ROPE_PLACE_COOLDOWN
+	made_noise.emit(ROPE_PLACE_NOISE)
 
 ## Ramps velocity.x toward the input's target speed instead of snapping to
 ## it, so starting and stopping have weight. Takes input_dir directly

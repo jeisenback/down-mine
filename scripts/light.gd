@@ -19,6 +19,7 @@ var is_flaring: bool = false
 @onready var detection_shape: CollisionShape2D = $DetectionArea/CollisionShape2D
 
 func _ready() -> void:
+	add_to_group("mine_lights") # so Rope can check "am I lit" without a direct reference
 	fuel = max_fuel
 	point_light.texture = _make_glow_texture()
 	detection_shape.shape = CircleShape2D.new()
