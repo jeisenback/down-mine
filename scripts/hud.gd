@@ -19,6 +19,31 @@ const ARRIVAL_RADIUS := 32.0
 const ROSTER_KEYS := 10
 const MESSAGE_SECONDS := 8.0
 
+# Milestone 41: a title screen on first launch and a controls overlay on
+# Esc, both pausing the game. Hub letters A-J pick crew, so the overlay
+# key can't be a letter.
+const TITLE_TEXT := """DOWN MINE
+
+Dig down through three layers to the Heart of the mine and bring it home.
+Rescue lost miners on the way. Keep your light burning and your noise low.
+
+Enter: start        Esc: controls"""
+const CONTROLS_TEXT := """CONTROLS  (Esc to close)
+
+A / D  move        W  jump (tap for a short hop)
+Space  dig forward (with W: up)        S  dig down (with A / D: stairs)
+Shift  flare the light        Q  grapple up, or to an anchor
+R  rope        T  ladder        G  anchor        L  lamp
+E  use a camp, lift, outpost, vault or relic - or extract at the surface
+P  plant the base here        F (hold)  repair base        B  fortify base
+1  support beam        2  beacon        3  alarm bell
+
+At the hub:  1-6 buy upgrades,  A-J choose crew,  Enter  new run"""
+
+## Session-wide, so the title shows once per launch, not every new run.
+## The test runner sets it so scene tests aren't paused on the title.
+static var title_seen: bool = false
+
 @onready var fuel_label: Label = $Margin/VBox/FuelLabel
 @onready var health_label: Label = $Margin/VBox/HealthLabel
 @onready var layer_label: Label = $Margin/VBox/LayerLabel
@@ -39,9 +64,61 @@ var _noise_warning: bool = false
 var _noise_value: float = 0.0
 var _message: String = ""
 var _message_time: float = 0.0
+var overlay: ColorRect
+var _overlay_label: Label
+var _showing_title: bool = false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_build_overlay()
+	if not title_seen:
+		_show_overlay(TITLE_TEXT, true)
+
+func _build_overlay() -> void:
+	overlay = ColorRect.new()
+	overlay.color = Color(0, 0, 0, 0.85)
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.visible = false
+	_overlay_label = Label.new()
+	_overlay_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_overlay_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_overlay_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_overlay_label.add_theme_font_size_override("font_size", 16)
+	overlay.add_child(_overlay_label)
+	var hint := Label.new()
+	hint.text = "Esc: controls"
+	hint.modulate = Color(1, 1, 1, 0.6)
+	hint.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 12)
+	hint.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	add_child(hint)
+	add_child(overlay)
+
+func _show_overlay(text: String, is_title: bool) -> void:
+	_overlay_label.text = text
+	_showing_title = is_title
+	overlay.visible = true
+	get_tree().paused = true
+
+## Closes the overlay; the game stays paused behind the run summary.
+func _hide_overlay() -> void:
+	overlay.visible = false
+	_showing_title = false
+	title_seen = true
+	get_tree().paused = run_summary.visible
+
+## Esc toggles controls (from the title too); Enter starts from the
+## title. Returns whether the key was used.
+func _overlay_key(keycode: int) -> bool:
+	if keycode == KEY_ESCAPE:
+		if overlay.visible and not _showing_title:
+			_hide_overlay()
+		else:
+			_show_overlay(CONTROLS_TEXT, false)
+		return true
+	if overlay.visible and keycode in [KEY_ENTER, KEY_KP_ENTER]:
+		_hide_overlay()
+		return true
+	return overlay.visible # swallow other keys while it's up
 
 func _process(delta: float) -> void:
 	_message_time -= delta
@@ -49,10 +126,13 @@ func _process(delta: float) -> void:
 		_message = ""
 
 func _unhandled_input(event: InputEvent) -> void:
-	if not run_summary.visible:
-		return
 	var key := event as InputEventKey
 	if not key or not key.pressed or key.echo:
+		return
+	if _overlay_key(key.physical_keycode):
+		get_viewport().set_input_as_handled()
+		return
+	if not run_summary.visible:
 		return
 	if key.physical_keycode in [KEY_ENTER, KEY_KP_ENTER]:
 		new_run_requested.emit()

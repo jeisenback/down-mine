@@ -8,6 +8,7 @@ func _initialize() -> void:
 	_run.call_deferred()
 
 func _run() -> void:
+	HUD.title_seen = true # scene tests must not start paused on the title
 	var failed := 0
 	var passed := 0
 	for file in DirAccess.get_files_at("res://tests"):

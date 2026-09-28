@@ -69,6 +69,11 @@ dictates.
   taking it wakes the mine (loud, decay x2); bringing it home wins the
   run (+300 ore); each claimed Heart makes later mines decay 15% faster.
 
+## Onboarding
+
+- ~~**M41 - Title and controls.**~~ Done: a title screen once per
+  launch, and a controls overlay on Esc (pauses; hint in the corner).
+
 ## Open design questions (from the PRD)
 
 - What takes stranded NPCs deeper: creatures, a shifting mine, or fleeing?
