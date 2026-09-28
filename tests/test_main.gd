@@ -194,3 +194,23 @@ func test_heart_wakes_the_mine_and_wins_the_run() -> void:
 	assert_eq(main.progress.banked_ore, banked + 10 + main.HEART_ORE, "Heart banks its ore")
 	assert_true(main.hud.run_summary_label.text.contains("The Heart is yours!"), "win title")
 	Progress.path_override = ""
+
+func test_title_then_controls_overlay() -> void:
+	HUD.title_seen = false
+	var hud: HUD = add(load("res://scenes/HUD.tscn").instantiate())
+	assert_true(hud.overlay.visible and tree.paused, "title shows, paused")
+	hud._overlay_key(KEY_ENTER)
+	assert_true(not hud.overlay.visible and not tree.paused, "Enter starts")
+	assert_true(HUD.title_seen, "title only once")
+	hud._overlay_key(KEY_ESCAPE)
+	assert_true(hud.overlay.visible and tree.paused, "Esc shows controls, paused")
+	assert_true(hud._overlay_label.text.begins_with("CONTROLS"), "controls text")
+	assert_true(hud._overlay_key(KEY_D), "other keys swallowed while open")
+	hud._overlay_key(KEY_ESCAPE)
+	assert_true(not hud.overlay.visible and not tree.paused, "Esc closes")
+	hud.run_summary.visible = true
+	hud._overlay_key(KEY_ESCAPE)
+	hud._overlay_key(KEY_ESCAPE)
+	assert_true(tree.paused, "stays paused behind the run summary")
+	tree.paused = false
+	HUD.title_seen = true
