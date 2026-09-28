@@ -30,6 +30,15 @@ const SHIRT_SHADOW := Color8(174, 49, 35)
 const SHIRT_MID := Color8(178, 84, 74)
 
 static var _shirt_cache: Dictionary = {}
+static var _region_cache: Dictionary = {}
+
+## A keyed, standalone copy of one region of a sheet - for textures that
+## must repeat (a region of the whole atlas would wrap the whole atlas).
+static func keyed_region(texture: Texture2D, region: Rect2i) -> Texture2D:
+	var key := [texture, region]
+	if not _region_cache.has(key):
+		_region_cache[key] = ImageTexture.create_from_image(keyed(texture).get_image().get_region(region))
+	return _region_cache[key]
 
 static func with_shirt(texture: Texture2D, shirt: Color) -> Texture2D:
 	var key := [texture, shirt]

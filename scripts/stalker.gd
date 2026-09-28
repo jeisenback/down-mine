@@ -21,6 +21,22 @@ var player: Player
 var run_base: RunBase
 var state: State = State.LURK
 var attack_timer: float = 0.0
+var _anim_time: float = 0.0
+
+# Tileset slime (milestone 30): three squash-and-stretch frames.
+const ANIM_FPS := 5.0
+const FRAME_COUNT := 3
+
+@onready var body: Sprite2D = $Body
+
+func _ready() -> void:
+	body.texture = PixelArt.keyed(body.texture)
+
+func _process(delta: float) -> void:
+	_anim_time += delta
+	body.frame = int(_anim_time * ANIM_FPS) % FRAME_COUNT
+	if absf(velocity.x) > 1.0:
+		body.flip_h = velocity.x < 0.0
 
 func _physics_process(delta: float) -> void:
 	attack_timer = max(0.0, attack_timer - delta)

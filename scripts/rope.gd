@@ -13,6 +13,23 @@ var life_seconds: float = 45.0
 var climb_speed: float = 80.0
 var lifetime: float = 1.0 # 1.0 = fresh, 0.0 = gone
 
+# Ropes draw the tileset's wooden pole strip (8x32), repeated down their
+# length (milestone 30). Ladders have their own rails, no Visual node.
+const POLE_TEXTURE := preload("res://assets/deep_night/tiles.png")
+const POLE_REGION := Rect2i(176, 64, 8, 32)
+
+func _ready() -> void:
+	var visual := get_node_or_null("Visual") as Polygon2D
+	if visual == null:
+		return
+	visual.texture = PixelArt.keyed_region(POLE_TEXTURE, POLE_REGION)
+	visual.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	visual.color = Color(1, 1, 1)
+	# Map the polygon's x (-3..3) onto the pole's centre columns (1..7).
+	visual.uv = PackedVector2Array(visual.polygon).duplicate()
+	for i in range(visual.uv.size()):
+		visual.uv[i] = visual.polygon[i] + Vector2(4, 0)
+
 func _process(delta: float) -> void:
 	var rate := (1.0 / life_seconds) * (1.0 if MineLight.is_lit(get_tree(), global_position) else DARK_DECAY_MULTIPLIER)
 	lifetime -= rate * delta
