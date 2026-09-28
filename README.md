@@ -23,6 +23,10 @@ darkness. No crew, hub, or stranding yet.
 below you and tunnels to the run base. Your light slows it; flaring kills
 it. If it takes the base from 3 health to 0, the run fails.
 
+**Falling**: landings hurt based on impact speed. Drops under 7 tiles are
+free (so plain digging down is safe), 7+ costs 1 health, +1 per 3 more
+tiles. Hard landings also make noise.
+
 **Run it**: open the project folder in Godot 4.3+ and press Play (main scene
 is `scenes/Main.tscn`).
 

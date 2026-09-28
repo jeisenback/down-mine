@@ -15,6 +15,7 @@ const COMPASS_MARGIN := 40.0
 const ARRIVAL_RADIUS := 32.0
 
 @onready var fuel_label: Label = $Margin/VBox/FuelLabel
+@onready var health_label: Label = $Margin/VBox/HealthLabel
 @onready var noise_label: Label = $Margin/VBox/NoiseLabel
 @onready var noise_bar: ProgressBar = $Margin/VBox/NoiseBar
 @onready var ore_label: Label = $Margin/VBox/OreLabel
@@ -43,6 +44,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func update_fuel(fraction: float) -> void:
 	fuel_label.text = "Light: %d%%" % int(fraction * 100)
+
+func update_health(health: int) -> void:
+	health_label.text = "Health: %d" % max(0, health)
 
 func update_noise(value: float, fraction: float) -> void:
 	noise_label.text = "Noise: %d" % int(value)

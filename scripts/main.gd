@@ -46,6 +46,7 @@ func _process(_delta: float) -> void:
 	if run_ended:
 		return
 	hud.update_fuel(player.light.fuel_fraction())
+	hud.update_health(player.health)
 	hud.update_compass(run_base.global_position - player.global_position)
 	hud.update_currency(player.currency)
 	hud.update_base(run_base.health, run_base.MAX_HEALTH, get_tree().get_nodes_in_group("burrowers").size() > 0)
@@ -101,6 +102,7 @@ func _fail_run(title: String) -> void:
 	if run_ended:
 		return
 	run_ended = true
+	hud.update_health(player.health)
 	hud.show_run_summary(title, false, player.currency, max_depth_reached, progress)
 	get_tree().paused = true
 
