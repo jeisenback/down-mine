@@ -48,6 +48,7 @@ const EVENT_SCENES := {
 	"outpost": preload("res://scenes/Outpost.tscn"),
 	"vault": preload("res://scenes/Relic.tscn"),
 	"gallery": preload("res://scenes/Gallery.tscn"),
+	"nest": preload("res://scenes/Nest.tscn"),
 }
 const EVENT_RANGE := 24.0
 const VaultDoorScene := preload("res://scenes/VaultDoor.tscn")
@@ -92,6 +93,9 @@ var lamps_left: int = LAMPS_PER_RUN
 var _lamp_key_was_pressed: bool = false
 var _snuffer_timer: float = 0.0
 var _deep_stalker_spawned: bool = false
+var deep_stalker: Stalker = null
+## A burned nest (milestone 37) keeps the deep's second Stalker away.
+var nest_destroyed: bool = false
 var _build_keys_down: Dictionary = {}
 var _bell_ringing: bool = false
 var progress: Progress
@@ -129,6 +133,8 @@ func _spawn_events() -> void:
 		if event is Camp:
 			event.layer = mine.layer_index_at_world(mine.cell_to_world(room.cell))
 		if event is Outpost:
+			event.main = self
+		if event is Nest:
 			event.main = self
 		if event is Gallery:
 			event.main = self
@@ -279,8 +285,10 @@ func _process(delta: float) -> void:
 func _check_layer() -> void:
 	var layer := mine.layer_index_at_world(player.global_position)
 	var hazard: String = LAYER_HAZARDS[layer]
+	if layer == mine.UNSTABLE_LAYER and nest_destroyed:
+		hazard = "unstable"
 	hud.update_layer(Progress.LAYER_NAMES[layer] + (": " + hazard if hazard != "" else ""))
-	if layer == mine.UNSTABLE_LAYER and not _deep_stalker_spawned:
+	if layer == mine.UNSTABLE_LAYER and not _deep_stalker_spawned and not nest_destroyed:
 		_deep_stalker_spawned = true
 		var hunter: Stalker = StalkerScene.instantiate()
 		hunter.player = player
@@ -288,6 +296,13 @@ func _check_layer() -> void:
 		var side := -1 if randf() < 0.5 else 1
 		hunter.global_position = player.global_position + Vector2(side * DEEP_STALKER_SPAWN_TILES * mine.TILE_SIZE, 0)
 		add_child(hunter)
+		deep_stalker = hunter
+
+func on_nest_destroyed() -> void:
+	nest_destroyed = true
+	if is_instance_valid(deep_stalker):
+		deep_stalker.queue_free()
+	hud.show_message("The nest is ash. The deep goes quiet.")
 
 func _on_gas_released(world_pos: Vector2) -> void:
 	var cloud: GasCloud = GasCloudScene.instantiate()

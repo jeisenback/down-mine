@@ -62,7 +62,9 @@ you get it home. A collapsing gallery, a room propped with old timbers and
 lined with double-value ore, sits in Stone or Deep rock: step in and its
 ceiling comes down 12s later (loud). Light doesn't stop it; support beams
 do. Anyone still inside is buried (1 damage, dig out), and any ore left
-behind is lost.
+behind is lost. A Stalker nest of pale eggs sits in Deep rock: flare your
+lantern beside it for 2s to burn it (loud). A burned nest removes Deep
+rock's second Stalker for the rest of the run, or stops it ever waking.
 
 **Sound**: every effect (digging, hits, pickups, placing tools, collapses,
 gas, alarms) is synthesized in code at startup (`scripts/sfx.gd`) - no
