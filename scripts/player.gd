@@ -27,6 +27,11 @@ const MAX_HEALTH := 3
 # and this game is full of them — reads as unresponsive.
 const COYOTE_TIME := 0.1
 const JUMP_BUFFER_TIME := 0.12
+# Milestone 38: letting go of jump while rising cuts the jump short (a
+# short hop), and walking into a 1-tile bump steps up onto it.
+const JUMP_CUT := 0.4
+const STEP_HEIGHT := 17.0 # one tile, plus a pixel to clear the edge
+const STEP_PROBE := 2.0
 
 # Grapple: the PRD's "reusable tool, the reliable baseline" for getting
 # back up. Fires straight up, pulls to just below the first solid
@@ -99,6 +104,7 @@ var health: int = MAX_HEALTH
 ## if the run ends in death instead.
 var currency: int = 0
 var _jump_was_pressed: bool = false
+var _jump_rising: bool = false # jumped and still holding up
 var _coyote_timer: float = 0.0
 var _jump_buffer_timer: float = 0.0
 var _grapple_was_pressed: bool = false
@@ -216,6 +222,8 @@ func _physics_process(delta: float) -> void:
 		velocity.y = JUMP_VELOCITY
 		_jump_buffer_timer = 0.0
 		_coyote_timer = 0.0
+		_jump_rising = true
+	_apply_jump_cut(up_held)
 
 	var digging_forward := Input.is_physical_key_pressed(KEY_SPACE)
 	if down_held and input_dir != 0.0:
@@ -229,7 +237,32 @@ func _physics_process(delta: float) -> void:
 
 	light.set_flaring(Input.is_physical_key_pressed(KEY_SHIFT))
 
+	if input_dir != 0.0 and not digging_forward and not down_held:
+		_try_step_up(input_dir)
 	_move()
+
+## Releasing up while still rising cuts the jump, once per jump.
+func _apply_jump_cut(up_held: bool) -> void:
+	if not _jump_rising:
+		return
+	if velocity.y >= 0.0:
+		_jump_rising = false
+	elif not up_held:
+		velocity.y *= JUMP_CUT
+		_jump_rising = false
+
+## Walking on the floor into a bump exactly one tile tall climbs onto it.
+## Taller walls, and bumps without headroom above, still block.
+func _try_step_up(dir: float) -> void:
+	if not is_on_floor():
+		return
+	var ahead := Vector2(dir * STEP_PROBE, 0.0)
+	if not test_move(global_transform, ahead):
+		return # nothing in the way
+	var up := Vector2(0.0, -STEP_HEIGHT)
+	if test_move(global_transform, up) or test_move(global_transform.translated(up), ahead):
+		return
+	global_position += up + ahead
 
 ## Picks the sprite frame from movement state. Runs before this frame's
 ## move_and_slide(), so it reads last frame's floor contact - a one-frame
