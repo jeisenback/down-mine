@@ -34,8 +34,9 @@ dictates.
 
 - ~~**M29 - Layer identity.**~~ Done: gas pockets in Stone; Deep rock
   decays twice as fast and wakes a second Stalker.
-- **M30 - Art pass.** Replace remaining placeholder shapes (pickups,
-  base flag, ropes, lamps) with tileset art.
+- ~~**M30 - Art pass.**~~ Done: fuel, ore, the Stalker and ropes use
+  tileset art. The base flag, lamps, ladders and anchors keep their
+  drawn shapes - the pack has nothing that fits them.
 - **M31 - Sound.** Digging, collapses, enemy cues - noise is a core
   mechanic, so audio feedback matters.
 
