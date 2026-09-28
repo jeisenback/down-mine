@@ -11,7 +11,7 @@ enum State { BROKEN, READY, USED }
 
 var state: State = State.BROKEN
 
-@onready var cage: Polygon2D = $Cage
+@onready var cage: Sprite2D = $Cage
 
 func _ready() -> void:
 	add_to_group("mine_events")
@@ -32,7 +32,7 @@ func use(main: Node) -> void:
 		main.noise_meter.add_noise(REPAIR_NOISE)
 		Sfx.play("collapse")
 		state = State.READY
-		cage.color = Color(0.8, 0.6, 0.3)
+		cage.modulate = Color(1, 1, 1) # rust-dark until repaired
 	elif state == State.READY:
 		state = State.USED
 		cage.visible = false

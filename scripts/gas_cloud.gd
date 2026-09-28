@@ -14,15 +14,11 @@ var player: Player
 var _age: float = 0.0
 var _damage_timer: float = 0.0
 
-@onready var haze: Polygon2D = $Haze
+@onready var haze: Sprite2D = $Haze
 
 func _ready() -> void:
 	add_to_group("gas_clouds")
 	Sfx.play("hiss")
-	var points := PackedVector2Array()
-	for i in range(16):
-		points.append(Vector2.RIGHT.rotated(TAU * i / 16.0) * RADIUS)
-	haze.polygon = points
 
 func _process(delta: float) -> void:
 	_age += delta
