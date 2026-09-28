@@ -86,7 +86,8 @@ func _ready() -> void:
 	hud.crew_toggle_requested.connect(_on_crew_toggle_requested)
 	progress = Progress.load_saved()
 	progress.apply_to(player, noise_meter, run_base)
-	lamps_left += progress.extra_lamps()
+	# Lamps need the hub unlock; a Pack rat brings their own either way.
+	lamps_left = (LAMPS_PER_RUN if progress.has_unlock("lamps") else 0) + progress.extra_lamps()
 	hud.update_banked(progress.banked_ore)
 	_configure_camera_limits()
 	_spawn_lost_miners()
@@ -178,7 +179,11 @@ func _process(delta: float) -> void:
 	_check_plant()
 	_check_lamp()
 	_check_snuffer_spawn(delta)
-	hud.update_tools(lamps_left, player.ladders_left, player.anchors_left, get_tree().get_nodes_in_group("snuffers").size() > 0)
+	hud.update_tools({
+		"Lamps": lamps_left if progress.has_unlock("lamps") or lamps_left > 0 else -1,
+		"Ladders": player.ladders_left if progress.has_unlock("ladders") else -1,
+		"Anchors": player.anchors_left if progress.has_unlock("anchors") else -1,
+	}, get_tree().get_nodes_in_group("snuffers").size() > 0)
 	mine.decay_walls(delta, run_base.light.fuel_fraction())
 	var decay_noise := mine.tick_decay(delta, player.global_position)
 	if decay_noise > 0.0:

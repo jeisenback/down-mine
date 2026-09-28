@@ -13,8 +13,13 @@ const UPGRADES := {
 	"lantern": {"name": "Lantern tank", "effect": "+15s light", "cost_per_level": 30, "max_level": 3},
 	"hard_hat": {"name": "Hard hat", "effect": "+1 health", "cost_per_level": 50, "max_level": 2},
 	"crew_bunk": {"name": "Crew bunk", "effect": "+1 crew slot", "cost_per_level": 80, "max_level": 3},
+	# Tool unlocks (milestone 28, PRD: "new tools unlock at the hub; NPCs
+	# improve them"). The grapple and ropes stay free as the baseline.
+	"lamps": {"name": "Lamps", "effect": "unlock, 3 per run", "cost_per_level": 40, "max_level": 1},
+	"ladders": {"name": "Ladders", "effect": "unlock, 4 per run", "cost_per_level": 60, "max_level": 1},
+	"anchors": {"name": "Anchors", "effect": "unlock, 2 per run", "cost_per_level": 100, "max_level": 1},
 }
-const UPGRADE_ORDER := ["lantern", "hard_hat", "crew_bunk"] # hub keys 1-3
+const UPGRADE_ORDER := ["lantern", "hard_hat", "crew_bunk", "lamps", "ladders", "anchors"] # hub keys 1-6
 
 const LANTERN_FUEL_PER_LEVEL := 15.0
 const HARD_HAT_HEALTH_PER_LEVEL := 1
@@ -134,6 +139,9 @@ func save() -> void:
 
 func level(id: String) -> int:
 	return levels.get(id, 0)
+
+func has_unlock(id: String) -> bool:
+	return level(id) >= 1
 
 ## Cost of the next level, or -1 if already maxed.
 func next_cost(id: String) -> int:
@@ -275,6 +283,10 @@ func apply_to(player: Player, noise_meter: NoiseMeter, run_base: RunBase) -> voi
 	player.light.max_fuel += level("lantern") * LANTERN_FUEL_PER_LEVEL
 	player.light.fuel = player.light.max_fuel
 	player.health += level("hard_hat") * HARD_HAT_HEALTH_PER_LEVEL
+	if not has_unlock("ladders"):
+		player.ladders_left = 0
+	if not has_unlock("anchors"):
+		player.anchors_left = 0
 	for member in crew():
 		var strength: float = rank_of(member).strength
 		if member.type == "light":
