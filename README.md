@@ -27,6 +27,12 @@ it. If it takes the base from 3 health to 0, the run fails.
 free (so plain digging down is safe), 7+ costs 1 health, +1 per 3 more
 tiles. Hard landings also make noise.
 
+**Lost miners**: each run hides one lost miner (blue, faintly lit) on a
+cave floor partway down. Touch them and they follow your trail; extract
+with them and they join the roster. Your first rescued miner is your
+crew: light type, so your lantern burns 20% slower and reaches 15%
+further. Fail the run while escorting and they are lost.
+
 **Run it**: open the project folder in Godot 4.3+ and press Play (main scene
 is `scenes/Main.tscn`).
 

@@ -21,6 +21,7 @@ const ARRIVAL_RADIUS := 32.0
 @onready var ore_label: Label = $Margin/VBox/OreLabel
 @onready var banked_label: Label = $Margin/VBox/BankedLabel
 @onready var base_label: Label = $Margin/VBox/BaseLabel
+@onready var escort_label: Label = $Margin/VBox/EscortLabel
 @onready var compass: Node2D = $Compass
 @onready var run_summary: ColorRect = $RunSummary
 @onready var run_summary_label: Label = $RunSummary/SummaryLabel
@@ -59,6 +60,10 @@ func update_base(health: int, max_health: int, under_attack: bool) -> void:
 	base_label.text = "Base: %d/%d%s" % [health, max_health, "  UNDER ATTACK" if under_attack else ""]
 	base_label.modulate = Color(1, 0.4, 0.3) if under_attack else Color(1, 1, 1)
 
+func update_escort(miner_name: String) -> void:
+	escort_label.text = "Escorting: %s" % miner_name
+	escort_label.visible = true
+
 func update_banked(amount: int) -> void:
 	banked_label.text = "Banked: %d" % amount
 
@@ -83,9 +88,9 @@ func update_compass(to_target: Vector2) -> void:
 ## Right now a run only ever ends by dying or reaching this. Without a
 ## visible outcome it just looked like the game froze - this makes an
 ## ending actually read as an ending.
-func show_run_summary(title: String, success: bool, currency: int, depth: int, progress: Progress) -> void:
+func show_run_summary(title: String, success: bool, currency: int, depth: int, progress: Progress, notes: Array = []) -> void:
 	var currency_line := "Ore banked: %d" % currency if success else "Ore lost: %d" % currency
-	_summary_header = "%s\n%s\nDepth reached: %d tiles" % [title, currency_line, depth]
+	_summary_header = "\n".join([title, currency_line, "Depth reached: %d tiles" % depth] + notes)
 	refresh_hub(progress)
 	run_summary.visible = true
 
@@ -99,6 +104,14 @@ func refresh_hub(progress: Progress) -> void:
 		var price := "MAX" if cost < 0 else "%d ore" % cost
 		lines.append("[%d] %s (%s)  Lv %d/%d  - %s" % [
 			i + 1, upgrade.name, upgrade.effect, progress.level(id), upgrade.max_level, price])
+	lines.append("")
+	var crew := progress.crew()
+	if crew.is_empty():
+		lines.append("Crew: none yet - find lost miners in the mine")
+	for member in crew:
+		lines.append("Crew: %s (%s: %s)" % [member.name, Progress.NPC_TYPES[member.type].label, Progress.NPC_TYPES[member.type].effect])
+	if progress.roster.size() > crew.size():
+		lines.append("Waiting at the hub: %d" % (progress.roster.size() - crew.size()))
 	lines.append("")
 	lines.append("Press Enter for a new run")
 	run_summary_label.text = "\n".join(lines)

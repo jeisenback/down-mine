@@ -52,7 +52,15 @@ const ORE_DEPOSIT_COUNT := 60
 const ORE_VALUE_BY_LAYER := [10, 25, 50] # topsoil/stone/deep - deeper = higher value
 const OrePickupScene := preload("res://scenes/OrePickup.tscn")
 
+# One lost miner per run, on a cave floor in this row band - deep enough
+# to be a detour, shallow enough to escort back (milestone 13).
+const LOST_MINER_MIN_ROW := 20
+const LOST_MINER_MAX_ROW := 70
+
 var source_id: int = 0
+## Where Main should place this run's lost miner, or (-1, -1) if no floor
+## cell fits the band.
+var lost_miner_cell := Vector2i(-1, -1)
 
 func _ready() -> void:
 	_build_tileset()
@@ -135,6 +143,7 @@ func _generate_layout() -> void:
 	floor_cells.shuffle()
 	_scatter_fuel_deposits(floor_cells)
 	_scatter_ore_deposits(floor_cells)
+	_pick_lost_miner_cell(floor_cells)
 
 func _is_boundary(x: int, y: int) -> bool:
 	return x == 0 or x == GRID_WIDTH - 1 or y == GRID_HEIGHT - 1
@@ -228,6 +237,15 @@ func _scatter_ore_deposits(floor_cells: Array) -> void:
 		pickup.value = ORE_VALUE_BY_LAYER[_layer_index_for_row(cell.y)]
 		pickup.position = map_to_local(cell)
 		add_child(pickup)
+
+## Takes the first unused (shuffled, so random) floor cell after the
+## fuel and ore slices that falls inside the lost-miner row band.
+func _pick_lost_miner_cell(floor_cells: Array) -> void:
+	for i in range(min(FUEL_DEPOSIT_COUNT + ORE_DEPOSIT_COUNT, floor_cells.size()), floor_cells.size()):
+		var cell: Vector2i = floor_cells[i]
+		if cell.y >= LOST_MINER_MIN_ROW and cell.y <= LOST_MINER_MAX_ROW:
+			lost_miner_cell = cell
+			return
 
 func is_solid(cell: Vector2i) -> bool:
 	return get_cell_source_id(0, cell) != -1

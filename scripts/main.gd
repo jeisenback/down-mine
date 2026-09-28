@@ -9,6 +9,9 @@ const EXTRACTION_RADIUS := 32.0
 const BURROWER_SPAWN_OFFSET_TILES := 10
 const BurrowerScene := preload("res://scenes/Burrower.tscn")
 
+const LostMinerScene := preload("res://scenes/LostMiner.tscn")
+const MINER_NAMES := ["Ada", "Bram", "Cole", "Dita", "Ezra", "Fenn", "Greta", "Hale", "Iris", "Jory"]
+
 @onready var mine: MineGrid = $Mine
 @onready var run_base: RunBase = $RunBase
 @onready var player: Player = $Player
@@ -20,6 +23,7 @@ var run_ended: bool = false
 var max_depth_reached: int = 0
 var _extract_key_was_pressed: bool = false
 var progress: Progress
+var lost_miner: LostMiner
 
 func _ready() -> void:
 	player.mine = mine
@@ -36,6 +40,22 @@ func _ready() -> void:
 	progress.apply_to(player)
 	hud.update_banked(progress.banked_ore)
 	_configure_camera_limits()
+	_spawn_lost_miner()
+
+## One lost miner per run, named from those not already on the roster.
+func _spawn_lost_miner() -> void:
+	if mine.lost_miner_cell.x < 0:
+		return
+	var taken := progress.roster.map(func(m): return m.name)
+	var names := MINER_NAMES.filter(func(n): return not n in taken)
+	if names.is_empty():
+		names = MINER_NAMES
+	lost_miner = LostMinerScene.instantiate()
+	lost_miner.player = player
+	lost_miner.miner_name = names.pick_random()
+	lost_miner.global_position = mine.cell_to_world(mine.lost_miner_cell)
+	lost_miner.picked_up.connect(func(): hud.update_escort(lost_miner.miner_name))
+	add_child(lost_miner)
 
 func _configure_camera_limits() -> void:
 	var camera := player.get_node("Camera2D") as Camera2D
@@ -71,8 +91,15 @@ func _extract() -> void:
 	progress.banked_ore += player.currency
 	progress.save()
 	hud.update_banked(progress.banked_ore)
-	hud.show_run_summary("Extracted!", true, player.currency, max_depth_reached, progress)
+	var notes: Array = []
+	if _escorting():
+		progress.rescue(lost_miner.miner_name, lost_miner.npc_type)
+		notes.append("Rescued %s - joins the roster" % lost_miner.miner_name)
+	hud.show_run_summary("Extracted!", true, player.currency, max_depth_reached, progress, notes)
 	get_tree().paused = true
+
+func _escorting() -> bool:
+	return lost_miner != null and lost_miner.following
 
 func _on_tile_dug(noise_amount: float) -> void:
 	noise_meter.add_noise(noise_amount)
@@ -103,7 +130,10 @@ func _fail_run(title: String) -> void:
 		return
 	run_ended = true
 	hud.update_health(player.health)
-	hud.show_run_summary(title, false, player.currency, max_depth_reached, progress)
+	var notes: Array = []
+	if _escorting():
+		notes.append("%s was lost in the dark" % lost_miner.miner_name)
+	hud.show_run_summary(title, false, player.currency, max_depth_reached, progress, notes)
 	get_tree().paused = true
 
 ## Reloading the scene is the whole reset: the mine regenerates in
