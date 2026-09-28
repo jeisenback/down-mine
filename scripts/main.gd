@@ -178,7 +178,7 @@ func _process(delta: float) -> void:
 	_check_plant()
 	_check_lamp()
 	_check_snuffer_spawn(delta)
-	hud.update_lamps(lamps_left, get_tree().get_nodes_in_group("snuffers").size() > 0)
+	hud.update_tools(lamps_left, player.ladders_left, player.anchors_left, get_tree().get_nodes_in_group("snuffers").size() > 0)
 	mine.decay_walls(delta, run_base.light.fuel_fraction())
 	var decay_noise := mine.tick_decay(delta, player.global_position)
 	if decay_noise > 0.0:

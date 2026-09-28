@@ -405,10 +405,7 @@ func _crumble_floor(player_pos: Vector2) -> bool:
 
 ## Inside any MineLight's current radius (same test ropes use).
 func is_lit(world_pos: Vector2) -> bool:
-	for light in get_tree().get_nodes_in_group("mine_lights"):
-		if world_pos.distance_to(light.global_position) < light.current_radius():
-			return true
-	return false
+	return MineLight.is_lit(get_tree(), world_pos)
 
 func is_wall(cell: Vector2i) -> bool:
 	return get_cell_atlas_coords(0, cell) == WALL_ATLAS_COORDS

@@ -75,8 +75,9 @@ func update_prompts(prompts: Array) -> void:
 	prompt_label.text = "     ".join(prompts)
 	prompt_label.visible = not prompts.is_empty()
 
-func update_lamps(lamps_left: int, snuffer_hunting: bool) -> void:
-	lamp_label.text = "Lamps: %d%s" % [lamps_left, "  SNUFFER HUNTING" if snuffer_hunting else ""]
+## Placed tools left this run (ropes are unlimited, so not listed).
+func update_tools(lamps_left: int, ladders_left: int, anchors_left: int, snuffer_hunting: bool) -> void:
+	lamp_label.text = "Lamps %d  Ladders %d  Anchors %d%s" % [lamps_left, ladders_left, anchors_left, "  SNUFFER HUNTING" if snuffer_hunting else ""]
 	lamp_label.modulate = Color(0.7, 0.8, 1) if snuffer_hunting else Color(1, 1, 1)
 
 func update_escort(miner_name: String) -> void:

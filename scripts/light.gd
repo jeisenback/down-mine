@@ -32,6 +32,14 @@ func _process(delta: float) -> void:
 	if fuel <= 0.0:
 		fuel_depleted.emit()
 
+## Whether any MineLight's current radius reaches world_pos - the one
+## "is this spot lit?" test that decay, ropes and anchors share.
+static func is_lit(tree: SceneTree, world_pos: Vector2) -> bool:
+	for light in tree.get_nodes_in_group("mine_lights"):
+		if world_pos.distance_to(light.global_position) < light.current_radius():
+			return true
+	return false
+
 func add_fuel(amount: float) -> void:
 	fuel = min(max_fuel, fuel + amount)
 
