@@ -18,6 +18,10 @@ layout_mode = 2
 layout_mode = 2
 text = "Light: 100%"
 
+[node name="HealthLabel" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+text = "Health: 3"
+
 [node name="NoiseLabel" type="Label" parent="Margin/VBox"]
 layout_mode = 2
 text = "Noise: 0"
@@ -32,11 +36,50 @@ show_percentage = false
 layout_mode = 2
 text = "Ore: 0"
 
+[node name="BankedLabel" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+text = "Banked: 0"
+
+[node name="BaseLabel" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+text = "Base: 3/3"
+
+[node name="LampLabel" type="Label" parent="Margin/VBox"]
+layout_mode = 2
+text = "Lamps: 3"
+
+[node name="EscortLabel" type="Label" parent="Margin/VBox"]
+visible = false
+layout_mode = 2
+text = "Escorting:"
+
 [node name="Compass" type="Node2D" parent="."]
 
 [node name="Arrow" type="Polygon2D" parent="Compass"]
 polygon = PackedVector2Array(14, 0, -8, 8, -8, -8)
 color = Color(1, 0.85, 0.3, 1)
+
+[node name="PromptLabel" type="Label" parent="."]
+visible = false
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -300.0
+offset_top = -44.0
+offset_right = 300.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 0
+horizontal_alignment = 1
+text = ""
+
+[node name="StrandedCompass" type="Node2D" parent="."]
+visible = false
+
+[node name="Arrow" type="Polygon2D" parent="StrandedCompass"]
+polygon = PackedVector2Array(12, 0, -7, 7, -7, -7)
 
 [node name="RunSummary" type="ColorRect" parent="."]
 visible = false
@@ -56,6 +99,6 @@ anchor_right = 0.5
 anchor_bottom = 0.5
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_font_sizes/font_size = 28
+theme_override_font_sizes/font_size = 16
 horizontal_alignment = 1
 text = ""

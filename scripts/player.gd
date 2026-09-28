@@ -32,7 +32,7 @@ const JUMP_BUFFER_TIME := 0.12
 # back up. Fires straight up, pulls to just below the first solid
 # ceiling within range. A miss (nothing in range) still costs half the
 # cooldown so spamming it isn't free.
-const GRAPPLE_RANGE := 96.0 # 6 tiles
+const GRAPPLE_RANGE := 96.0 # 6 tiles, before crew bonuses
 const GRAPPLE_PULL_SPEED := 500.0
 const GRAPPLE_COOLDOWN := 0.6
 
@@ -46,9 +46,31 @@ const ROPE_PLACE_NOISE := 15.0
 const CLIMB_SPEED := 80.0
 const RopeScene := preload("res://scenes/Rope.tscn")
 
+# Fall damage, judged by landing speed rather than height fallen, so
+# digging straight down (a near-continuous fall that clears the floor
+# ahead of you) stays safe while breaking into a cave and dropping
+# through it hurts. Thresholds are in tiles of equivalent free fall.
+# Plain dig-down lands at ~2.7 tiles' worth; a jump is under 2; digging
+# into an upper-layer cave drops ~5-6. Deeper layers have bigger caverns,
+# so the same habit gets more dangerous with depth.
+const SAFE_FALL_TILES := 7.0
+const FALL_TILES_PER_EXTRA_DAMAGE := 3.0
+const FALL_NOISE_PER_DAMAGE := 12.0
+
+# Deep Night player sheet: 16x16 frames, 10 per row, art faces right.
+# Odd rows are an alternate shading of the row above and go unused.
+const SHEET_COLUMNS := 10
+const RUN_ROW := 0        # 8 frames; frame 0 doubles as idle
+const PUSH_ROW := 2       # 3 frames, arms out - used when digging in place
+const PUSH_RUN_ROW := 4   # 8 frames - running while digging forward
+const JUMP_ROW := 6       # 5 frames; 2 = rising, 3 = falling
+const RUN_FRAME_COUNT := 8
+const RUN_ANIM_FPS := 12.0
+
 @onready var light: MineLight = $MineLight
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
 @onready var rope_detector: Area2D = $RopeDetector
+@onready var body_sprite: Sprite2D = $Body
 
 var mine: MineGrid
 var dig_timer: float = 0.0
@@ -67,8 +89,13 @@ var _grapple_target_y: float = 0.0
 var _rope_place_was_pressed: bool = false
 var _rope_place_timer: float = 0.0
 var _ropes_touching: Array = []
+var _anim_time: float = 0.0
+## GRAPPLE_RANGE after crew bonuses (Progress.apply_to).
+var grapple_range: float = GRAPPLE_RANGE
+var _was_on_floor: bool = true
 
 func _ready() -> void:
+	body_sprite.texture = PixelArt.keyed(body_sprite.texture)
 	rope_detector.area_entered.connect(_on_rope_area_entered)
 	rope_detector.area_exited.connect(_on_rope_area_exited)
 
@@ -98,6 +125,7 @@ func _physics_process(delta: float) -> void:
 	if input_dir != 0.0:
 		facing = int(sign(input_dir))
 	_apply_horizontal_movement(input_dir, delta)
+	_update_animation(input_dir, delta)
 
 	var place_rope_pressed := Input.is_physical_key_pressed(KEY_R)
 	if place_rope_pressed and not _rope_place_was_pressed and _rope_place_timer <= 0.0:
@@ -114,7 +142,7 @@ func _physics_process(delta: float) -> void:
 		if global_position.y <= _grapple_target_y:
 			_grappling = false
 			velocity.y = 0.0
-		move_and_slide()
+		_move()
 		return
 
 	var up_held := Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)
@@ -126,7 +154,7 @@ func _physics_process(delta: float) -> void:
 			velocity.y = -CLIMB_SPEED
 		elif down_held:
 			velocity.y = CLIMB_SPEED
-		move_and_slide()
+		_move()
 		return
 
 	if is_on_floor():
@@ -156,17 +184,68 @@ func _physics_process(delta: float) -> void:
 
 	light.set_flaring(Input.is_physical_key_pressed(KEY_SHIFT))
 
+	_move()
+
+## Picks the sprite frame from movement state. Runs before this frame's
+## move_and_slide(), so it reads last frame's floor contact - a one-frame
+## lag nobody will see at this size.
+func _update_animation(input_dir: float, delta: float) -> void:
+	body_sprite.flip_h = facing < 0
+	var row := RUN_ROW
+	var column := 0
+	if not is_on_floor() and not is_on_rope():
+		row = JUMP_ROW
+		column = 2 if velocity.y < 0.0 else 3
+	elif Input.is_physical_key_pressed(KEY_SPACE):
+		if input_dir != 0.0:
+			row = PUSH_RUN_ROW
+			column = _run_cycle_frame(delta)
+		else:
+			row = PUSH_ROW
+			column = 2
+	elif input_dir != 0.0:
+		column = _run_cycle_frame(delta)
+	else:
+		_anim_time = 0.0
+	body_sprite.frame = row * SHEET_COLUMNS + column
+
+func _run_cycle_frame(delta: float) -> int:
+	_anim_time += delta
+	return int(_anim_time * RUN_ANIM_FPS) % RUN_FRAME_COUNT
+
+## move_and_slide() plus landing detection. The velocity going in is the
+## impact speed, since the collision zeroes it.
+func _move() -> void:
+	var fall_speed := velocity.y
 	move_and_slide()
+	if is_on_floor() and not _was_on_floor:
+		_on_landed(fall_speed)
+	_was_on_floor = is_on_floor()
+
+func _on_landed(fall_speed: float) -> void:
+	var damage := fall_damage_for_speed(fall_speed)
+	if damage > 0:
+		made_noise.emit(FALL_NOISE_PER_DAMAGE * damage)
+		take_hit(damage)
+
+## Converts landing speed to tiles of free fall (v^2 / 2g), then to damage.
+static func fall_damage_for_speed(fall_speed: float) -> int:
+	if fall_speed <= 0.0:
+		return 0
+	var fall_tiles := fall_speed * fall_speed / (2.0 * GRAVITY) / MineGrid.TILE_SIZE
+	if fall_tiles < SAFE_FALL_TILES:
+		return 0
+	return 1 + int((fall_tiles - SAFE_FALL_TILES) / FALL_TILES_PER_EXTRA_DAMAGE)
 
 ## Scans straight up from the player's cell for the first solid cell
-## within GRAPPLE_RANGE. On a hit, starts pulling toward a point just
+## within grapple_range. On a hit, starts pulling toward a point just
 ## below it. On a miss, still costs half the cooldown so spamming it
 ## isn't free.
 func _try_fire_grapple() -> void:
 	if mine == null:
 		return
 	var start_cell := mine.world_to_cell(global_position)
-	var max_cells := int(GRAPPLE_RANGE / mine.TILE_SIZE)
+	var max_cells := int(grapple_range / mine.TILE_SIZE)
 	for i in range(1, max_cells + 1):
 		var cell := Vector2i(start_cell.x, start_cell.y - i)
 		if mine.is_solid(cell):

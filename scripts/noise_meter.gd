@@ -7,6 +7,8 @@ signal noise_changed(value: float, fraction: float)
 @export var max_noise: float = 100.0
 @export var decay_rate: float = 8.0
 @export var threshold: float = 100.0
+## Scales all incoming noise; a noise-type crew member lowers it.
+var noise_multiplier: float = 1.0
 
 var noise: float = 0.0
 var _triggered: bool = false
@@ -17,7 +19,7 @@ func _process(delta: float) -> void:
 		noise_changed.emit(noise, noise / max_noise)
 
 func add_noise(amount: float) -> void:
-	noise = min(max_noise, noise + amount)
+	noise = min(max_noise, noise + amount * noise_multiplier)
 	noise_changed.emit(noise, noise / max_noise)
 	if noise >= threshold and not _triggered:
 		_triggered = true

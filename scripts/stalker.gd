@@ -7,8 +7,18 @@ const SPEED := 60.0
 const SAFE_LIGHT_MARGIN := 10.0
 const ATTACK_RANGE := 14.0
 const ATTACK_COOLDOWN := 1.2
+# PRD: "strikes when [the light] flickers or shrinks". The lantern only
+# holds a Stalker off while above this fuel fraction (or flaring); below
+# it, the Stalker closes in. Before this, it fled at radius - margin, and
+# since the lantern never shrinks below 30px that was always outside
+# ATTACK_RANGE - a standing player could never be hit, only one moving
+# into it.
+const STRIKE_FUEL_FRACTION := 0.25
 
 var player: Player
+## The base light is a refuge: inside it the Stalker only retreats, so it
+## never attacks there - it waits at the edge instead.
+var run_base: RunBase
 var state: State = State.LURK
 var attack_timer: float = 0.0
 
@@ -17,10 +27,17 @@ func _physics_process(delta: float) -> void:
 	if player == null:
 		return
 
+	var from_base := global_position - run_base.global_position
+	if from_base.length() < run_base.light.current_radius() - SAFE_LIGHT_MARGIN:
+		velocity = from_base.normalized() * SPEED
+		move_and_slide()
+		return
+
 	var to_player := player.global_position - global_position
 	var distance := to_player.length()
 	var light_radius: float = player.light.current_radius()
-	var in_light := distance < light_radius - SAFE_LIGHT_MARGIN
+	var light_holds: bool = player.light.is_flaring or player.light.fuel_fraction() > STRIKE_FUEL_FRACTION
+	var in_light := light_holds and distance < light_radius - SAFE_LIGHT_MARGIN
 
 	if in_light:
 		state = State.FLEE

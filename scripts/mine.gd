@@ -21,10 +21,44 @@ const LAYER_COLORS := [
 	Color(0.22, 0.16, 0.2),  # deep rock
 ]
 
+# 16x16 fill regions in the Deep Night tileset (8x8 pack, so each layer
+# tile is a 2x2 block of its art). The sheet's flat background colour also
+# fills the gaps in these textures; those pixels get the layer colour
+# above instead, so solid rock still reads apart from empty cave.
+const TILESET_TEXTURE := preload("res://assets/deep_night/tiles.png")
+const LAYER_TEXTURE_REGIONS := [
+	Rect2i(0, 64, 16, 16),   # green speckle
+	Rect2i(104, 64, 16, 16), # blue-grey speckle
+	Rect2i(8, 120, 16, 16),  # grey stone block
+]
+
 # Bedrock: indestructible, forms the map's outer walls/floor so digging
 # can never open a path out of the generated area.
 const BEDROCK_ATLAS_COORDS := Vector2i(3, 0)
 const BEDROCK_COLOR := Color(0.05, 0.05, 0.06)
+
+# Mine decay (milestone 21, PRD: "tunnels collapse and floors crumble").
+# Each tick, one tunnel cell the player dug refills with rock and one cave
+# floor near the player drops away - but only in darkness, so every light
+# (lantern, lamps, base, miners) protects the ground around it and nothing
+# collapses on the player. Ticks speed up as the run goes on. Floors under
+# pickups and NPCs never crumble, so nothing is left floating.
+const DECAY_INTERVAL_START := 4.0
+const DECAY_INTERVAL_END := 1.5
+const DECAY_RAMP_TIME := 480.0 # seconds into the run to reach the end interval
+const CRUMBLE_RADIUS_TILES := 20
+const CRUMBLE_SAMPLE_TRIES := 20
+const DECAY_NOISE := 3.0 # per collapse or crumble (PRD: collapses are loud)
+
+# Reinforced rock around the run base (milestone 18): the tileset's iron
+# grate (8x16, drawn twice across) over dark earth. Burrowers must chew
+# through it; the player digs it like normal rock. Walls wear back to
+# plain rock over time, faster when the base's light is low.
+const WALL_ATLAS_COORDS := Vector2i(4, 0)
+const WALL_COLOR := Color(0.2, 0.15, 0.1)
+const WALL_TEXTURE_REGION := Rect2i(80, 120, 8, 16)
+const WALL_DECAY_INTERVAL_LIT := 40.0  # seconds per wall lost, base light full
+const WALL_DECAY_INTERVAL_DARK := 8.0  # ...and with the base light out
 
 # Cellular-automata cave carving: start from a random fill below the
 # solid crust, then smooth a few times so pockets read as caves rather
@@ -41,18 +75,51 @@ const ORE_DEPOSIT_COUNT := 60
 const ORE_VALUE_BY_LAYER := [10, 25, 50] # topsoil/stone/deep - deeper = higher value
 const OrePickupScene := preload("res://scenes/OrePickup.tscn")
 
+# One lost miner per run, on a cave floor in this row band - deep enough
+# to be a detour, shallow enough to escort back (milestone 13).
+const LOST_MINER_MIN_ROW := 20
+const LOST_MINER_MAX_ROW := 70
+
 var source_id: int = 0
+## Where Main should place this run's lost miner, or (-1, -1) if no floor
+## cell fits the band.
+var lost_miner_cell := Vector2i(-1, -1)
+## Floor cells no pickup or NPC has claimed yet (shuffled).
+var _spare_floor_cells: Array = []
+var _wall_cells: Array[Vector2i] = []
+var _wall_decay_timer: float = 0.0
+## Cells the player has dug (tunnels that can collapse).
+var _dug_cells: Array[Vector2i] = []
+## Floor cells with a pickup or NPC standing on them; these never crumble.
+var _reserved_floors: Dictionary = {}
+var _decay_timer: float = 0.0
+var _run_time: float = 0.0
 
 func _ready() -> void:
 	_build_tileset()
 	_generate_layout()
 
 func _build_tileset() -> void:
-	var colors := LAYER_COLORS + [BEDROCK_COLOR]
+	var colors := LAYER_COLORS + [BEDROCK_COLOR, WALL_COLOR]
 	var atlas_width := colors.size()
 	var image := Image.create(TILE_SIZE * atlas_width, TILE_SIZE, false, Image.FORMAT_RGBA8)
 	for i in range(atlas_width):
 		image.fill_rect(Rect2i(i * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE), colors[i])
+	var source_image := TILESET_TEXTURE.get_image()
+	source_image.decompress()
+	for i in range(LAYER_TEXTURE_REGIONS.size()):
+		var region: Rect2i = LAYER_TEXTURE_REGIONS[i]
+		for x in range(TILE_SIZE):
+			for y in range(TILE_SIZE):
+				var pixel := source_image.get_pixel(region.position.x + x, region.position.y + y)
+				if not pixel.is_equal_approx(PixelArt.SHEET_BG_COLOR):
+					image.set_pixel(i * TILE_SIZE + x, y, pixel)
+	for x in range(TILE_SIZE):
+		for y in range(TILE_SIZE):
+			var grate_x := WALL_TEXTURE_REGION.position.x + x % WALL_TEXTURE_REGION.size.x
+			var pixel := source_image.get_pixel(grate_x, WALL_TEXTURE_REGION.position.y + y)
+			if not pixel.is_equal_approx(PixelArt.SHEET_BG_COLOR):
+				image.set_pixel(WALL_ATLAS_COORDS.x * TILE_SIZE + x, y, pixel)
 	var texture := ImageTexture.create_from_image(image)
 
 	var atlas := TileSetAtlasSource.new()
@@ -115,6 +182,8 @@ func _generate_layout() -> void:
 	floor_cells.shuffle()
 	_scatter_fuel_deposits(floor_cells)
 	_scatter_ore_deposits(floor_cells)
+	_spare_floor_cells = floor_cells.slice(min(FUEL_DEPOSIT_COUNT + ORE_DEPOSIT_COUNT, floor_cells.size()))
+	_pick_lost_miner_cell()
 
 func _is_boundary(x: int, y: int) -> bool:
 	return x == 0 or x == GRID_WIDTH - 1 or y == GRID_HEIGHT - 1
@@ -195,6 +264,7 @@ func _scatter_fuel_deposits(floor_cells: Array) -> void:
 		var cell: Vector2i = floor_cells[i]
 		var pickup := FuelPickupScene.instantiate()
 		pickup.position = map_to_local(cell)
+		_reserved_floors[cell + Vector2i.DOWN] = true
 		add_child(pickup)
 
 ## Ore/relic currency, banked on extraction (milestone 8). Value scales
@@ -207,7 +277,28 @@ func _scatter_ore_deposits(floor_cells: Array) -> void:
 		var pickup := OrePickupScene.instantiate()
 		pickup.value = ORE_VALUE_BY_LAYER[_layer_index_for_row(cell.y)]
 		pickup.position = map_to_local(cell)
+		_reserved_floors[cell + Vector2i.DOWN] = true
 		add_child(pickup)
+
+func _pick_lost_miner_cell() -> void:
+	lost_miner_cell = _take_spare_floor_cell(func(cell): return cell.y >= LOST_MINER_MIN_ROW and cell.y <= LOST_MINER_MAX_ROW)
+
+## A random unclaimed cave-floor cell in a depth band, for placing a
+## stranded miner in the layer they drifted to. (-1, -1) if none.
+func take_floor_cell_in_layer(layer_index: int) -> Vector2i:
+	return _take_spare_floor_cell(func(cell): return _layer_index_for_row(cell.y) == layer_index)
+
+func _take_spare_floor_cell(accept: Callable) -> Vector2i:
+	for i in range(_spare_floor_cells.size()):
+		var cell: Vector2i = _spare_floor_cells[i]
+		if accept.call(cell):
+			_spare_floor_cells.remove_at(i)
+			_reserved_floors[cell + Vector2i.DOWN] = true
+			return cell
+	return Vector2i(-1, -1)
+
+func layer_index_at_world(world_pos: Vector2) -> int:
+	return _layer_index_for_row(clamp(world_to_cell(world_pos).y, SURFACE_ROWS, GRID_HEIGHT - 1))
 
 func is_solid(cell: Vector2i) -> bool:
 	return get_cell_source_id(0, cell) != -1
@@ -222,14 +313,19 @@ func dig_at_world(world_pos: Vector2) -> bool:
 ## to how much was actually cleared. Used for multi-tile digs (a tall
 ## notch, a step) so a bigger dig costs more noise than a single tile.
 ## Bedrock at the map's edges is skipped, so a run can never dig its way
-## out of the generated area.
-func dig_cells(cells: Array) -> int:
+## out of the generated area. Enemies pass emit_noise = false: noise is
+## the player's cost, and a Burrower's tunnelling feeding the meter would
+## chain-spawn more Burrowers.
+func dig_cells(cells: Array, emit_noise: bool = true) -> int:
 	var dug_count := 0
 	for cell in cells:
 		if is_solid(cell) and not is_indestructible(cell):
 			set_cell(0, cell, -1)
+			_wall_cells.erase(cell)
 			dug_count += 1
-	if dug_count > 0:
+			if emit_noise: # player digs; enemy tunnels don't collapse
+				_dug_cells.append(cell)
+	if dug_count > 0 and emit_noise:
 		tile_dug.emit(DIG_NOISE * dug_count)
 	return dug_count
 
@@ -241,6 +337,88 @@ func cells_in_column(world_x: float, y_top: float, y_bottom: float) -> Array:
 	for y in range(top_cell.y, bottom_cell.y + 1):
 		cells.append(Vector2i(top_cell.x, y))
 	return cells
+
+## One decay tick's worth of collapse + crumble when due. Returns the
+## noise made, for Main to feed the meter.
+func tick_decay(delta: float, player_pos: Vector2) -> float:
+	_run_time += delta
+	_decay_timer += delta
+	var interval: float = lerp(DECAY_INTERVAL_START, DECAY_INTERVAL_END, min(1.0, _run_time / DECAY_RAMP_TIME))
+	if _decay_timer < interval:
+		return 0.0
+	_decay_timer = 0.0
+	var noise := 0.0
+	if _collapse_tunnel():
+		noise += DECAY_NOISE
+	if _crumble_floor(player_pos):
+		noise += DECAY_NOISE
+	return noise
+
+func _collapse_tunnel() -> bool:
+	var candidates := _dug_cells.filter(func(c): return not is_solid(c) and not is_lit(cell_to_world(c)))
+	if candidates.is_empty():
+		return false
+	var cell: Vector2i = candidates.pick_random()
+	_dug_cells.erase(cell)
+	set_cell(0, cell, source_id, LAYER_ATLAS_COORDS[_layer_index_for_row(cell.y)])
+	return true
+
+func _crumble_floor(player_pos: Vector2) -> bool:
+	var center := world_to_cell(player_pos)
+	for i in range(CRUMBLE_SAMPLE_TRIES):
+		var cell := center + Vector2i(randi_range(-CRUMBLE_RADIUS_TILES, CRUMBLE_RADIUS_TILES), randi_range(-CRUMBLE_RADIUS_TILES, CRUMBLE_RADIUS_TILES))
+		if cell.y <= SURFACE_ROWS or not is_solid(cell) or is_indestructible(cell) or is_wall(cell):
+			continue
+		if is_solid(cell + Vector2i.UP) or _reserved_floors.has(cell) or is_lit(cell_to_world(cell)):
+			continue
+		set_cell(0, cell, -1)
+		return true
+	return false
+
+## Inside any MineLight's current radius (same test ropes use).
+func is_lit(world_pos: Vector2) -> bool:
+	for light in get_tree().get_nodes_in_group("mine_lights"):
+		if world_pos.distance_to(light.global_position) < light.current_radius():
+			return true
+	return false
+
+func is_wall(cell: Vector2i) -> bool:
+	return get_cell_atlas_coords(0, cell) == WALL_ATLAS_COORDS
+
+func wall_count() -> int:
+	return _wall_cells.size()
+
+## Solid, non-bedrock, not-yet-walled cells within radius of center,
+## nearest first - what fortifying would reinforce, in order.
+func unreinforced_cells_around(center: Vector2i, radius: int) -> Array[Vector2i]:
+	var cells: Array[Vector2i] = []
+	for dx in range(-radius, radius + 1):
+		for dy in range(-radius, radius + 1):
+			var cell := center + Vector2i(dx, dy)
+			if Vector2(dx, dy).length() <= radius and is_solid(cell) and not is_indestructible(cell) and not is_wall(cell):
+				cells.append(cell)
+	cells.sort_custom(func(a, b): return (a - center).length_squared() < (b - center).length_squared())
+	return cells
+
+func reinforce(cell: Vector2i) -> void:
+	set_cell(0, cell, source_id, WALL_ATLAS_COORDS)
+	_wall_cells.append(cell)
+
+## Wears one random wall back to plain rock every interval; the interval
+## shrinks as the base light dims (PRD: structures decay faster in the
+## dark, sharing the light's clock).
+func decay_walls(delta: float, base_light_fraction: float) -> void:
+	if _wall_cells.is_empty():
+		_wall_decay_timer = 0.0
+		return
+	_wall_decay_timer += delta
+	var interval: float = lerp(WALL_DECAY_INTERVAL_DARK, WALL_DECAY_INTERVAL_LIT, base_light_fraction)
+	if _wall_decay_timer < interval:
+		return
+	_wall_decay_timer = 0.0
+	var cell: Vector2i = _wall_cells.pick_random()
+	_wall_cells.erase(cell)
+	set_cell(0, cell, source_id, LAYER_ATLAS_COORDS[_layer_index_for_row(cell.y)])
 
 func world_to_cell(world_pos: Vector2) -> Vector2i:
 	return local_to_map(to_local(world_pos))
