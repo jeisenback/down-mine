@@ -27,9 +27,8 @@ dictates.
 
 - ~~**M27 - Ladders and anchors.**~~ Done: ladders (T), anchors (G) the
   grapple pulls to, and the traversal miner's rope-life/ladder bonuses.
-- **M28 - Hub tool unlocks.** Some tools (grapple, ropes, lamps) become
-  hub unlocks - "the hub grants capabilities" - giving banked ore a
-  longer-term use.
+- ~~**M28 - Hub tool unlocks.**~~ Done: lamps, ladders and anchors are
+  hub unlocks; the grapple and ropes stay free as the baseline.
 
 ## Content and presentation
 

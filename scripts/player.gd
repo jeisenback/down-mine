@@ -325,7 +325,7 @@ func _place_rope() -> void:
 
 ## Places a Ladder standing up from the bottom of the player's cell.
 func _place_ladder() -> void:
-	if mine == null:
+	if mine == null or ladders_left <= 0:
 		return
 	var cell := mine.world_to_cell(global_position)
 	var ladder: Rope = LadderScene.instantiate()
@@ -338,7 +338,7 @@ func _place_ladder() -> void:
 	made_noise.emit(LADDER_PLACE_NOISE)
 
 func _place_anchor() -> void:
-	if mine == null:
+	if mine == null or anchors_left <= 0:
 		return
 	var anchor: Anchor = AnchorScene.instantiate()
 	mine.add_child(anchor)

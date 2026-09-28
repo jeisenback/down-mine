@@ -25,6 +25,16 @@ func test_hub_purchase_costs_scale_and_cap() -> void:
 	assert_true(not p.try_buy("lantern"), "level 3 (90) unaffordable")
 	assert_eq(p.level("lantern"), 2, "lantern level")
 
+func test_tool_unlocks_are_one_time_purchases() -> void:
+	var p := _progress()
+	p.banked_ore = 200
+	assert_true(not p.has_unlock("anchors"), "locked at first")
+	assert_true(p.try_buy("anchors"), "affordable")
+	assert_eq(p.banked_ore, 100, "anchors cost 100")
+	assert_true(p.has_unlock("anchors"), "unlocked")
+	assert_true(not p.try_buy("anchors"), "can't buy twice")
+	assert_eq(p.banked_ore, 100, "no second charge")
+
 func test_rescue_joins_roster_and_fills_free_crew_slot() -> void:
 	var p := _progress()
 	p.end_run([{"name": "Ada", "type": "light", "found_in": 1}], [], true)

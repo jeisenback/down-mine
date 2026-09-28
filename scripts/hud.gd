@@ -15,6 +15,8 @@ const COMPASS_MARGIN := 40.0
 # jitter, so without a real "arrived" radius the arrow spins erratically
 # as soon as the player gets close, not just when exactly on top of it.
 const ARRIVAL_RADIUS := 32.0
+# Hub roster keys A-J: one per possible miner (10 names).
+const ROSTER_KEYS := 10
 
 @onready var fuel_label: Label = $Margin/VBox/FuelLabel
 @onready var health_label: Label = $Margin/VBox/HealthLabel
@@ -43,13 +45,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if key.physical_keycode in [KEY_ENTER, KEY_KP_ENTER]:
 		new_run_requested.emit()
+	# Numbers buy upgrades/unlocks; letters A-J toggle roster members.
 	var index := key.physical_keycode - KEY_1
-	if index < 0 or index > 8:
-		return
-	if index < Progress.UPGRADE_ORDER.size():
+	if index >= 0 and index < Progress.UPGRADE_ORDER.size():
 		upgrade_requested.emit(Progress.UPGRADE_ORDER[index])
-	else:
-		crew_toggle_requested.emit(index - Progress.UPGRADE_ORDER.size())
+	var roster_index := key.physical_keycode - KEY_A
+	if roster_index >= 0 and roster_index < ROSTER_KEYS:
+		crew_toggle_requested.emit(roster_index)
 
 func update_fuel(fraction: float) -> void:
 	fuel_label.text = "Light: %d%%" % int(fraction * 100)
@@ -75,9 +77,17 @@ func update_prompts(prompts: Array) -> void:
 	prompt_label.text = "     ".join(prompts)
 	prompt_label.visible = not prompts.is_empty()
 
-## Placed tools left this run (ropes are unlimited, so not listed).
-func update_tools(lamps_left: int, ladders_left: int, anchors_left: int, snuffer_hunting: bool) -> void:
-	lamp_label.text = "Lamps %d  Ladders %d  Anchors %d%s" % [lamps_left, ladders_left, anchors_left, "  SNUFFER HUNTING" if snuffer_hunting else ""]
+## Placed tools left this run, by name; -1 means not unlocked (hidden).
+## Ropes are unlimited, so not listed.
+func update_tools(counts: Dictionary, snuffer_hunting: bool) -> void:
+	var parts: Array = []
+	for tool_name in counts:
+		if counts[tool_name] >= 0:
+			parts.append("%s %d" % [tool_name, counts[tool_name]])
+	if snuffer_hunting:
+		parts.append("SNUFFER HUNTING")
+	lamp_label.text = "  ".join(parts)
+	lamp_label.visible = not parts.is_empty()
 	lamp_label.modulate = Color(0.7, 0.8, 1) if snuffer_hunting else Color(1, 1, 1)
 
 func update_escort(miner_name: String) -> void:
@@ -116,6 +126,7 @@ func show_run_summary(title: String, success: bool, currency: int, depth: int, p
 	_summary_header = "\n".join([title, currency_line, "Depth reached: %d tiles" % depth] + notes)
 	refresh_hub(progress)
 	run_summary.visible = true
+	prompt_label.visible = false # run is over; no actions to prompt
 
 ## The run summary doubles as the hub: spend banked ore, then go back down.
 func refresh_hub(progress: Progress) -> void:
@@ -124,18 +135,19 @@ func refresh_hub(progress: Progress) -> void:
 		var id: String = Progress.UPGRADE_ORDER[i]
 		var upgrade: Dictionary = Progress.UPGRADES[id]
 		var cost := progress.next_cost(id)
-		var price := "MAX" if cost < 0 else "%d ore" % cost
+		var price := "%d ore" % cost
+		if cost < 0:
+			price = "OWNED" if upgrade.max_level == 1 else "MAX"
 		lines.append("[%d] %s (%s)  Lv %d/%d  - %s" % [
 			i + 1, upgrade.name, upgrade.effect, progress.level(id), upgrade.max_level, price])
 	lines.append("")
 	lines.append("Crew %d/%d" % [progress.crew().size(), progress.crew_slots()])
 	if progress.roster.is_empty():
 		lines.append("No one yet - find lost miners in the mine")
-	var first_key := Progress.UPGRADE_ORDER.size() + 1
 	for i in range(progress.roster.size()):
 		var member: Dictionary = progress.roster[i]
 		var on_crew := "  [CREW]" if member.name in progress.crew_names else ""
-		var key_label := "[%d] " % (first_key + i) if first_key + i <= 9 else ""
+		var key_label := "[%s] " % char(KEY_A + i) if i < ROSTER_KEYS else ""
 		var runs: int = member.get("runs", 0)
 		var history := "%d run%s, from %s" % [runs, "" if runs == 1 else "s", Progress.LAYER_NAMES[member.get("found_in", 0)]]
 		if member.has("quirk"):

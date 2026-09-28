@@ -108,6 +108,7 @@ func test_ladders_outclimb_and_outlast_ropes_with_traversal_bonus() -> void:
 	p.save_path = TEST_SAVE_PATH
 	p.roster = [{"name": "Cole", "type": "traversal", "runs": 0}]
 	p.crew_names = ["Cole"]
+	p.levels = {"ladders": 1}
 	p.apply_to(player, add(NoiseMeter.new()), _base(Vector2(-500, 0)))
 	player._place_rope()
 	player._place_ladder()
@@ -119,6 +120,24 @@ func test_ladders_outclimb_and_outlast_ropes_with_traversal_bonus() -> void:
 	assert_eq(ladder.climb_speed, Player.LADDER_CLIMB_SPEED * 1.25, "ladder climb +25%")
 	assert_true(ladder.climb_speed > rope.climb_speed, "ladders climb faster than ropes")
 	assert_eq(player.ladders_left, Player.LADDERS_PER_RUN - 1, "a ladder was used up")
+
+func test_locked_tools_are_unavailable_until_bought() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var player := _still_player(mine.cell_to_world(Vector2i(40, 150)), 1.0)
+	player.mine = mine
+	var p := Progress.new()
+	p.save_path = TEST_SAVE_PATH
+	p.apply_to(player, add(NoiseMeter.new()), _base(Vector2(-500, 0)))
+	assert_eq(player.ladders_left, 0, "no ladders before the unlock")
+	assert_eq(player.anchors_left, 0, "no anchors before the unlock")
+	player._place_ladder()
+	player._place_anchor()
+	assert_true(mine.get_children().filter(func(c): return c is Rope or c is Anchor).is_empty(), "nothing placed while locked")
+	var unlocked := _still_player(Vector2.ZERO, 1.0)
+	p.levels = {"ladders": 1, "anchors": 1}
+	p.apply_to(unlocked, add(NoiseMeter.new()), _base(Vector2(-500, 0)))
+	assert_eq(unlocked.ladders_left, Player.LADDERS_PER_RUN, "ladders once unlocked")
+	assert_eq(unlocked.anchors_left, Player.ANCHORS_PER_RUN, "anchors once unlocked")
 
 func _open_box(mine: MineGrid, from: Vector2i, to: Vector2i) -> void:
 	for x in range(from.x, to.x + 1):
