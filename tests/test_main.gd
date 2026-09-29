@@ -214,3 +214,26 @@ func test_title_then_controls_overlay() -> void:
 	assert_true(tree.paused, "stays paused behind the run summary")
 	tree.paused = false
 	HUD.title_seen = true
+
+func test_debug_actions_and_seed_display() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	main.stalker.process_mode = Node.PROCESS_MODE_DISABLED
+	assert_true(main.hud.seed_label.text.begins_with("Seed %d" % main.mine.mine_seed), "seed shown")
+	assert_true(not main.debug_enabled, "debug off without the launch option")
+	main.debug_toggle_god()
+	var health: int = main.player.health
+	main.player.take_hit(2)
+	assert_eq(main.player.health, health, "god mode takes no damage")
+	main.debug_toggle_god()
+	main.debug_next_event()
+	var room: Dictionary = main.mine.event_rooms[0]
+	assert_true(main.player.global_position.distance_to(main.mine.cell_to_world(room.cell)) < 40.0, "teleported to the first event")
+	main.player.global_position = main.run_base.global_position + Vector2(0, 40)
+	main.debug_next_layer()
+	assert_eq(main.mine.layer_index_at_world(main.player.global_position), 1, "dropped into Stone")
+	var dark: CanvasModulate = main.get_node("CanvasModulate")
+	main.debug_toggle_reveal()
+	assert_true(not dark.visible, "map revealed")
+	Progress.path_override = ""

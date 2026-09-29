@@ -77,6 +77,13 @@ dictates.
 - ~~**M41 - Title and controls.**~~ Done: a title screen once per
   launch, and a controls overlay on Esc (pauses; hint in the corner).
 
+## Testing tools
+
+- ~~**M43 - Seeds and debug keys.**~~ Done: seeded mines (`?seed=`),
+  seed on the HUD and summary; debug keys with `?debug`.
+- **Next:** a committed playtest runner that drives key scenarios in CI
+  and attaches screenshots; a run log for tuning.
+
 ## Open design questions (from the PRD)
 
 - What takes stranded NPCs deeper: creatures, a shifting mine, or fleeing?

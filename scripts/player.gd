@@ -109,6 +109,7 @@ var health: int = MAX_HEALTH
 var currency: int = 0
 var _jump_was_pressed: bool = false
 var _jump_rising: bool = false # jumped and still holding up
+var invincible: bool = false # debug god mode (milestone 43)
 var _coyote_timer: float = 0.0
 var _jump_buffer_timer: float = 0.0
 var _grapple_was_pressed: bool = false
@@ -523,6 +524,8 @@ func _dig_staircase() -> void:
 		dig_timer = DIG_COOLDOWN
 
 func take_hit(amount: int) -> void:
+	if invincible:
+		return
 	Sfx.play("hit")
 	health -= amount
 	if health <= 0:

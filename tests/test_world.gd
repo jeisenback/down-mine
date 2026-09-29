@@ -379,3 +379,23 @@ func test_mantle_pulls_up_a_ledge_within_reach() -> void:
 	assert_true(player.global_position.y + half.y <= ledge_top + 0.5, "feet up on the ledge")
 	player.global_position = Vector2(wall_left - half.x - 0.5, ledge_top - half.y + 20)
 	assert_true(not player._try_mantle(1.0), "top 20 px above feet: out of reach")
+
+## Every tile, event room and pickup position, to compare two mines.
+func _mine_fingerprint(mine: MineGrid) -> Array:
+	var tiles := PackedInt32Array()
+	for x in range(MineGrid.GRID_WIDTH):
+		for y in range(MineGrid.GRID_HEIGHT):
+			var atlas := mine.get_cell_atlas_coords(0, Vector2i(x, y))
+			tiles.append(atlas.x * 10 + atlas.y)
+	var pickups := mine.get_children().map(func(n): return n.position)
+	return [tiles, mine.event_rooms, pickups]
+
+func test_same_seed_builds_the_same_mine() -> void:
+	MineGrid.next_seed = 4242
+	var a: MineGrid = add(MineScene.instantiate())
+	MineGrid.next_seed = 4242
+	var b: MineGrid = add(MineScene.instantiate())
+	var c: MineGrid = add(MineScene.instantiate()) # random seed
+	assert_eq(a.mine_seed, 4242, "seed used")
+	assert_true(_mine_fingerprint(a) == _mine_fingerprint(b), "same seed, same mine")
+	assert_true(_mine_fingerprint(a) != _mine_fingerprint(c), "other seed, other mine")

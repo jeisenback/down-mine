@@ -40,6 +40,11 @@ P  plant the base here        F (hold)  repair base        B  fortify base
 
 At the hub:  1-6 buy upgrades,  A-J choose crew,  Enter  new run"""
 
+const DEBUG_TEXT := """
+
+DEBUG:  I god mode    O +100 ore    U refill light
+N teleport to next event    K drop to next layer    M reveal map"""
+
 ## Session-wide, so the title shows once per launch, not every new run.
 ## The test runner sets it so scene tests aren't paused on the title.
 static var title_seen: bool = false
@@ -65,6 +70,8 @@ var _noise_value: float = 0.0
 var _message: String = ""
 var _message_time: float = 0.0
 var overlay: ColorRect
+var seed_label: Label
+var _controls_text: String = CONTROLS_TEXT
 var _overlay_label: Label
 var _showing_title: bool = false
 
@@ -91,7 +98,20 @@ func _build_overlay() -> void:
 	hint.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 12)
 	hint.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	add_child(hint)
+	seed_label = Label.new()
+	seed_label.modulate = Color(1, 1, 1, 0.6)
+	seed_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 12)
+	seed_label.position.y += 24
+	seed_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	add_child(seed_label)
 	add_child(overlay)
+
+## Seed in the corner (to report or replay a mine); debug adds its keys
+## to the controls overlay.
+func show_seed(mine_seed: int, debug: bool) -> void:
+	seed_label.text = "Seed %d%s" % [mine_seed, "  DEBUG" if debug else ""]
+	if debug:
+		_controls_text = CONTROLS_TEXT + DEBUG_TEXT
 
 func _show_overlay(text: String, is_title: bool) -> void:
 	_overlay_label.text = text
@@ -113,7 +133,7 @@ func _overlay_key(keycode: int) -> bool:
 		if overlay.visible and not _showing_title:
 			_hide_overlay()
 		else:
-			_show_overlay(CONTROLS_TEXT, false)
+			_show_overlay(_controls_text, false)
 		return true
 	if overlay.visible and keycode in [KEY_ENTER, KEY_KP_ENTER]:
 		_hide_overlay()
