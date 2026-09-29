@@ -128,6 +128,24 @@ publishes it to GitHub Pages (`.github/workflows/web.yml`). One-time
 setup: repo Settings -> Pages -> Source: "GitHub Actions". Click the game
 once to give it keyboard focus. Saves live in the browser's storage.
 
+## Testing and UAT
+
+Every mine has a seed, shown in the top-right corner and in the run
+summary. Report it with a bug and the same mine can be replayed:
+
+- Web: add `?seed=1234` to the URL (applies to the first run after the
+  page loads; new runs from the hub are random again).
+- Godot: `godot -- --seed=1234`.
+
+Debug keys are off unless the game is launched with `?debug` (web) or
+`-- --debug` (Godot); both options combine, e.g. `?seed=1234&debug`:
+
+- `I` god mode, `O` +100 ore, `U` refill light
+- `N` teleport to the next event room (the Heart first), `K` drop into
+  the next layer (from Deep rock, back to the base), `M` reveal the map
+
+The controls overlay (`Esc`) lists them when debug is on.
+
 ## Project layout
 
 - `scenes/` — Main, Player, Mine, Stalker, HUD

@@ -103,6 +103,12 @@ const HEART_NOISE := 50.0
 const HEART_CARRY_DECAY := 0.5 # the mine decays twice as fast behind you
 const CLAIMED_DECAY_STEP := 0.85 # each claimed Heart: later mines decay 15% faster
 var carrying_heart: bool = false
+# Debug keys (milestone 43), only with the debug launch option.
+const DEBUG_KEYS := [KEY_I, KEY_O, KEY_U, KEY_N, KEY_K, KEY_M]
+const DEBUG_ORE := 100
+var debug_enabled: bool = false
+var _debug_keys_down: Dictionary = {}
+var _debug_event_index: int = 0
 var _build_keys_down: Dictionary = {}
 var _bell_ringing: bool = false
 var progress: Progress
@@ -133,6 +139,8 @@ func _ready() -> void:
 	_spawn_lost_miners()
 	_spawn_crew()
 	_spawn_events()
+	debug_enabled = LaunchOptions.debug_enabled()
+	hud.show_seed(mine.mine_seed, debug_enabled)
 	Sfx.warm_up()
 
 func _spawn_events() -> void:
@@ -274,6 +282,8 @@ func _process(delta: float) -> void:
 	_check_lamp()
 	_check_builds()
 	_check_bell()
+	if debug_enabled:
+		_check_debug_keys()
 	_check_snuffer_spawn(delta)
 	hud.update_tools({
 		"Lamps": lamps_left if progress.has_unlock("lamps") or lamps_left > 0 else -1,
@@ -314,6 +324,49 @@ func take_heart() -> void:
 	mine.decay_multiplier *= HEART_CARRY_DECAY
 	Sfx.play("collapse")
 	hud.show_message("The mine shudders awake. Get the Heart to the surface!")
+
+func _check_debug_keys() -> void:
+	for key in DEBUG_KEYS:
+		var pressed := Input.is_physical_key_pressed(key)
+		if pressed and not _debug_keys_down.get(key, false):
+			match key:
+				KEY_I: debug_toggle_god()
+				KEY_O: player.currency += DEBUG_ORE
+				KEY_U: player.light.fuel = player.light.max_fuel
+				KEY_N: debug_next_event()
+				KEY_K: debug_next_layer()
+				KEY_M: debug_toggle_reveal()
+		_debug_keys_down[key] = pressed
+
+func debug_toggle_god() -> void:
+	player.invincible = not player.invincible
+	hud.show_message("God mode " + ("on" if player.invincible else "off"))
+
+## Teleports to the next event room, in the order the mine placed them.
+func debug_next_event() -> void:
+	if mine.event_rooms.is_empty():
+		return
+	var room: Dictionary = mine.event_rooms[_debug_event_index % mine.event_rooms.size()]
+	_debug_event_index += 1
+	player.global_position = mine.cell_to_world(room.cell + Vector2i(-2, 0))
+	player.velocity = Vector2.ZERO
+	hud.show_message("Teleported to the %s" % room.kind)
+
+## Teleports into a cave in the next layer down; from Deep rock, back to
+## the base.
+func debug_next_layer() -> void:
+	var next := mine.layer_index_at_world(player.global_position) + 1
+	if next >= Progress.LAYER_NAMES.size():
+		player.global_position = run_base.global_position
+		return
+	var cell := mine.take_floor_cell_in_layer(next)
+	if cell.x >= 0:
+		player.global_position = mine.cell_to_world(cell)
+		player.velocity = Vector2.ZERO
+
+func debug_toggle_reveal() -> void:
+	var dark := $CanvasModulate as CanvasModulate
+	dark.visible = not dark.visible
 
 func on_nest_destroyed() -> void:
 	nest_destroyed = true
@@ -525,7 +578,7 @@ func _extract() -> void:
 	progress.save()
 	hud.update_banked(progress.banked_ore)
 	var rescued := _escorts().map(func(m): return {"name": m.miner_name, "type": m.npc_type, "found_in": m.found_in})
-	var notes := progress.end_run(rescued, [], true)
+	var notes := progress.end_run(rescued, [], true) + ["Seed: %d" % mine.mine_seed]
 	hud.show_run_summary(title, true, player.currency, max_depth_reached, progress, notes)
 	get_tree().paused = true
 
@@ -563,7 +616,7 @@ func _fail_run(title: String) -> void:
 	# and crew left at the base are stranded in the base's layer.
 	var newly_stranded := (_escorts() + crew_at_base).map(func(m): return {
 		"name": m.miner_name, "type": m.npc_type, "layer": mine.layer_index_at_world(m.global_position)})
-	var notes := progress.end_run([], newly_stranded, false)
+	var notes := progress.end_run([], newly_stranded, false) + ["Seed: %d" % mine.mine_seed]
 	hud.show_run_summary(title, false, player.currency, max_depth_reached, progress, notes)
 	get_tree().paused = true
 

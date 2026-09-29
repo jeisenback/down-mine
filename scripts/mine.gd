@@ -120,6 +120,12 @@ const ROOM_MIN_SPACING_TILES := 20.0
 const ROOM_PLACE_TRIES := 50
 
 var source_id: int = 0
+## This mine's seed (milestone 43): the same seed builds the same mine.
+var mine_seed: int = 0
+## The seed the next mine uses; 0 picks a random one. Main sets it from
+## the launch options for the first run.
+static var next_seed: int = 0
+static var _launch_seed_read: bool = false
 ## Where Main should place this run's lost miner, or (-1, -1) if no floor
 ## cell fits the band.
 var lost_miner_cell := Vector2i(-1, -1)
@@ -205,7 +211,15 @@ func _build_tileset() -> void:
 
 func _generate_layout() -> void:
 	var rng := RandomNumberGenerator.new()
-	rng.randomize()
+	if not _launch_seed_read: # a launch seed applies to the first mine only
+		_launch_seed_read = true
+		var launch_seed := LaunchOptions.value("seed")
+		if launch_seed.is_valid_int():
+			next_seed = int(launch_seed)
+	mine_seed = next_seed if next_seed != 0 else randi_range(1, 999999)
+	next_seed = 0
+	rng.seed = mine_seed
+	seed(mine_seed) # shuffles and picks elsewhere in generation use the global RNG
 
 	var solid := _make_grid(false)
 	for x in range(GRID_WIDTH):
