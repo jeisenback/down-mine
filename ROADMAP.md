@@ -33,7 +33,10 @@ dictates.
 - ~~**M28 - Hub tool unlocks.**~~ Done: lamps, ladders and anchors are
   hub unlocks; the grapple and ropes stay free as the baseline.
 - ~~**M38 - Movement feel.**~~ Done: step up 1-tile bumps; release jump
-  early for a short hop. Possible next: ledge grab for 2-tile ledges.
+  early for a short hop.
+- ~~**M42 - Mantle.**~~ Done: in mid-air, holding into a wall whose top
+  is within 14 px of your feet pulls you over the lip - 2-tile ledges
+  yes, 3-tile no.
 
 ## Content and presentation
 

@@ -30,7 +30,7 @@ Rescue lost miners on the way. Keep your light burning and your noise low.
 Enter: start        Esc: controls"""
 const CONTROLS_TEXT := """CONTROLS  (Esc to close)
 
-A / D  move        W  jump (tap for a short hop)
+A / D  move        W  jump (tap for a short hop; into a 2-tile ledge to mantle)
 Space  dig forward (with W: up)        S  dig down (with A / D: stairs)
 Shift  flare the light        Q  grapple up, or to an anchor
 R  rope        T  ladder        G  anchor        L  lamp

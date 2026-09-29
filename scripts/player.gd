@@ -32,6 +32,10 @@ const JUMP_BUFFER_TIME := 0.12
 const JUMP_CUT := 0.4
 const STEP_HEIGHT := 17.0 # one tile, plus a pixel to clear the edge
 const STEP_PROBE := 2.0
+# Milestone 42: pushing into a wall in mid-air pulls you up over its lip
+# if the top is within this many px of your feet. Jump peak (~30 px) plus
+# this reaches a 2-tile ledge (32 px) but not a 3-tile one (48 px).
+const MANTLE_REACH := 14
 
 # Grapple: the PRD's "reusable tool, the reliable baseline" for getting
 # back up. Fires straight up, pulls to just below the first solid
@@ -238,7 +242,10 @@ func _physics_process(delta: float) -> void:
 	light.set_flaring(Input.is_physical_key_pressed(KEY_SHIFT))
 
 	if input_dir != 0.0 and not digging_forward and not down_held:
-		_try_step_up(input_dir)
+		if is_on_floor():
+			_try_step_up(input_dir)
+		else:
+			_try_mantle(input_dir)
 	_move()
 
 ## Releasing up while still rising cuts the jump, once per jump.
@@ -250,6 +257,22 @@ func _apply_jump_cut(up_held: bool) -> void:
 	elif not up_held:
 		velocity.y *= JUMP_CUT
 		_jump_rising = false
+
+## In the air, pushing into a wall whose top is within MANTLE_REACH of
+## the feet: pull up over the lip. Returns whether it did.
+func _try_mantle(dir: float) -> bool:
+	var ahead := Vector2(dir * STEP_PROBE, 0.0)
+	if not test_move(global_transform, ahead):
+		return false # nothing to grab
+	for lift in range(2, MANTLE_REACH + 1, 2):
+		var up := Vector2(0.0, -lift)
+		if test_move(global_transform, up):
+			return false # ceiling in the way
+		if not test_move(global_transform.translated(up), ahead):
+			global_position += up + ahead
+			velocity.y = 0.0
+			return true
+	return false
 
 ## Walking on the floor into a bump exactly one tile tall climbs onto it.
 ## Taller walls, and bumps without headroom above, still block.

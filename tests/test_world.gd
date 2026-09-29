@@ -362,3 +362,20 @@ func test_releasing_jump_cuts_it_short() -> void:
 	assert_eq(player.velocity.y, Player.JUMP_VELOCITY * Player.JUMP_CUT, "released: cut")
 	player._apply_jump_cut(false)
 	assert_eq(player.velocity.y, Player.JUMP_VELOCITY * Player.JUMP_CUT, "cut only once")
+
+func test_mantle_pulls_up_a_ledge_within_reach() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var start := _step_course(mine)
+	var wall := start + Vector2i(7, -1) # upper cell of the 2-tile wall
+	var ledge_top := mine.cell_to_world(wall).y - MineGrid.TILE_SIZE / 2.0
+	var wall_left := mine.cell_to_world(wall).x - MineGrid.TILE_SIZE / 2.0
+	var player: Player = add(PlayerScene.instantiate())
+	player.set_physics_process(false) # placed by hand, no gravity
+	player.mine = mine
+	await physics_frames(2) # tile collisions apply on the next physics frame
+	var half := Vector2(6, 7) # collision box half-size
+	player.global_position = Vector2(wall_left - half.x - 0.5, ledge_top - half.y + 10)
+	assert_true(player._try_mantle(1.0), "top 10 px above feet: mantles")
+	assert_true(player.global_position.y + half.y <= ledge_top + 0.5, "feet up on the ledge")
+	player.global_position = Vector2(wall_left - half.x - 0.5, ledge_top - half.y + 20)
+	assert_true(not player._try_mantle(1.0), "top 20 px above feet: out of reach")
