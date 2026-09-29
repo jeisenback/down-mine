@@ -19,6 +19,7 @@ const JUMP_VELOCITY := -200.0
 # pause after every single tile that read as broken. At this cooldown
 # the wait is gated by the fall itself, not idle time.
 const DIG_COOLDOWN := 0.11
+const DIG_CENTRE_STEP := 2.0 # px per frame toward the dug column's centre
 const MAX_HEALTH := 3
 
 # Jump forgiveness: a press just before landing still fires on touchdown
@@ -466,11 +467,19 @@ func _apply_horizontal_movement(input_dir: float, delta: float) -> void:
 	velocity.x = move_toward(velocity.x, target_speed, accel * delta)
 
 func _dig_straight_down() -> void:
-	if dig_timer > 0.0 or mine == null:
+	if mine == null:
 		return
 	var half_extents: Vector2 = (collision_shape.shape as RectangleShape2D).size / 2.0
 	var half_tile: float = mine.TILE_SIZE / 2.0
 	var target := global_position + Vector2(0.0, half_extents.y + half_tile)
+	# The body is narrower than a tile but still rests on the next tile
+	# unless centred over the hole, so slide over it while digging.
+	var column_x := mine.cell_to_world(mine.world_to_cell(target)).x
+	var step := Vector2(move_toward(global_position.x, column_x, DIG_CENTRE_STEP) - global_position.x, 0.0)
+	if step.x != 0.0 and not test_move(global_transform, step):
+		global_position += step
+	if dig_timer > 0.0:
+		return
 	if mine.dig_at_world(target):
 		dig_timer = DIG_COOLDOWN
 

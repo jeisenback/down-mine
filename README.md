@@ -146,6 +146,12 @@ Debug keys are off unless the game is launched with `?debug` (web) or
 
 The controls overlay (`Esc`) lists them when debug is on.
 
+`tests/playtest.gd` plays scripted scenarios in the real game with key
+presses and saves a screenshot per step to `playtest_out/`:
+`xvfb-run -a godot --fixed-fps 60 -s tests/playtest.gd`. CI runs it on
+every pull request; the screenshots are attached to the run as
+`playtest-screenshots`.
+
 ## Project layout
 
 - `scenes/` — Main, Player, Mine, Stalker, HUD
