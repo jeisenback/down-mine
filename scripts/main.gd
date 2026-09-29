@@ -103,6 +103,9 @@ const HEART_NOISE := 50.0
 const HEART_CARRY_DECAY := 0.5 # the mine decays twice as fast behind you
 const CLAIMED_DECAY_STEP := 0.85 # each claimed Heart: later mines decay 15% faster
 var carrying_heart: bool = false
+# Run log (milestone 45).
+var run_seconds: float = 0.0
+var burrowers_spawned: int = 0
 # Debug keys (milestone 43), only with the debug launch option.
 const DEBUG_KEYS := [KEY_I, KEY_O, KEY_U, KEY_N, KEY_K, KEY_M]
 const DEBUG_ORE := 100
@@ -270,6 +273,7 @@ func _configure_camera_limits() -> void:
 func _process(delta: float) -> void:
 	if run_ended:
 		return
+	run_seconds += delta
 	hud.update_fuel(player.light.fuel_fraction())
 	hud.update_health(player.health)
 	_check_layer()
@@ -575,18 +579,26 @@ func _extract() -> void:
 		progress.hearts_claimed += 1
 		title = "The Heart is yours!"
 	progress.banked_ore += player.currency
-	progress.save()
+	_record_run("Heart claimed" if carrying_heart else "Extracted")
 	hud.update_banked(progress.banked_ore)
 	var rescued := _escorts().map(func(m): return {"name": m.miner_name, "type": m.npc_type, "found_in": m.found_in})
 	var notes := progress.end_run(rescued, [], true) + ["Seed: %d" % mine.mine_seed]
 	hud.show_run_summary(title, true, player.currency, max_depth_reached, progress, notes)
 	get_tree().paused = true
 
+func _record_run(result: String) -> void:
+	progress.record_run({
+		"result": result, "seconds": int(run_seconds), "depth": max_depth_reached,
+		"ore": player.currency, "burrowers": burrowers_spawned,
+		"hits": player.hits_by.duplicate(), "seed": mine.mine_seed,
+	})
+
 func _on_tile_dug(noise_amount: float) -> void:
 	noise_meter.add_noise(noise_amount)
 
 func _on_noise_threshold() -> void:
 	Sfx.play("alarm", -6.0) # something heard you
+	burrowers_spawned += 1
 	var burrower: Burrower = BurrowerScene.instantiate()
 	burrower.mine = mine
 	burrower.player = player
@@ -612,6 +624,8 @@ func _fail_run(title: String) -> void:
 		return
 	run_ended = true
 	hud.update_health(player.health)
+	var result := "Base fell" if title == "Base Fell" else "Died (%s)" % (player.last_hit_by if player.last_hit_by != "" else "unknown")
+	_record_run(result)
 	# PRD: miners lost during an escort are stranded where they were lost,
 	# and crew left at the base are stranded in the base's layer.
 	var newly_stranded := (_escorts() + crew_at_base).map(func(m): return {

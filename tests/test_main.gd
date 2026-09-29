@@ -237,3 +237,37 @@ func test_debug_actions_and_seed_display() -> void:
 	main.debug_toggle_reveal()
 	assert_true(not dark.visible, "map revealed")
 	Progress.path_override = ""
+
+func test_run_log_records_runs_and_causes() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	main.stalker.process_mode = Node.PROCESS_MODE_DISABLED
+	main.progress.run_log = []
+	main.player.health = 3
+	main.player.take_hit(1, "fall")
+	main.player.take_hit(1, "Stalker")
+	main.player.take_hit(1, "Stalker")
+	await physics_frames(2)
+	tree.paused = false
+	var entry: Dictionary = main.progress.run_log[0]
+	assert_eq(entry.result, "Died (Stalker)", "cause of death is the last hit")
+	assert_eq(entry.hits, {"fall": 1, "Stalker": 2}, "hits by source")
+	assert_eq(entry.seed, main.mine.mine_seed, "seed logged")
+	var line := Progress.run_log_line(entry)
+	assert_true(line.begins_with("Died (Stalker) ") and line.contains("hits: fall 1, Stalker 2"), "log line: " + line)
+	var hud: HUD = main.hud
+	assert_true(hud.run_summary_label.text.contains("L: recent runs"), "hub offers the run log")
+	var press_l := InputEventKey.new()
+	press_l.physical_keycode = KEY_L
+	press_l.pressed = true
+	hud._unhandled_input(press_l)
+	assert_true(hud.run_summary_label.text.begins_with("RECENT RUNS") and hud.run_summary_label.text.contains("Died (Stalker)"), "L shows the run log")
+	hud._unhandled_input(press_l)
+	assert_true(hud.run_summary_label.text.contains("Banked ore"), "L again: back to the hub")
+	var saved := Progress.load_saved()
+	assert_eq(saved.run_log.size(), 1, "run log saved")
+	for i in range(12):
+		saved.record_run({"result": "Extracted"})
+	assert_eq(saved.run_log.size(), Progress.RUN_LOG_SIZE, "keeps the last 10")
+	Progress.path_override = ""

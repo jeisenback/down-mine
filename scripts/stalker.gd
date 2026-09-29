@@ -77,4 +77,4 @@ func _physics_process(delta: float) -> void:
 func _attack() -> void:
 	attack_timer = ATTACK_COOLDOWN
 	if player.has_method("take_hit"):
-		player.take_hit(1)
+		player.take_hit(1, "Stalker")

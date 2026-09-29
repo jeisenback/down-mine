@@ -86,7 +86,9 @@ dictates.
   step-up and mantle, camp, the Heart run); CI uploads the screenshots.
   It found that digging down from an off-centre spot never dropped you
   into the hole - fixed.
-- **Next:** a run log for tuning.
+- ~~**M45 - Run log.**~~ Done: the last 10 runs (result and cause of
+  death, time, depth, ore, Burrowers, hits by source, seed) are saved;
+  L at the hub shows them. The data for the M22 tuning pass.
 - **Mobile.** The web build doesn't open on phones. Needs looking into
   (likely the web export's requirements), then touch controls.
 

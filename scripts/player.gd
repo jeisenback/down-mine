@@ -111,6 +111,8 @@ var currency: int = 0
 var _jump_was_pressed: bool = false
 var _jump_rising: bool = false # jumped and still holding up
 var invincible: bool = false # debug god mode (milestone 43)
+var hits_by: Dictionary = {} # damage taken this run, by source
+var last_hit_by: String = ""
 var _coyote_timer: float = 0.0
 var _jump_buffer_timer: float = 0.0
 var _grapple_was_pressed: bool = false
@@ -329,7 +331,7 @@ func _on_landed(fall_speed: float) -> void:
 	var damage := fall_damage_for_speed(fall_speed, safe_fall_tiles)
 	if damage > 0:
 		made_noise.emit(FALL_NOISE_PER_DAMAGE * damage)
-		take_hit(damage)
+		take_hit(damage, "fall")
 
 ## Converts landing speed to tiles of free fall (v^2 / 2g), then to damage.
 static func fall_damage_for_speed(fall_speed: float, safe_tiles: float = SAFE_FALL_TILES) -> int:
@@ -532,9 +534,12 @@ func _dig_staircase() -> void:
 	if mine.dig_cells(cells) > 0:
 		dig_timer = DIG_COOLDOWN
 
-func take_hit(amount: int) -> void:
+## source names what hurt the player, for the run log (milestone 45).
+func take_hit(amount: int, source: String = "other") -> void:
 	if invincible:
 		return
+	hits_by[source] = hits_by.get(source, 0) + amount
+	last_hit_by = source
 	Sfx.play("hit")
 	health -= amount
 	if health <= 0:

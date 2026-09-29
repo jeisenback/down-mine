@@ -61,7 +61,7 @@ func collapse() -> void:
 		if is_instance_valid(pickup) and filled.has(mine.world_to_cell(pickup.global_position)):
 			pickup.queue_free()
 	if rect.has_point(player_cell):
-		main.player.take_hit(BURY_DAMAGE)
+		main.player.take_hit(BURY_DAMAGE, "burial")
 		main.hud.show_message("Buried! Dig out.")
 	main.noise_meter.add_noise(COLLAPSE_NOISE)
 	Sfx.play("collapse")

@@ -30,7 +30,7 @@ func _process(delta: float) -> void:
 		_damage_timer += delta
 		if _damage_timer >= DAMAGE_INTERVAL:
 			_damage_timer = 0.0
-			player.take_hit(1)
+			player.take_hit(1, "gas")
 	else:
 		_damage_timer = 0.0
 

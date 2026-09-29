@@ -203,3 +203,6 @@ func _heart_run() -> void:
 	await tap(KEY_E)
 	check(main.hud.run_summary.visible and main.hud.run_summary_label.text.contains("The Heart is yours!"), "extracting with the Heart wins")
 	await shot("won")
+	await tap(KEY_L)
+	check(main.hud.run_summary_label.text.contains("Heart claimed"), "run log shows the win")
+	await shot("run_log")
