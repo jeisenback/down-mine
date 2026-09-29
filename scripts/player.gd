@@ -19,6 +19,7 @@ const JUMP_VELOCITY := -200.0
 # pause after every single tile that read as broken. At this cooldown
 # the wait is gated by the fall itself, not idle time.
 const DIG_COOLDOWN := 0.11
+const DIG_CENTRE_STEP := 2.0 # px per frame toward the dug column's centre
 const MAX_HEALTH := 3
 
 # Jump forgiveness: a press just before landing still fires on touchdown
@@ -110,6 +111,8 @@ var currency: int = 0
 var _jump_was_pressed: bool = false
 var _jump_rising: bool = false # jumped and still holding up
 var invincible: bool = false # debug god mode (milestone 43)
+var hits_by: Dictionary = {} # damage taken this run, by source
+var last_hit_by: String = ""
 var _coyote_timer: float = 0.0
 var _jump_buffer_timer: float = 0.0
 var _grapple_was_pressed: bool = false
@@ -328,7 +331,7 @@ func _on_landed(fall_speed: float) -> void:
 	var damage := fall_damage_for_speed(fall_speed, safe_fall_tiles)
 	if damage > 0:
 		made_noise.emit(FALL_NOISE_PER_DAMAGE * damage)
-		take_hit(damage)
+		take_hit(damage, "fall")
 
 ## Converts landing speed to tiles of free fall (v^2 / 2g), then to damage.
 static func fall_damage_for_speed(fall_speed: float, safe_tiles: float = SAFE_FALL_TILES) -> int:
@@ -466,11 +469,19 @@ func _apply_horizontal_movement(input_dir: float, delta: float) -> void:
 	velocity.x = move_toward(velocity.x, target_speed, accel * delta)
 
 func _dig_straight_down() -> void:
-	if dig_timer > 0.0 or mine == null:
+	if mine == null:
 		return
 	var half_extents: Vector2 = (collision_shape.shape as RectangleShape2D).size / 2.0
 	var half_tile: float = mine.TILE_SIZE / 2.0
 	var target := global_position + Vector2(0.0, half_extents.y + half_tile)
+	# The body is narrower than a tile but still rests on the next tile
+	# unless centred over the hole, so slide over it while digging.
+	var column_x := mine.cell_to_world(mine.world_to_cell(target)).x
+	var step := Vector2(move_toward(global_position.x, column_x, DIG_CENTRE_STEP) - global_position.x, 0.0)
+	if step.x != 0.0 and not test_move(global_transform, step):
+		global_position += step
+	if dig_timer > 0.0:
+		return
 	if mine.dig_at_world(target):
 		dig_timer = DIG_COOLDOWN
 
@@ -523,9 +534,12 @@ func _dig_staircase() -> void:
 	if mine.dig_cells(cells) > 0:
 		dig_timer = DIG_COOLDOWN
 
-func take_hit(amount: int) -> void:
+## source names what hurt the player, for the run log (milestone 45).
+func take_hit(amount: int, source: String = "other") -> void:
 	if invincible:
 		return
+	hits_by[source] = hits_by.get(source, 0) + amount
+	last_hit_by = source
 	Sfx.play("hit")
 	health -= amount
 	if health <= 0:

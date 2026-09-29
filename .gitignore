@@ -4,3 +4,4 @@ export.cfg
 *.translation
 mono_crash.*.json
 build/
+playtest_out/

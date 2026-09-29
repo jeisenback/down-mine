@@ -38,7 +38,7 @@ E  use a camp, lift, outpost, vault or relic - or extract at the surface
 P  plant the base here        F (hold)  repair base        B  fortify base
 1  support beam        2  beacon        3  alarm bell
 
-At the hub:  1-6 buy upgrades,  A-J choose crew,  Enter  new run"""
+At the hub:  1-6 buy upgrades,  A-J choose crew,  L  recent runs,  Enter  new run"""
 
 const DEBUG_TEXT := """
 
@@ -65,6 +65,8 @@ static var title_seen: bool = false
 @onready var run_summary_label: Label = $RunSummary/SummaryLabel
 
 var _summary_header: String = ""
+var showing_run_log: bool = false
+var _progress: Progress
 var _noise_warning: bool = false
 var _noise_value: float = 0.0
 var _message: String = ""
@@ -156,6 +158,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if key.physical_keycode in [KEY_ENTER, KEY_KP_ENTER]:
 		new_run_requested.emit()
+	if key.physical_keycode == KEY_L and _progress:
+		showing_run_log = not showing_run_log
+		refresh_hub(_progress)
+		return
 	# Numbers buy upgrades/unlocks; letters A-J toggle roster members.
 	var index := key.physical_keycode - KEY_1
 	if index >= 0 and index < Progress.UPGRADE_ORDER.size():
@@ -250,6 +256,16 @@ func _point_arrow(arrow: Node2D, to_target: Vector2) -> void:
 ## Right now a run only ever ends by dying or reaching this. Without a
 ## visible outcome it just looked like the game froze - this makes an
 ## ending actually read as an ending.
+func _show_run_log(progress: Progress) -> void:
+	var lines := ["RECENT RUNS (newest first)", ""]
+	if progress.run_log.is_empty():
+		lines.append("No runs logged yet")
+	for entry in progress.run_log:
+		lines.append(Progress.run_log_line(entry))
+	lines.append("")
+	lines.append("L: back to the hub        Enter: new run")
+	run_summary_label.text = "\n".join(lines)
+
 func show_run_summary(title: String, success: bool, currency: int, depth: int, progress: Progress, notes: Array = []) -> void:
 	var currency_line := "Ore banked: %d" % currency if success else "Ore lost: %d" % currency
 	_summary_header = "\n".join([title, currency_line, "Depth reached: %d tiles" % depth] + notes)
@@ -258,7 +274,12 @@ func show_run_summary(title: String, success: bool, currency: int, depth: int, p
 	prompt_label.visible = false # run is over; no actions to prompt
 
 ## The run summary doubles as the hub: spend banked ore, then go back down.
+## L swaps it for the run log page (milestone 45).
 func refresh_hub(progress: Progress) -> void:
+	_progress = progress
+	if showing_run_log:
+		_show_run_log(progress)
+		return
 	var lines := [_summary_header, "", "Banked ore: %d" % progress.banked_ore]
 	if progress.hearts_claimed > 0:
 		lines.append("Hearts claimed: %d - the mine decays faster each time" % progress.hearts_claimed)
@@ -290,5 +311,5 @@ func refresh_hub(progress: Progress) -> void:
 		var fate := "lost for good if not rescued next run" if last_layer else "drifts to the %s if not rescued" % Progress.LAYER_NAMES[npc.layer + 1]
 		lines.append("Stranded: %s in the %s - %s" % [npc.name, Progress.LAYER_NAMES[npc.layer], fate])
 	lines.append("")
-	lines.append("Press Enter for a new run")
+	lines.append("L: recent runs        Enter: new run")
 	run_summary_label.text = "\n".join(lines)

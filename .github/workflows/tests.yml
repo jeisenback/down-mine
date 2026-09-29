@@ -28,3 +28,32 @@ jobs:
           # The import pass builds the class_name cache the scripts rely on.
           "$RUNNER_TEMP/godot" --headless --import
           "$RUNNER_TEMP/godot" --headless --fixed-fps 60 -s tests/run_tests.gd
+
+  # Plays scripted scenarios in the real game (tests/playtest.gd) under a
+  # virtual display and uploads a screenshot per step, so a change can be
+  # accepted from the pictures.
+  playtest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot and a virtual display
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q xvfb libgl1-mesa-dri
+          cd "$RUNNER_TEMP"
+          curl -sSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot
+
+      - name: Run playtest scenarios
+        run: |
+          "$RUNNER_TEMP/godot" --headless --import
+          xvfb-run -a "$RUNNER_TEMP/godot" --fixed-fps 60 -s tests/playtest.gd
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playtest-screenshots
+          path: playtest_out/

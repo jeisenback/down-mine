@@ -399,3 +399,18 @@ func test_same_seed_builds_the_same_mine() -> void:
 	assert_eq(a.mine_seed, 4242, "seed used")
 	assert_true(_mine_fingerprint(a) == _mine_fingerprint(b), "same seed, same mine")
 	assert_true(_mine_fingerprint(a) != _mine_fingerprint(c), "other seed, other mine")
+
+func test_digging_down_centres_over_the_hole() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var start := _step_course(mine)
+	var player: Player = add(PlayerScene.instantiate())
+	player.mine = mine
+	var column_x := mine.cell_to_world(start).x
+	player.global_position = mine.cell_to_world(start) + Vector2(-7, 0) # off-centre, as at spawn
+	await physics_frames(10)
+	for i in range(10):
+		player._dig_straight_down()
+		await physics_frames(1)
+	assert_true(absf(player.global_position.x - column_x) < 0.5, "slid over the dug column")
+	await physics_frames(20)
+	assert_true(player.global_position.y > mine.cell_to_world(start).y + 8, "fell into the hole")

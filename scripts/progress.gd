@@ -105,6 +105,10 @@ var journal_read: int = 0
 ## Hearts of the mine brought home (milestone 40); each makes later mines
 ## decay faster.
 var hearts_claimed: int = 0
+## Recent runs, newest first (milestone 45), for tuning: result, seconds,
+## depth, ore, Burrowers, hits by source, seed.
+var run_log: Array = []
+const RUN_LOG_SIZE := 10
 
 ## When set, load_saved() uses this path instead - the Main smoke test
 ## points it at the test save so it never reads the player's real one.
@@ -124,6 +128,7 @@ static func load_saved(path: String = SAVE_PATH) -> Progress:
 		progress.stranded = config.get_value("npcs", "stranded", [])
 		progress.journal_read = int(config.get_value("lore", "journal_read", 0))
 		progress.hearts_claimed = int(config.get_value("lore", "hearts_claimed", 0))
+		progress.run_log = config.get_value("stats", "run_log", [])
 		# Saves from before the crew picker: keep their implicit crew.
 		var default_crew := progress.roster.slice(0, BASE_CREW_SLOTS).map(func(m): return m.name)
 		progress.crew_names = config.get_value("npcs", "crew", default_crew)
@@ -162,7 +167,24 @@ func save() -> void:
 	config.set_value("npcs", "crew", crew_names)
 	config.set_value("lore", "journal_read", journal_read)
 	config.set_value("lore", "hearts_claimed", hearts_claimed)
+	config.set_value("stats", "run_log", run_log)
 	config.save(save_path)
+
+func record_run(entry: Dictionary) -> void:
+	run_log.push_front(entry)
+	run_log = run_log.slice(0, RUN_LOG_SIZE)
+	save()
+
+## One line per run for the hub, e.g. "Died (Stalker) 3:12, depth 84,
+## 40 ore, 2 Burrowers, hits: Stalker 2, fall 1 [seed 1234]".
+static func run_log_line(entry: Dictionary) -> String:
+	var seconds := int(entry.get("seconds", 0))
+	var hits: Dictionary = entry.get("hits", {})
+	var hit_text := ", ".join(hits.keys().map(func(k): return "%s %d" % [k, hits[k]]))
+	return "%s %d:%02d, depth %d, %d ore, %d Burrower%s%s [seed %d]" % [
+		entry.get("result", "?"), seconds / 60, seconds % 60, entry.get("depth", 0), entry.get("ore", 0),
+		entry.get("burrowers", 0), "" if entry.get("burrowers", 0) == 1 else "s",
+		(", hits: " + hit_text) if hit_text != "" else "", entry.get("seed", 0)]
 
 ## The next unread journal page, marked read and saved right away (the
 ## page is found whether or not the run ends well).

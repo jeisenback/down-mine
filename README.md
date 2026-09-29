@@ -27,6 +27,7 @@ darkness. No crew, hub, or stranding yet.
 - `2` / `3` — at the run base, build a beacon (30 ore: base light reaches 50% further but burns 50% faster) or an alarm bell (20 ore: warns when noise nears the Burrower threshold); one each per run
 - `1`-`6` — on the run summary (the hub), spend banked ore: lantern tank (+15s light), hard hat (+1 health), crew bunk (+1 crew slot, up to 4), or unlock lamps (40), ladders (60) or anchors (100). The grapple and ropes are always available.
 - `A`-`J` — on the hub, put a rescued miner on the crew or take them off
+- `L` — on the hub, show the last 10 runs: result and cause of death, time, depth, ore, Burrowers, damage by source, seed
 - `Enter` — start a new run from the run summary (banked ore and upgrades are saved between runs)
 
 **Noise and the base**: when the noise meter fills, a Burrower surfaces
@@ -145,6 +146,12 @@ Debug keys are off unless the game is launched with `?debug` (web) or
   the next layer (from Deep rock, back to the base), `M` reveal the map
 
 The controls overlay (`Esc`) lists them when debug is on.
+
+`tests/playtest.gd` plays scripted scenarios in the real game with key
+presses and saves a screenshot per step to `playtest_out/`:
+`xvfb-run -a godot --fixed-fps 60 -s tests/playtest.gd`. CI runs it on
+every pull request; the screenshots are attached to the run as
+`playtest-screenshots`.
 
 ## Project layout
 

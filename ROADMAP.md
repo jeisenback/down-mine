@@ -81,8 +81,16 @@ dictates.
 
 - ~~**M43 - Seeds and debug keys.**~~ Done: seeded mines (`?seed=`),
   seed on the HUD and summary; debug keys with `?debug`.
-- **Next:** a committed playtest runner that drives key scenarios in CI
-  and attaches screenshots; a run log for tuning.
+- ~~**M44 - Playtest runner.**~~ Done: `tests/playtest.gd` plays five
+  scenarios in the real game with real keys (title and controls, digging,
+  step-up and mantle, camp, the Heart run); CI uploads the screenshots.
+  It found that digging down from an off-centre spot never dropped you
+  into the hole - fixed.
+- ~~**M45 - Run log.**~~ Done: the last 10 runs (result and cause of
+  death, time, depth, ore, Burrowers, hits by source, seed) are saved;
+  L at the hub shows them. The data for the M22 tuning pass.
+- **Mobile.** The web build doesn't open on phones. Needs looking into
+  (likely the web export's requirements), then touch controls.
 
 ## Open design questions (from the PRD)
 
