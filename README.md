@@ -10,7 +10,7 @@ darkness. No crew, hub, or stranding yet.
 **Controls**
 - `Esc` — show or hide the controls (pauses the game); a title screen shows once per launch (`Enter` to start)
 - `A`/`D` or arrow keys — move
-- `W`/Up — jump (hold for full height, tap for a short hop); walking into a 1-tile bump steps up onto it
+- `W`/Up — jump (hold for full height, tap for a short hop); walking into a 1-tile bump steps up onto it; jumping into a 2-tile ledge while holding toward it mantles up (3 tiles is too high)
 - `S`/Down — dig downward (hold with a movement key to dig a descending staircase)
 - `Space` — dig forward (in facing direction); hold with `W`/Up to dig straight up instead
 - `Shift` — flare the light (brighter, burns fuel faster; the only thing that hurts a Burrower)
