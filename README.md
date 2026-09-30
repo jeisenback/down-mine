@@ -31,7 +31,8 @@ darkness. No crew, hub, or stranding yet.
 - `Enter` — start a new run from the run summary (banked ore and upgrades are saved between runs)
 
 **Noise and the base**: when the noise meter fills, a Burrower surfaces
-below you and tunnels to the run base. Your light slows it; flaring kills
+below you and tunnels to the run base, and the meter empties - keep
+making noise and another comes. Your light slows it; flaring kills
 it. If it takes the base from 3 health to 0, the run fails. Reinforced
 walls around the base cost a Burrower 2.5s each to chew through (tunnels
 you dug near the base are open road), and wear back to plain rock over
@@ -74,6 +75,12 @@ mine: decay runs twice as fast until the run ends. Get it to the surface
 and extract to win the run: it banks 300 ore on top of what you carry.
 Each Heart you claim makes every later mine decay 15% faster; the hub
 shows how many you've claimed. Lose the run and the Heart stays below.
+
+**The Stalker**: it drifts through rock and always closes in on you. A
+lantern above 25% (or a flare) holds it at the edge of your light; below
+that it strikes, then backs off for 3s before coming again. It never
+enters the base's light. Falls do at most 2 damage, so no single fall
+kills you from full health.
 
 **Sound**: every effect (digging, hits, pickups, placing tools, collapses,
 gas, alarms) is synthesized in code at startup (`scripts/sfx.gd`) - no
@@ -146,6 +153,11 @@ Debug keys are off unless the game is launched with `?debug` (web) or
   the next layer (from Deep rock, back to the base), `M` reveal the map
 
 The controls overlay (`Esc`) lists them when debug is on.
+
+`tests/balance_probe.gd` has bots play whole runs (a nonstop dive, and
+standing still until the light fails) over three seeds and prints each
+run's log line - compare the output before and after a tuning change:
+`godot --headless --fixed-fps 60 -s tests/balance_probe.gd`.
 
 `tests/playtest.gd` plays scripted scenarios in the real game with key
 presses and saves a screenshot per step to `playtest_out/`:
