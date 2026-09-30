@@ -105,6 +105,14 @@ dictates.
   - One long fall through a cave ceiling could kill from full health
     (4 damage). Falls now do at most 2.
   - `tests/balance_probe.gd` keeps the bots for tuning.
+- ~~**M47 - Movement quality pass.**~~ Done, from a movement probe on
+  test courses: ropes hung from your own cell into the rock below, so
+  they couldn't get you up a shaft or down a drop - R now throws a rope
+  up and S+R drops one over an edge. Anchors couldn't reach you in a
+  narrow pit (the line clipped the pit wall) - they now pull up, then
+  across. The courses (tunnel, staircase, ropes both ways, ladder,
+  anchor, grapple) run in the CI playtest. Without tools you still
+  can't climb out of a pit deeper than 2 tiles, by design.
 - **Tuning knobs to revisit in M22:** dig noise per tile (6), the
   Stalker's strike threshold (25% light), lantern size (60s).
 

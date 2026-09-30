@@ -139,6 +139,8 @@ var _ladder_was_pressed: bool = false
 var _anchor_was_pressed: bool = false
 var _grapple_anchor: Node2D = null
 var _grapple_pull_time: float = 0.0
+## Corner of an up-then-over pull to an anchor (movement pass), or INF.
+var _grapple_waypoint: Vector2 = Vector2.INF
 var _was_on_floor: bool = true
 
 func _ready() -> void:
@@ -176,7 +178,7 @@ func _physics_process(delta: float) -> void:
 
 	var place_rope_pressed := Input.is_physical_key_pressed(KEY_R)
 	if place_rope_pressed and not _rope_place_was_pressed and _rope_place_timer <= 0.0:
-		_place_rope()
+		_place_rope(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN))
 	_rope_place_was_pressed = place_rope_pressed
 
 	var ladder_pressed := Input.is_physical_key_pressed(KEY_T)
@@ -371,16 +373,28 @@ func _try_fire_grapple() -> void:
 			return
 	_grapple_timer = GRAPPLE_COOLDOWN * 0.5
 
-## Places a Rope anchored at the top of the player's current cell,
-## extending downward. Cell-aligned rather than pixel-exact so climbing
-## it later feels grid-consistent.
-func _place_rope() -> void:
+## Places a Rope, hanging ROPE_LENGTH_TILES down from its top, cell-aligned.
+## Movement pass: it used to hang from the player's own cell into the rock
+## below, so it couldn't get anyone up a shaft or down a drop. Now R throws
+## it up (its top at the ceiling, or 5 tiles up) to climb; S+R drops it
+## over the edge in front, into a drop, to climb down and back.
+func _place_rope(drop: bool = false) -> void:
 	if mine == null:
 		return
 	var cell := mine.world_to_cell(global_position)
+	var top := cell
+	var ahead := cell + Vector2i(facing, 0)
+	if drop:
+		if not mine.is_solid(ahead) and not mine.is_solid(ahead + Vector2i.DOWN):
+			top = ahead # over the edge into the drop
+	else:
+		for i in range(1, ROPE_LENGTH_TILES):
+			if mine.is_solid(top + Vector2i.UP):
+				break
+			top += Vector2i.UP
 	var rope: Rope = RopeScene.instantiate()
 	mine.add_child(rope)
-	rope.global_position = mine.cell_to_world(cell) - Vector2(0.0, mine.TILE_SIZE / 2.0)
+	rope.global_position = mine.cell_to_world(top) - Vector2(0.0, mine.TILE_SIZE / 2.0)
 	rope.life_seconds = ROPE_LIFE_SECONDS * tool_life_multiplier
 	rope.climb_speed = CLIMB_SPEED
 	_rope_place_timer = ROPE_PLACE_COOLDOWN
@@ -420,16 +434,36 @@ func _climb_speed() -> float:
 			speed = max(speed, r.climb_speed)
 	return speed
 
-## Nearest anchor within ANCHOR_RANGE with no rock between it and the player.
+## Nearest anchor within ANCHOR_RANGE with a clear pull to it: a straight
+## line, or straight up then across (out of a narrow pit, where the direct
+## line clips the pit wall). Sets _grapple_waypoint for the up-then-across
+## case.
 func _anchor_in_reach() -> Node2D:
 	var best: Node2D = null
+	var best_waypoint := Vector2.INF
 	for anchor in get_tree().get_nodes_in_group("anchors"):
 		var d := global_position.distance_to(anchor.global_position)
-		if d > ANCHOR_RANGE or d < ANCHOR_ARRIVE_DISTANCE or not _clear_line_to(anchor.global_position):
+		if d > ANCHOR_RANGE or d < ANCHOR_ARRIVE_DISTANCE:
 			continue
+		var waypoint := Vector2.INF
+		if not _clear_line_to(anchor.global_position):
+			var corner := Vector2(global_position.x, anchor.global_position.y)
+			if not (_clear_segment(global_position, corner) and _clear_segment(corner, anchor.global_position)):
+				continue
+			waypoint = corner
 		if best == null or d < global_position.distance_to(best.global_position):
 			best = anchor
+			best_waypoint = waypoint
+	_grapple_waypoint = best_waypoint
 	return best
+
+## No rock anywhere along the segment (4 px steps, both ends included).
+func _clear_segment(from: Vector2, to: Vector2) -> bool:
+	var steps := maxi(1, int(from.distance_to(to) / 4.0))
+	for i in range(steps + 1):
+		if mine.is_solid(mine.world_to_cell(from.lerp(to, i / float(steps)))):
+			return false
+	return true
 
 ## Rock between the player and the target, ignoring the target's floor
 ## lip: an anchor stands on a floor, so any line to it from below crosses
@@ -454,6 +488,13 @@ func _pull_toward_anchor(delta: float) -> void:
 	var to_anchor := Vector2.ZERO
 	if is_instance_valid(_grapple_anchor):
 		to_anchor = _grapple_anchor.global_position - global_position
+	if _grapple_waypoint != Vector2.INF:
+		var to_corner := _grapple_waypoint - global_position
+		if to_corner.length() < ANCHOR_ARRIVE_DISTANCE:
+			_grapple_waypoint = Vector2.INF
+		else:
+			global_position += to_corner.normalized() * min(GRAPPLE_PULL_SPEED * delta, to_corner.length())
+			return
 	if to_anchor.length() < ANCHOR_ARRIVE_DISTANCE or _grapple_pull_time > ANCHOR_PULL_TIMEOUT:
 		if to_anchor.length() < ANCHOR_ARRIVE_DISTANCE:
 			global_position = _grapple_anchor.global_position

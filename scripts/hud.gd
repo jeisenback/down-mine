@@ -33,7 +33,7 @@ const CONTROLS_TEXT := """CONTROLS  (Esc to close)
 A / D  move        W  jump (tap for a short hop; into a 2-tile ledge to mantle)
 Space  dig forward (with W: up)        S  dig down (with A / D: stairs)
 Shift  flare the light        Q  grapple up, or to an anchor
-R  rope        T  ladder        G  anchor        L  lamp
+R  rope up (S+R: down over an edge)        T  ladder        G  anchor        L  lamp
 E  use a camp, lift, outpost, vault or relic - or extract at the surface
 P  plant the base here        F (hold)  repair base        B  fortify base
 1  support beam        2  beacon        3  alarm bell

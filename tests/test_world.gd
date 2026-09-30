@@ -441,3 +441,23 @@ func test_stalker_hunts_through_rock_and_backs_off_after_a_strike() -> void:
 	await physics_frames(60)
 	assert_true(stalker.global_position.distance_to(player.global_position) > 30.0, "backs off after striking")
 	assert_eq(player.health, 998, "no follow-up hit while backing off")
+
+func test_rope_throws_up_to_the_ceiling_and_drops_over_an_edge() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var start := _step_course(mine) # floor-standing cell, open room 7 tall above
+	var player: Player = add(PlayerScene.instantiate())
+	player.mine = mine
+	player.set_physics_process(false)
+	player.global_position = mine.cell_to_world(start)
+	await physics_frames(2)
+	player._place_rope()
+	var rope: Node2D = mine.get_children().filter(func(n): return n is Rope)[-1]
+	var top := mine.world_to_cell(rope.global_position + Vector2(0, 1))
+	assert_eq(top, start + Vector2i(0, -(Player.ROPE_LENGTH_TILES - 1)), "thrown up 5 tiles in open air")
+	# a drop in front: clear the floor ahead, face it, hold S
+	mine.set_cell(0, start + Vector2i(-1, 1), -1) # (the tile to the right is the bump)
+	mine.set_cell(0, start + Vector2i(-1, 2), -1)
+	player.facing = -1
+	player._place_rope(true)
+	rope = mine.get_children().filter(func(n): return n is Rope)[-1]
+	assert_eq(mine.world_to_cell(rope.global_position + Vector2(0, 1)), start + Vector2i(-1, 0), "S+R hangs over the edge")

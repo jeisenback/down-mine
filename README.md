@@ -16,9 +16,9 @@ darkness. No crew, hub, or stranding yet.
 - `Shift` — flare the light (brighter, burns fuel faster; the only thing that hurts a Burrower)
 - `Q` — fire the grapple straight up (reusable, pulls you to the first solid ceiling within range)
 - `L` — set down a lamp (hub unlock; 3 per run; burns ~90s, lights your route, slows rope decay; noisy)
-- `R` — place a rope at your feet (consumable, climbable with `W`/`S`, decays over time — faster in the dark)
+- `R` — throw a rope up (it hangs from the ceiling, or 5 tiles up) and climb it with `W`/`S`; throw another from the top to keep climbing. `S`+`R` drops it over the edge you face, down into a drop. Unlimited, 1.5s apart; decays over time, faster in the dark
 - `T` — place a ladder standing up from your feet (hub unlock; 4 per run; climbs faster and lasts longer than a rope; noisy)
-- `G` — hammer in an anchor where you stand (hub unlock; 2 per run); `Q` then pulls you straight to the nearest anchor within 10 tiles in line of sight (over a ledge's lip), before trying a ceiling
+- `G` — hammer in an anchor where you stand (hub unlock; 2 per run); `Q` then pulls you to the nearest anchor within 10 tiles - in a straight line, or straight up and then across (out of a narrow pit) - before trying a ceiling
 - `E` — extract anywhere at the surface, above the crust (banks ore, ends the run); in the mine, use a nearby camp, lift, outpost, survivor, vault door or relic
 - `P` — once per run, plant the run base where you stand (below the crust, on a floor)
 - `F` — hold at the run base to repair it (1 health per 3s, 10 of this run's ore per point, noisy)

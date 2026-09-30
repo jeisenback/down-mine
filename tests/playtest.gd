@@ -29,6 +29,12 @@ func _run() -> void:
 		["step_up_and_mantle", _step_up_and_mantle],
 		["camp_search", _camp_search],
 		["heart_run", _heart_run],
+		["tunnel_and_staircase", _tunnel_and_staircase],
+		["ropes_up_a_shaft", _ropes_up_a_shaft],
+		["rope_down_a_pit", _rope_down_a_pit],
+		["ladder_out_of_a_pit", _ladder_out_of_a_pit],
+		["anchor_out_of_a_pit", _anchor_out_of_a_pit],
+		["grapple_to_ceiling", _grapple_to_ceiling],
 	]
 	var failed := 0
 	for entry in scenarios:
@@ -206,3 +212,114 @@ func _heart_run() -> void:
 	await tap(KEY_L)
 	check(main.hud.run_summary_label.text.contains("Heart claimed"), "run log shows the win")
 	await shot("run_log")
+
+# --- movement courses (movement pass) --------------------------------------
+# A solid block with a room 5 tiles tall; the room's floor is row C.y + 10.
+
+const C := Vector2i(20, 40)
+
+func _course() -> void:
+	await _start_game()
+	main.player.light.burn_rate = 0.0
+	main.player.invincible = true # courses test movement, not survival
+	main.player.ladders_left = 4
+	main.player.anchors_left = 2
+	_fill(C.x, C.y, C.x + 40, C.y + 16, true)
+	_fill(C.x + 1, C.y + 5, C.x + 39, C.y + 9, false)
+
+func _fill(x0: int, y0: int, x1: int, y1: int, solid: bool) -> void:
+	for x in range(x0, x1 + 1):
+		for y in range(y0, y1 + 1):
+			if solid:
+				main.mine.fill_cell(Vector2i(x, y))
+			else:
+				main.mine.set_cell(0, Vector2i(x, y), -1)
+
+## Teleports once tile edits have reached the physics server (next frame).
+func _place(cell: Vector2i) -> void:
+	await frames(3)
+	teleport(cell)
+	await frames(20)
+
+func _cell() -> Vector2i:
+	return main.mine.world_to_cell(main.player.global_position)
+
+func _on_room_floor() -> bool:
+	return _cell().y <= C.y + 9
+
+func _tunnel_and_staircase() -> void:
+	await _course()
+	await _place(C + Vector2i(20, 9))
+	await hold([KEY_SPACE, KEY_D], 120)
+	check(_cell().x >= C.x + 26 and _cell().y == C.y + 9, "Space+D tunnels sideways")
+	await _place(C + Vector2i(3, 9))
+	await hold([KEY_S, KEY_D], 120)
+	check(_cell().x > C.x + 5 and _cell().y > C.y + 11, "S+D digs a staircase down")
+	await shot("dug")
+
+func _ropes_up_a_shaft() -> void:
+	await _course()
+	_fill(C.x + 10, C.y + 10, C.x + 10, C.y + 16, false) # 7-deep shaft
+	await _place(C + Vector2i(10, 16))
+	for i in range(3):
+		await tap(KEY_R)
+		await hold([KEY_W], 80)
+		await frames(95) # rope cooldown
+	key_event(KEY_W, true)
+	await hold([KEY_D], 40)
+	key_event(KEY_W, false)
+	await frames(30)
+	check(_on_room_floor(), "thrown ropes climb out of a 7-deep shaft")
+	await shot("out")
+
+func _rope_down_a_pit() -> void:
+	await _course()
+	_fill(C.x + 10, C.y + 10, C.x + 10, C.y + 14, false) # 5-deep pit
+	await _place(C + Vector2i(9, 9))
+	await hold([KEY_D], 2) # face the pit
+	key_event(KEY_S, true)
+	await tap(KEY_R)
+	key_event(KEY_S, false)
+	await hold([KEY_D], 14)
+	await hold([KEY_S], 60)
+	check(_cell().y >= C.y + 12, "S+R rope hangs into the pit; climbed down it")
+	await shot("in_pit")
+	await hold([KEY_W], 120)
+	key_event(KEY_W, true)
+	await hold([KEY_A], 40)
+	key_event(KEY_W, false)
+	await frames(20)
+	check(_on_room_floor(), "climbed back out")
+
+func _ladder_out_of_a_pit() -> void:
+	await _course()
+	_fill(C.x + 10, C.y + 10, C.x + 10, C.y + 13, false) # 4-deep pit
+	await _place(C + Vector2i(10, 13))
+	await tap(KEY_T)
+	await hold([KEY_W], 90)
+	key_event(KEY_W, true)
+	await hold([KEY_D], 40)
+	key_event(KEY_W, false)
+	await frames(20)
+	check(_on_room_floor(), "ladder climbs out of a 4-deep pit")
+	await shot("out")
+
+func _anchor_out_of_a_pit() -> void:
+	await _course()
+	_fill(C.x + 10, C.y + 10, C.x + 10, C.y + 13, false) # 4-deep pit
+	await _place(C + Vector2i(9, 9))
+	await tap(KEY_G)
+	await _place(C + Vector2i(10, 13))
+	await tap(KEY_Q)
+	await frames(60)
+	check(_on_room_floor(), "grapple pulls up the pit and over to the anchor")
+	await shot("pulled")
+
+func _grapple_to_ceiling() -> void:
+	await _course()
+	await _place(C + Vector2i(12, 9))
+	var start: Vector2i = _cell()
+	await tap(KEY_Q)
+	await frames(20)
+	check(_cell().y < start.y, "grapple lifts to the ceiling")
+	await shot("up")
