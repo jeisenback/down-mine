@@ -14,6 +14,13 @@ const ATTACK_COOLDOWN := 1.2
 # ATTACK_RANGE - a standing player could never be hit, only one moving
 # into it.
 const STRIKE_FUEL_FRACTION := 0.25
+# Quality pass: out of range it used to stop dead, and rock blocked it, so
+# outpacing it once made the dark safe for good. Now it drifts through
+# rock (collision_mask 0, like the Snuffer) and hunts at this speed.
+const HUNT_SPEED := 24.0
+# After a strike it backs off for a moment: time to flare or run for light
+# (it used to land three hits in 2.4 s, dead before the player could react).
+const RETREAT_SECONDS := 3.0
 
 var player: Player
 ## The base light is a refuge: inside it the Stalker only retreats, so it
@@ -21,6 +28,7 @@ var player: Player
 var run_base: RunBase
 var state: State = State.LURK
 var attack_timer: float = 0.0
+var retreat_timer: float = 0.0
 var _anim_time: float = 0.0
 
 # Tileset slime (milestone 30): three squash-and-stretch frames.
@@ -40,6 +48,7 @@ func _process(delta: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	attack_timer = max(0.0, attack_timer - delta)
+	retreat_timer = max(0.0, retreat_timer - delta)
 	if player == null:
 		return
 
@@ -55,7 +64,7 @@ func _physics_process(delta: float) -> void:
 	var light_holds: bool = player.light.is_flaring or player.light.fuel_fraction() > STRIKE_FUEL_FRACTION
 	var in_light := light_holds and distance < light_radius - SAFE_LIGHT_MARGIN
 
-	if in_light:
+	if in_light or retreat_timer > 0.0:
 		state = State.FLEE
 	elif distance < light_radius + 80.0:
 		state = State.APPROACH
@@ -70,11 +79,12 @@ func _physics_process(delta: float) -> void:
 			if distance < ATTACK_RANGE and attack_timer <= 0.0:
 				_attack()
 		State.LURK:
-			velocity = velocity.move_toward(Vector2.ZERO, SPEED * delta)
+			velocity = to_player.normalized() * HUNT_SPEED # the dark closes in
 
 	move_and_slide()
 
 func _attack() -> void:
 	attack_timer = ATTACK_COOLDOWN
+	retreat_timer = RETREAT_SECONDS
 	if player.has_method("take_hit"):
 		player.take_hit(1, "Stalker")

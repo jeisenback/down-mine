@@ -414,3 +414,30 @@ func test_digging_down_centres_over_the_hole() -> void:
 	assert_true(absf(player.global_position.x - column_x) < 0.5, "slid over the dug column")
 	await physics_frames(20)
 	assert_true(player.global_position.y > mine.cell_to_world(start).y + 8, "fell into the hole")
+
+func test_nonstop_noise_keeps_summoning() -> void:
+	var meter := NoiseMeter.new()
+	add(meter)
+	var count := [0]
+	meter.threshold_reached.connect(func(): count[0] += 1)
+	for i in range(10):
+		meter.add_noise(60.0) # nonstop: never dips below the threshold between hits
+	assert_eq(count[0], 5, "every 100 noise summons again")
+	assert_true(meter.noise < meter.threshold, "meter empties when it fills")
+
+func test_stalker_hunts_through_rock_and_backs_off_after_a_strike() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var player := _still_player(mine.cell_to_world(Vector2i(40, 150)), 0.1)
+	var stalker: Stalker = add(StalkerScene.instantiate())
+	stalker.player = player
+	stalker.run_base = _base(Vector2(-5000, -5000))
+	stalker.global_position = player.global_position + Vector2(400, 0) # far, through solid Stone
+	var start := stalker.global_position.distance_to(player.global_position)
+	await physics_frames(120)
+	assert_true(stalker.global_position.distance_to(player.global_position) < start - 30.0, "hunts from out of range")
+	stalker.global_position = player.global_position + Vector2(10, 0)
+	await physics_frames(5)
+	assert_eq(player.health, 998, "struck once")
+	await physics_frames(60)
+	assert_true(stalker.global_position.distance_to(player.global_position) > 30.0, "backs off after striking")
+	assert_eq(player.health, 998, "no follow-up hit while backing off")

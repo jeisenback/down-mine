@@ -92,6 +92,22 @@ dictates.
 - **Mobile.** The web build doesn't open on phones. Needs looking into
   (likely the web export's requirements), then touch controls.
 
+## Quality pass
+
+- ~~**M46 - Gameplay quality pass.**~~ Done, from bots playing real runs:
+  - The Stalker stopped dead when out of range and was blocked by rock,
+    so outpacing it once made darkness safe forever. It now drifts
+    through rock and hunts; it also backs off 3s after each strike (it
+    used to kill in 2.4s, before you could react).
+  - The noise meter stayed pinned at its cap while you kept digging, so
+    nonstop noise brought one Burrower. It now empties when it fills:
+    about one Burrower per 30 tiles of nonstop digging.
+  - One long fall through a cave ceiling could kill from full health
+    (4 damage). Falls now do at most 2.
+  - `tests/balance_probe.gd` keeps the bots for tuning.
+- **Tuning knobs to revisit in M22:** dig noise per tile (6), the
+  Stalker's strike threshold (25% light), lantern size (60s).
+
 ## Open design questions (from the PRD)
 
 - What takes stranded NPCs deeper: creatures, a shifting mine, or fleeing?

@@ -11,7 +11,6 @@ signal noise_changed(value: float, fraction: float)
 var noise_multiplier: float = 1.0
 
 var noise: float = 0.0
-var _triggered: bool = false
 
 func _process(delta: float) -> void:
 	if noise > 0.0:
@@ -21,8 +20,10 @@ func _process(delta: float) -> void:
 func add_noise(amount: float) -> void:
 	noise = min(max_noise, noise + amount * noise_multiplier)
 	noise_changed.emit(noise, noise / max_noise)
-	if noise >= threshold and not _triggered:
-		_triggered = true
+	# Filling the meter summons something, and the meter empties: more noise
+	# summons more. (It used to stay pinned at the cap while the player kept
+	# digging, so nonstop noise brought only one Burrower.)
+	if noise >= threshold:
+		noise = 0.0
+		noise_changed.emit(noise, 0.0)
 		threshold_reached.emit()
-	elif noise < threshold:
-		_triggered = false

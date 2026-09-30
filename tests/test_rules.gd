@@ -12,7 +12,7 @@ func _progress() -> Progress:
 	return p
 
 func test_fall_damage_thresholds() -> void:
-	for case in [[2.0, 0], [6.9, 0], [7.1, 1], [9.9, 1], [10.1, 2], [13.1, 3]]:
+	for case in [[2.0, 0], [6.9, 0], [7.1, 1], [9.9, 1], [10.1, 2], [13.1, 2], [30.0, Player.MAX_FALL_DAMAGE]]:
 		assert_eq(Player.fall_damage_for_speed(_speed_for_fall(case[0])), case[1], "fall of %s tiles" % case[0])
 
 func test_hub_purchase_costs_scale_and_cap() -> void:

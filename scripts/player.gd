@@ -84,6 +84,9 @@ const AnchorScene := preload("res://scenes/Anchor.tscn")
 # so the same habit gets more dangerous with depth.
 const SAFE_FALL_TILES := 7.0
 const FALL_TILES_PER_EXTRA_DAMAGE := 3.0
+# Quality pass: a long fall through a cave ceiling (easy to dig into) did
+# up to 4 damage - dead from full health, unseen below the light. Capped.
+const MAX_FALL_DAMAGE := 2
 const FALL_NOISE_PER_DAMAGE := 12.0
 
 # Deep Night player sheet: 16x16 frames, 10 per row, art faces right.
@@ -340,7 +343,7 @@ static func fall_damage_for_speed(fall_speed: float, safe_tiles: float = SAFE_FA
 	var fall_tiles := fall_speed * fall_speed / (2.0 * GRAVITY) / MineGrid.TILE_SIZE
 	if fall_tiles < safe_tiles:
 		return 0
-	return 1 + int((fall_tiles - safe_tiles) / FALL_TILES_PER_EXTRA_DAMAGE)
+	return mini(MAX_FALL_DAMAGE, 1 + int((fall_tiles - safe_tiles) / FALL_TILES_PER_EXTRA_DAMAGE))
 
 ## Scans straight up from the player's cell for the first solid cell
 ## within grapple_range. On a hit, starts pulling toward a point just
