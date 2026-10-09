@@ -125,3 +125,35 @@ func test_veteran_bonus_and_title() -> void:
 	assert_eq(p.rank_of(vet).strength, 2.0, "veteran strength")
 	assert_eq(p.display_name(vet), "Ezra the Whisper", "veteran title")
 	assert_eq(p.effect_text(vet), "noise -50%", "doubled bonus")
+
+func test_hearing_falls_linearly_to_zero_at_80_tiles() -> void:
+	assert_eq(NoiseMeter.hearing(0.0), 1.0, "full at the base")
+	assert_eq(NoiseMeter.hearing(40.0), 0.5, "half at 40 tiles")
+	assert_eq(NoiseMeter.hearing(80.0), 0.0, "nothing at 80")
+	assert_eq(NoiseMeter.hearing(500.0), 0.0, "never negative")
+
+func test_noise_is_scaled_by_distance_from_the_base() -> void:
+	var meter: NoiseMeter = add(NoiseMeter.new())
+	meter.decay_rate = 0.0
+	meter.base_position = func(): return Vector2.ZERO
+	meter.add_noise(40.0, Vector2.ZERO)
+	assert_eq(meter.noise, 40.0, "at the base: full")
+	meter.noise = 0.0
+	meter.add_noise(40.0, Vector2(40 * MineGrid.TILE_SIZE, 0))
+	assert_eq(meter.noise, 20.0, "40 tiles away: half")
+	meter.noise = 0.0
+	meter.noise_multiplier = 0.5
+	meter.add_noise(40.0, Vector2.ZERO)
+	assert_eq(meter.noise, 20.0, "crew multiplier still applies after hearing")
+
+func test_quiet_layers_are_judged_at_the_sound() -> void:
+	var meter: NoiseMeter = add(NoiseMeter.new())
+	meter.decay_rate = 0.0
+	meter.quiet_at = func(pos: Vector2): return pos.y < 100.0
+	var heard: Array = []
+	meter.noise_made.connect(func(pos, amount): heard.append(pos))
+	meter.add_noise(30.0, Vector2(0, 50))
+	assert_eq(meter.noise, 0.0, "sound in a quiet layer adds nothing")
+	assert_eq(heard.size(), 0, "and alerts nothing")
+	meter.add_noise(30.0, Vector2(0, 500))
+	assert_eq(heard.size(), 1, "sound below the quiet floor is announced")

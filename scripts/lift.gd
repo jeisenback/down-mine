@@ -29,7 +29,7 @@ func prompt(main: Node) -> String:
 func use(main: Node) -> void:
 	if state == State.BROKEN and main.player.currency >= REPAIR_ORE:
 		main.player.currency -= REPAIR_ORE
-		main.noise_meter.add_noise(REPAIR_NOISE)
+		main.noise_meter.add_noise(REPAIR_NOISE, global_position)
 		Sfx.play("collapse")
 		state = State.READY
 		cage.modulate = Color(1, 1, 1) # rust-dark until repaired

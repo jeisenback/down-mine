@@ -436,7 +436,7 @@ func test_nonstop_noise_keeps_summoning() -> void:
 	var count := [0]
 	meter.threshold_reached.connect(func(): count[0] += 1)
 	for i in range(10):
-		meter.add_noise(60.0) # nonstop: never dips below the threshold between hits
+		meter.add_noise(60.0, Vector2.ZERO) # nonstop: never dips below the threshold between hits
 	assert_eq(count[0], 5, "every 100 noise summons again")
 	assert_true(meter.noise < meter.threshold, "meter empties when it fills")
 

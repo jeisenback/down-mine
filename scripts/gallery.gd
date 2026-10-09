@@ -63,5 +63,5 @@ func collapse() -> void:
 	if rect.has_point(player_cell):
 		main.player.take_hit(BURY_DAMAGE, "burial")
 		main.hud.show_message("Buried! Dig out.")
-	main.noise_meter.add_noise(COLLAPSE_NOISE)
+	main.noise_meter.add_noise(COLLAPSE_NOISE, global_position)
 	Sfx.play("collapse")

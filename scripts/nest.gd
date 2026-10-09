@@ -37,6 +37,6 @@ func _destroy() -> void:
 	remove_from_group("mine_events")
 	$Eggs.visible = false
 	$Scorch.visible = true
-	main.noise_meter.add_noise(BURN_NOISE)
+	main.noise_meter.add_noise(BURN_NOISE, global_position)
 	Sfx.play("hiss")
 	main.on_nest_destroyed()

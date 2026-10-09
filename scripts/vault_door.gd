@@ -12,6 +12,6 @@ func prompt(_main: Node) -> String:
 	return "E: break into the vault (very loud)"
 
 func use(main: Node) -> void:
-	main.noise_meter.add_noise(BREAK_NOISE)
+	main.noise_meter.add_noise(BREAK_NOISE, global_position)
 	Sfx.play("collapse")
 	queue_free()

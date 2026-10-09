@@ -124,10 +124,11 @@ var crew_at_base: Array[LostMiner] = []
 
 func _ready() -> void:
 	player.mine = mine
-	noise_meter.quiet_check = func(): return mine.is_quiet_at(player.global_position)
+	noise_meter.quiet_at = func(pos: Vector2): return mine.is_quiet_at(pos)
+	noise_meter.base_position = func(): return run_base.global_position
 	mine.tile_dug.connect(_on_tile_dug)
 	mine.gas_released.connect(_on_gas_released)
-	player.made_noise.connect(_on_tile_dug) # same amount->noise_meter path, source doesn't matter
+	player.made_noise.connect(func(amount): _on_tile_dug(amount, player.global_position))
 	noise_meter.noise_changed.connect(hud.update_noise)
 	noise_meter.threshold_reached.connect(_on_noise_threshold)
 	player.died.connect(_on_player_died)
@@ -298,9 +299,8 @@ func _process(delta: float) -> void:
 		"Anchors": player.anchors_left if progress.has_unlock("anchors") or player.anchors_left > 0 else -1,
 	}, get_tree().get_nodes_in_group("snuffers").size() > 0)
 	mine.decay_walls(delta, run_base.light.fuel_fraction())
-	var decay_noise := mine.tick_decay(delta, player.global_position)
-	if decay_noise > 0.0:
-		noise_meter.add_noise(decay_noise)
+	for lost_at in mine.tick_decay(delta, player.global_position):
+		noise_meter.add_noise(MineGrid.DECAY_NOISE, lost_at)
 	hud.update_base(run_base, get_tree().get_nodes_in_group("burrowers").size() > 0, mine.wall_count())
 	hud.update_prompts(_action_prompts())
 	max_depth_reached = max(max_depth_reached, _current_depth())
@@ -334,7 +334,7 @@ func _wake_stalker(layer: int) -> void:
 ## Taking the Heart: loud, and the mine collapses faster until the run ends.
 func take_heart() -> void:
 	carrying_heart = true
-	noise_meter.add_noise(HEART_NOISE)
+	noise_meter.add_noise(HEART_NOISE, player.global_position)
 	mine.decay_multiplier *= HEART_CARRY_DECAY
 	Sfx.play("collapse")
 	hud.show_message("The mine shudders awake. Get the Heart to the surface!")
@@ -393,7 +393,7 @@ func _on_gas_released(world_pos: Vector2) -> void:
 	cloud.player = player
 	cloud.global_position = world_pos
 	add_child(cloud)
-	noise_meter.add_noise(GasCloud.RELEASE_NOISE)
+	noise_meter.add_noise(GasCloud.RELEASE_NOISE, world_pos)
 
 ## Depth in tiles below the surface crust, for the run summary. Never
 ## negative even if the player is still above the crust at run start.
@@ -451,7 +451,7 @@ func _check_plant() -> void:
 		run_base.global_position = player.global_position - Vector2(0, BASE_FLAG_HEIGHT_ABOVE_PLAYER)
 		run_base.repair_progress = 0.0
 		_place_crew_at_base()
-		noise_meter.add_noise(BASE_PLANT_NOISE)
+		noise_meter.add_noise(BASE_PLANT_NOISE, player.global_position)
 	_plant_key_was_pressed = pressed
 
 ## Number keys build (milestone 32), paid from this run's ore: 1 a
@@ -492,7 +492,7 @@ func build_bell() -> bool:
 
 func _pay_for_build(cost: int) -> void:
 	player.currency -= cost
-	noise_meter.add_noise(run_base.BUILD_NOISE)
+	noise_meter.add_noise(run_base.BUILD_NOISE, player.global_position)
 	Sfx.play("place")
 
 ## With a bell at the base, noise past BELL_WARNING_FRACTION of the
@@ -513,7 +513,7 @@ func _check_lamp() -> void:
 		var lamp: Lamp = LampScene.instantiate()
 		lamp.global_position = player.global_position
 		mine.add_child(lamp)
-		noise_meter.add_noise(LAMP_PLACE_NOISE)
+		noise_meter.add_noise(LAMP_PLACE_NOISE, lamp.global_position)
 	_lamp_key_was_pressed = pressed
 
 func _check_snuffer_spawn(delta: float) -> void:
@@ -557,7 +557,7 @@ func _check_repair(delta: float) -> void:
 		return
 	if run_base.tick_repair(delta, player.currency):
 		player.currency -= run_base.repair_cost()
-		noise_meter.add_noise(run_base.REPAIR_NOISE)
+		noise_meter.add_noise(run_base.REPAIR_NOISE, run_base.global_position)
 
 ## Pressing B at the base reinforces the rock around it, nearest tiles
 ## first: one batch per press, as many as this run's ore covers.
@@ -571,7 +571,7 @@ func _check_fortify() -> void:
 			mine.reinforce(cells[i])
 		if count > 0:
 			player.currency -= count * run_base.wall_cost()
-			noise_meter.add_noise(count * run_base.WALL_NOISE)
+			noise_meter.add_noise(count * run_base.WALL_NOISE, run_base.global_position)
 	_fortify_key_was_pressed = pressed
 
 func _check_extraction() -> void:
@@ -605,8 +605,8 @@ func _record_run(result: String) -> void:
 		"hits": player.hits_by.duplicate(), "seed": mine.mine_seed,
 	})
 
-func _on_tile_dug(noise_amount: float) -> void:
-	noise_meter.add_noise(noise_amount)
+func _on_tile_dug(noise_amount: float, world_pos: Vector2) -> void:
+	noise_meter.add_noise(noise_amount, world_pos)
 
 func _on_noise_threshold() -> void:
 	Sfx.play("alarm", -6.0) # something heard you
