@@ -70,6 +70,9 @@ const PLANK_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 6, 0)
 const DRIFT_MIN_LENGTH := 24
 const DRIFT_MAX_LENGTH := 40
 const DRIFT_POST_SPACING := 6
+const DRIFT_COLLAPSE_MIN := 4
+const DRIFT_COLLAPSE_MAX := 8
+const DRIFT_END_CLEAR := 4 # open tiles kept at each end of a collapsed section
 const DECOR_LAYER := 1
 const TIMBER_COLOR := Color(0.45, 0.3, 0.15)
 
@@ -137,8 +140,6 @@ const LOST_MINER_ROWS_BELOW_QUIET_FLOOR := 40
 const EVENT_ROOMS := [
 	# First, so it always finds room in the bottom band.
 	{"kind": "heart", "layers": [5], "bottom": true},
-	{"kind": "camp", "layers": [0]},
-	{"kind": "camp", "layers": [1]},
 	{"kind": "camp", "layers": [2]},
 	{"kind": "camp", "layers": [3]},
 	{"kind": "camp", "layers": [4]},
@@ -188,6 +189,8 @@ var event_rooms: Array = []
 ## drift - layer, side (-1 left / 1 right), row (the standing row; its floor
 ## is row + 1), x0 (first cell beside the shaft), x1 (far end), features.
 var drifts: Array = []
+## Collapsed-section cells (solid rock with timber over it, like the shaft's).
+var _debris_cells: Dictionary = {}
 ## Floor cells a drift laid over a cave.
 var _plank_cells: Dictionary = {}
 ## Last row of the shaft's collapse (-1 until generated).
@@ -326,7 +329,7 @@ func _generate_layout() -> void:
 				set_cell(0, Vector2i(x, y), source_id, VAULT_ATLAS_COORDS)
 			elif _plank_cells.has(Vector2i(x, y)):
 				set_cell(0, Vector2i(x, y), source_id, PLANK_ATLAS_COORDS)
-			elif is_in_shaft(Vector2i(x, y)):
+			elif is_in_shaft(Vector2i(x, y)) or _debris_cells.has(Vector2i(x, y)):
 				set_cell(0, Vector2i(x, y), source_id, DEBRIS_ATLAS_COORDS)
 			else:
 				set_cell(0, Vector2i(x, y), source_id, layer_atlas(_layer_index_for_row(y)))
@@ -384,7 +387,8 @@ func _carve_drifts(solid: Array, rng: RandomNumberGenerator) -> void:
 		var side := rng.randi_range(0, 1) * 2 - 1
 		var length := rng.randi_range(DRIFT_MIN_LENGTH, DRIFT_MAX_LENGTH)
 		var x0 := shaft_column() + side * (SHAFT_WIDTH / 2 + 1)
-		var drift := {"layer": layer, "side": side, "row": row, "x0": x0, "x1": x0 + side * (length - 1), "features": {}}
+		var drift := {"layer": layer, "side": side, "row": row, "x0": x0, "x1": x0 + side * (length - 1),
+			"features": {"collapse": Rect2i(), "end": "miner" if layer == 2 else "camp"}}
 		drifts.append(drift)
 		# Step from the shaft's edge onto the drift's floor.
 		var landing := Vector2i(shaft_column() + side, row + 1)
@@ -406,6 +410,26 @@ func _carve_drifts(solid: Array, rng: RandomNumberGenerator) -> void:
 			if i > 0 and i % DRIFT_POST_SPACING == 0:
 				set_cell(DECOR_LAYER, Vector2i(x, row), source_id, POST_ATLAS_COORDS)
 				set_cell(DECOR_LAYER, Vector2i(x, row - 1), source_id, POST_ATLAS_COORDS)
+		if layer >= 1:
+			_collapse_drift(solid, drift, length, rng)
+		if drift.features.end == "camp":
+			var end_cell := Vector2i(drift.x1, row)
+			event_rooms.append({"kind": "camp", "cell": end_cell, "rect": Rect2i(end_cell - Vector2i(0, 1), Vector2i(1, 2)), "drift": true})
+
+## Fills a DRIFT_COLLAPSE_MIN..MAX long stretch of both rows with rock,
+## leaving DRIFT_END_CLEAR open tiles at each end so neither the shaft mouth
+## nor the camp / miner at the far end is swallowed.
+func _collapse_drift(solid: Array, drift: Dictionary, length: int, rng: RandomNumberGenerator) -> void:
+	var size := rng.randi_range(DRIFT_COLLAPSE_MIN, DRIFT_COLLAPSE_MAX)
+	var start := rng.randi_range(DRIFT_END_CLEAR, length - DRIFT_END_CLEAR - size)
+	var first_x: int = drift.x0 + drift.side * start
+	var last_x: int = drift.x0 + drift.side * (start + size - 1)
+	for x in range(mini(first_x, last_x), maxi(first_x, last_x) + 1):
+		for y in [drift.row - 1, drift.row]:
+			solid[x][y] = true
+			_debris_cells[Vector2i(x, y)] = true
+			_reserved_floors[Vector2i(x, y)] = true
+	drift.features.collapse = Rect2i(mini(first_x, last_x), drift.row - 1, size, 2)
 
 ## Every open cell of a drift, both rows.
 func drift_cells(drift: Dictionary) -> Array:
@@ -628,6 +652,10 @@ func _scatter_ore_deposits(floor_cells: Array) -> void:
 		add_child(pickup)
 
 func _pick_lost_miner_cell() -> void:
+	for d in drifts:
+		if d.features.end == "miner": # the Stone gallery's far end
+			lost_miner_cell = Vector2i(d.x1, d.row)
+			return
 	var first := quiet_floor_row() - LOST_MINER_ROWS_ABOVE_QUIET_FLOOR
 	var last := quiet_floor_row() + LOST_MINER_ROWS_BELOW_QUIET_FLOOR
 	lost_miner_cell = _take_spare_floor_cell(func(cell): return cell.y >= first and cell.y <= last)

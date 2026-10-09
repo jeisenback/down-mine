@@ -708,3 +708,52 @@ func test_event_rooms_and_pickups_keep_out_of_the_drifts() -> void:
 		for child in mine.get_children():
 			if child is FuelPickup or child is OrePickup:
 				assert_true(not mine.is_in_old_mine(mine.world_to_cell(child.global_position)), "seed %d: pickup in the old mine" % s)
+
+func _cells_of(box: Rect2i) -> Array:
+	var cells: Array = []
+	for x in range(box.position.x, box.end.x):
+		for y in range(box.position.y, box.end.y):
+			cells.append(Vector2i(x, y))
+	return cells
+
+func test_clay_and_stone_drifts_have_a_collapsed_section_and_topsoil_does_not() -> void:
+	for s in [1001, 1, 2, 3, 4, 5]:
+		var mine := _mine_with_seed(s)
+		for d in mine.drifts:
+			var box: Rect2i = d.features.collapse
+			if d.layer == 0:
+				assert_eq(box.size, Vector2i.ZERO, "seed %d: Topsoil's drift is clear" % s)
+				continue
+			assert_true(box.size.x >= MineGrid.DRIFT_COLLAPSE_MIN and box.size.x <= MineGrid.DRIFT_COLLAPSE_MAX, "seed %d: layer %d collapse is %d long" % [s, d.layer, box.size.x])
+			assert_eq(box.size.y, 2, "seed %d: it fills both rows" % s)
+			for cell in _cells_of(box):
+				assert_eq(mine.get_cell_atlas_coords(0, cell), MineGrid.DEBRIS_ATLAS_COORDS, "seed %d: debris at %s" % [s, cell])
+				assert_true(not mine.is_indestructible(cell), "and it digs")
+			var near_end: int = box.end.x - 1 if d.side > 0 else box.position.x
+			assert_true(absi(d.x1 - near_end) >= 4, "seed %d: at least 4 clear tiles between the collapse and the far end" % s)
+			var near_mouth: int = box.position.x if d.side > 0 else box.end.x - 1
+			assert_true(absi(near_mouth - d.x0) >= 4, "seed %d: the collapse is not at the shaft mouth" % s)
+
+func test_camps_of_the_worked_layers_stand_at_the_drift_ends() -> void:
+	for s in [1001, 1, 2, 3]:
+		var mine := _mine_with_seed(s)
+		var camps: Array = mine.event_rooms.filter(func(r): return r.kind == "camp")
+		assert_eq(camps.size(), MineGrid.LAYERS.size(), "seed %d: one camp per layer" % s)
+		for d in mine.drifts:
+			if d.features.end == "camp":
+				var hit: Array = camps.filter(func(r): return r.cell == Vector2i(d.x1, d.row))
+				assert_eq(hit.size(), 1, "seed %d: layer %d's camp is at its drift's end" % [s, d.layer])
+		for layer in [0, 1]:
+			assert_eq(camps.filter(func(r): return mine.layer_index_at_world(mine.cell_to_world(r.cell)) == layer).size(), 1, "seed %d: exactly one camp in layer %d" % [s, layer])
+
+func test_the_lost_miner_stands_at_the_stone_drifts_far_end() -> void:
+	var with_drift := 0
+	for s in range(1, 21):
+		var mine := _mine_with_seed(s)
+		var stone: Array = mine.drifts.filter(func(d): return d.layer == 2)
+		if stone.is_empty():
+			assert_true(mine.lost_miner_cell.x >= 0, "seed %d: with no Stone drift the miner keeps the old placement" % s)
+			continue
+		with_drift += 1
+		assert_eq(mine.lost_miner_cell, Vector2i(stone[0].x1, stone[0].row), "seed %d: the miner waits at the far end" % s)
+	assert_true(with_drift >= 10, "most seeds have a Stone drift (%d of 20)" % with_drift)
