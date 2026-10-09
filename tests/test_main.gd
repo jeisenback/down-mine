@@ -347,3 +347,19 @@ func test_digging_reports_where_it_happened() -> void:
 	mine.dig_cells([cell])
 	assert_eq(reports.size(), 1, "one dig, one report")
 	assert_eq(reports[0], mine.cell_to_world(cell), "reported at the dug cell")
+
+func test_noise_alerts_only_stalkers_within_30_tiles() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	main.player.global_position = main.mine.cell_to_world(Vector2i(40, main.mine.quiet_floor_row() + 10))
+	await tree.create_timer(0.2).timeout # wakes the first Stalker
+	var stalker: Stalker = main.get_tree().get_nodes_in_group("stalkers")[0]
+	stalker.global_position = main.player.global_position + Vector2(20 * MineGrid.TILE_SIZE, 0)
+	main.noise_meter.add_noise(5.0, main.player.global_position)
+	assert_eq(stalker.alert_timer, Stalker.ALERT_SECONDS, "20 tiles away hears it")
+	stalker.alert_timer = 0.0
+	stalker.global_position = main.player.global_position + Vector2(40 * MineGrid.TILE_SIZE, 0)
+	main.noise_meter.add_noise(5.0, main.player.global_position)
+	assert_eq(stalker.alert_timer, 0.0, "40 tiles away does not")
+	Progress.path_override = ""

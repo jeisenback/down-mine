@@ -131,6 +131,7 @@ func _ready() -> void:
 	player.made_noise.connect(func(amount): _on_tile_dug(amount, player.global_position))
 	noise_meter.noise_changed.connect(hud.update_noise)
 	noise_meter.threshold_reached.connect(_on_noise_threshold)
+	noise_meter.noise_made.connect(_on_noise_made)
 	player.died.connect(_on_player_died)
 	run_base.fell.connect(_on_base_fell)
 	hud.new_run_requested.connect(_start_new_run)
@@ -607,6 +608,12 @@ func _record_run(result: String) -> void:
 
 func _on_tile_dug(noise_amount: float, world_pos: Vector2) -> void:
 	noise_meter.add_noise(noise_amount, world_pos)
+
+## Stalkers within hearing of a loud act close in (milestone 50).
+func _on_noise_made(position: Vector2, _amount: float) -> void:
+	for stalker in get_tree().get_nodes_in_group("stalkers"):
+		if stalker.global_position.distance_to(position) / mine.TILE_SIZE <= Stalker.HEARING_TILES:
+			stalker.alert()
 
 func _on_noise_threshold() -> void:
 	Sfx.play("alarm", -6.0) # something heard you
