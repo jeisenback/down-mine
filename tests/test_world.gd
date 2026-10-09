@@ -51,6 +51,17 @@ func test_stalker_strikes_on_low_light() -> void:
 	await physics_frames(300)
 	assert_true(player.health < 999, "hit at 10% fuel")
 
+func test_stalker_never_rises_above_its_floor() -> void:
+	var player := _still_player(Vector2(1000, 1000), 0.1)
+	var stalker: Stalker = add(StalkerScene.instantiate())
+	stalker.player = player
+	stalker.run_base = _base(Vector2(-5000, -5000))
+	stalker.min_y = player.global_position.y + 100.0 # the player stands in the quiet zone
+	stalker.global_position = player.global_position + Vector2(0, 200)
+	await physics_frames(300)
+	assert_true(stalker.global_position.y >= stalker.min_y - 0.01, "held at the quiet floor")
+	assert_eq(player.health, 999, "out of reach from below the floor")
+
 func test_stalker_never_strikes_inside_base_light() -> void:
 	var player := _still_player(Vector2(1000, 1000), 0.1)
 	var stalker: Stalker = add(StalkerScene.instantiate())
@@ -139,15 +150,17 @@ func test_locked_tools_are_unavailable_until_bought() -> void:
 	assert_eq(unlocked.ladders_left, Player.LADDERS_PER_RUN, "ladders once unlocked")
 	assert_eq(unlocked.anchors_left, Player.ANCHORS_PER_RUN, "anchors once unlocked")
 
-func test_stone_layer_has_gas_pockets() -> void:
+func test_gas_layers_have_gas_pockets() -> void:
 	var mine: MineGrid = add(MineScene.instantiate())
 	var gas_rows: Array = []
 	for x in range(MineGrid.GRID_WIDTH):
 		for y in range(MineGrid.GRID_HEIGHT):
 			if mine.is_gas(Vector2i(x, y)):
 				gas_rows.append(y)
-	assert_eq(gas_rows.size(), MineGrid.GAS_POCKET_COUNT, "all gas pockets placed")
-	assert_true(gas_rows.all(func(y): return mine.layer_index_at_world(mine.cell_to_world(Vector2i(0, y))) == MineGrid.GAS_LAYER), "only in Stone")
+	var gas_layers: int = MineGrid.LAYERS.filter(func(l): return l.gas).size()
+	assert_true(gas_layers >= 1, "some layer holds gas")
+	assert_eq(gas_rows.size(), MineGrid.GAS_POCKET_COUNT * gas_layers, "all gas pockets placed")
+	assert_true(gas_rows.all(func(y): return MineGrid.LAYERS[mine.layer_index_at_world(mine.cell_to_world(Vector2i(0, y)))].gas), "only in gas layers")
 
 func test_digging_gas_releases_a_cloud_that_hurts_inside_it() -> void:
 	var mine: MineGrid = add(MineScene.instantiate())
@@ -155,13 +168,13 @@ func test_digging_gas_releases_a_cloud_that_hurts_inside_it() -> void:
 	mine.gas_released.connect(func(pos): released.append(pos))
 	var gas_cell := Vector2i(40, 150)
 	var plain_cell := Vector2i(41, 150)
-	mine.set_cell(0, gas_cell, mine.source_id, MineGrid.GAS_ATLAS_COORDS)
+	mine.set_cell(0, gas_cell, mine.source_id, mine.gas_atlas(2))
 	mine.set_cell(0, plain_cell, mine.source_id, Vector2i(1, 0))
 	mine.dig_cells([plain_cell])
 	assert_true(released.is_empty(), "plain rock releases nothing")
 	mine.dig_cells([gas_cell], false)
 	assert_true(released.is_empty(), "enemy tunnelling doesn't release gas")
-	mine.set_cell(0, gas_cell, mine.source_id, MineGrid.GAS_ATLAS_COORDS)
+	mine.set_cell(0, gas_cell, mine.source_id, mine.gas_atlas(2))
 	mine.dig_cells([gas_cell])
 	assert_eq(released.size(), 1, "the player digging gas releases it")
 	var inside := _still_player(released[0], 1.0)
@@ -198,12 +211,14 @@ func test_beacon_widens_and_burns_base_light() -> void:
 	assert_eq(base.light.radius_max, radius * RunBase.BEACON_RADIUS_MULTIPLIER, "wider refuge")
 	assert_eq(base.light.burn_rate, burn * RunBase.BEACON_BURN_MULTIPLIER, "burns faster")
 
-func test_deep_rock_decays_faster() -> void:
+func test_unstable_layers_decay_faster() -> void:
 	var mine: MineGrid = add(MineScene.instantiate())
-	var stone := mine.cell_to_world(Vector2i(40, 150))
-	var deep := mine.cell_to_world(Vector2i(40, 280))
-	assert_eq(mine.layer_index_at_world(deep), MineGrid.UNSTABLE_LAYER, "row 280 is deep rock")
-	assert_eq(mine.decay_interval(deep), mine.decay_interval(stone) * MineGrid.UNSTABLE_DECAY_MULTIPLIER, "deep decay interval halved")
+	var stone := mine.cell_to_world(Vector2i(40, mine._layer_rows(2).x + 10))
+	var deep := mine.cell_to_world(Vector2i(40, mine._layer_rows(4).x + 10))
+	assert_eq(mine.layer_index_at_world(deep), 4, "ten rows into layer 4 is Deep rock")
+	assert_eq(MineGrid.LAYERS[2].decay, 1.0, "Stone is stable")
+	assert_true(MineGrid.LAYERS[4].decay < 1.0, "Deep rock is unstable")
+	assert_eq(mine.decay_interval(deep), mine.decay_interval(stone) * MineGrid.LAYERS[4].decay, "deep decay interval shortened by the layer's multiplier")
 
 func _open_box(mine: MineGrid, from: Vector2i, to: Vector2i) -> void:
 	for x in range(from.x, to.x + 1):
@@ -293,7 +308,7 @@ func test_decay_collapses_dark_tunnels_but_spares_lit_ones() -> void:
 
 func test_mine_carves_event_rooms() -> void:
 	var mine: MineGrid = add(MineScene.instantiate())
-	assert_eq(mine.event_rooms.filter(func(r): return r.kind == "camp").size(), 3, "a camp per layer")
+	assert_eq(mine.event_rooms.filter(func(r): return r.kind == "camp").size(), MineGrid.LAYERS.size(), "a camp per layer")
 	var lifts := mine.event_rooms.filter(func(r): return r.kind == "lift")
 	assert_eq(lifts.size(), 1, "one lift")
 	assert_eq(mine.event_rooms.filter(func(r): return r.kind == "outpost").size(), 1, "one outpost")
@@ -302,7 +317,7 @@ func test_mine_carves_event_rooms() -> void:
 	var hearts := mine.event_rooms.filter(func(r): return r.kind == "heart")
 	assert_eq(hearts.size(), 1, "one Heart")
 	assert_true(hearts[0].cell.y >= MineGrid.GRID_HEIGHT - 20, "Heart at the bottom")
-	assert_true(mine._layer_index_for_row(lifts[0].cell.y) >= 1, "lift below topsoil")
+	assert_true(not MineGrid.LAYERS[mine._layer_index_for_row(lifts[0].cell.y)].quiet, "lift below the quiet layers")
 	for room in mine.event_rooms:
 		assert_true(not mine.is_solid(room.cell), "room is open")
 		assert_true(mine.is_solid(room.cell + Vector2i.DOWN), "room has a floor")
@@ -312,7 +327,7 @@ func test_vault_is_sealed_but_for_its_door() -> void:
 	var vaults := mine.event_rooms.filter(func(r): return r.kind == "vault")
 	assert_eq(vaults.size(), 1, "one vault")
 	var vault: Dictionary = vaults[0]
-	assert_eq(mine._layer_index_for_row(vault.cell.y), 2, "vault in deep rock")
+	assert_true(mine._layer_index_for_row(vault.cell.y) in [4, 5], "vault in Deep rock or the Hollow")
 	var door: Vector2i = vault.door
 	assert_true(not mine.is_solid(door) and not mine.is_solid(door + Vector2i.UP), "doorway open")
 	assert_true(mine.is_indestructible(door + Vector2i.DOWN), "bedrock under the door")

@@ -12,13 +12,15 @@ const ACCELERATION := 900.0  # reaches full speed in ~0.13s
 const DECELERATION := 1200.0 # stops in ~0.1s, snappier than starting
 const GRAVITY := 700.0
 const JUMP_VELOCITY := -200.0
-# Tuned to roughly match the natural fall time through one dug tile
-# (~0.1s at this gravity). Digging straight down while falling used to
-# stutter: dig, fall one tile (~0.1s), then stand frozen for the
-# remaining ~0.15s of a 0.25s cooldown before digging again — a dead
-# pause after every single tile that read as broken. At this cooldown
-# the wait is gated by the fall itself, not idle time.
+# Digging straight down is a steady descent: the fall is held to just
+# under one tile per cooldown while there is rock to dig below, so the
+# next dig always lands before the feet do. Left to gravity the fall
+# outran the dig rate after a tile or two, landed on the undug cell,
+# zeroed the speed, waited out the cooldown and started again from rest:
+# a visible hitch every couple of tiles. The hold lifts as soon as the
+# two cells below are open, so a drop into a cave is a real fall.
 const DIG_COOLDOWN := 0.11
+const DIG_DESCENT_SPEED := MineGrid.TILE_SIZE / DIG_COOLDOWN * 0.9 # ~131 px/s, 8 tiles/s
 const DIG_CENTRE_STEP := 2.0 # px per frame toward the dug column's centre
 const MAX_HEALTH := 3
 
@@ -238,6 +240,13 @@ func _physics_process(delta: float) -> void:
 		_jump_rising = true
 	_apply_jump_cut(up_held)
 
+	# Steps and mantles come before digging, Space held or not: a 1-tile
+	# bump in the way is walked over, not dug (see _dig_forward). Not while
+	# digging down - stairs and stepping up contradict.
+	var stepped := false
+	if input_dir != 0.0 and not down_held:
+		stepped = _try_step_up(input_dir) if is_on_floor() else _try_mantle(input_dir)
+
 	var digging_forward := Input.is_physical_key_pressed(KEY_SPACE)
 	if down_held and input_dir != 0.0:
 		_dig_staircase()
@@ -245,16 +254,10 @@ func _physics_process(delta: float) -> void:
 		_dig_straight_down()
 	elif digging_forward and up_held:
 		_dig_straight_up()
-	elif digging_forward:
-		_dig_forward()
+	elif digging_forward and not stepped:
+		_dig_forward(input_dir != 0.0)
 
 	light.set_flaring(Input.is_physical_key_pressed(KEY_SHIFT))
-
-	if input_dir != 0.0 and not digging_forward and not down_held:
-		if is_on_floor():
-			_try_step_up(input_dir)
-		else:
-			_try_mantle(input_dir)
 	_move()
 
 ## Releasing up while still rising cuts the jump, once per jump.
@@ -284,17 +287,19 @@ func _try_mantle(dir: float) -> bool:
 	return false
 
 ## Walking on the floor into a bump exactly one tile tall climbs onto it.
-## Taller walls, and bumps without headroom above, still block.
-func _try_step_up(dir: float) -> void:
+## Taller walls, and bumps without headroom above, still block. Returns
+## whether it stepped.
+func _try_step_up(dir: float) -> bool:
 	if not is_on_floor():
-		return
+		return false
 	var ahead := Vector2(dir * STEP_PROBE, 0.0)
 	if not test_move(global_transform, ahead):
-		return # nothing in the way
+		return false # nothing in the way
 	var up := Vector2(0.0, -STEP_HEIGHT)
 	if test_move(global_transform, up) or test_move(global_transform.translated(up), ahead):
-		return
+		return false
 	global_position += up + ahead
+	return true
 
 ## Picks the sprite frame from movement state. Runs before this frame's
 ## move_and_slide(), so it reads last frame's floor contact - a one-frame
@@ -524,10 +529,18 @@ func _dig_straight_down() -> void:
 	var step := Vector2(move_toward(global_position.x, column_x, DIG_CENTRE_STEP) - global_position.x, 0.0)
 	if step.x != 0.0 and not test_move(global_transform, step):
 		global_position += step
+	# Steady descent while there is rock to dig within two cells below
+	# (two, so the hold doesn't lapse the instant the next cell is dug).
+	var below := mine.world_to_cell(target)
+	if _diggable(below) or _diggable(below + Vector2i.DOWN):
+		velocity.y = minf(velocity.y, DIG_DESCENT_SPEED)
 	if dig_timer > 0.0:
 		return
 	if mine.dig_at_world(target):
 		dig_timer = DIG_COOLDOWN
+
+func _diggable(cell: Vector2i) -> bool:
+	return mine.is_solid(cell) and not mine.is_indestructible(cell)
 
 ## Digs the tile directly above the player's head - the return trip's
 ## answer to _dig_straight_down(). Unlike digging down, gravity doesn't
@@ -545,8 +558,11 @@ func _dig_straight_up() -> void:
 		dig_timer = DIG_COOLDOWN
 
 ## Clears a notch the player's full height, one tile forward, so a
-## sideways tunnel is actually tall enough to walk through.
-func _dig_forward() -> void:
+## sideways tunnel is actually tall enough to walk through. While walking
+## on the floor, a 1-tile bump with headroom is left alone: the dig would
+## fire before contact and flatten it, when stepping over it is faster
+## and quieter (movement quality pass). Standing still still digs it.
+func _dig_forward(walking: bool = false) -> void:
 	if dig_timer > 0.0 or mine == null:
 		return
 	var half_extents: Vector2 = (collision_shape.shape as RectangleShape2D).size / 2.0
@@ -557,25 +573,34 @@ func _dig_forward() -> void:
 		global_position.y - half_extents.y + 2.0,
 		global_position.y + half_extents.y - 2.0
 	)
+	if walking and is_on_floor() and _is_steppable_bump(cells):
+		return
 	if mine.dig_cells(cells) > 0:
 		dig_timer = DIG_COOLDOWN
 
-## Clears one descending step: the forward notch (full player height)
-## plus the tile below it, so holding down + a movement key while
-## walking carves a staircase in one action instead of alternating
-## forward/down digs tile by tile.
+## One solid cell at the player's own row, open above it and above the
+## player: what _try_step_up climbs.
+func _is_steppable_bump(cells: Array) -> bool:
+	if cells.size() != 1:
+		return false
+	var bump: Vector2i = cells[0]
+	var own_cell := mine.world_to_cell(global_position)
+	return mine.is_solid(bump) and not mine.is_solid(bump + Vector2i.UP) and not mine.is_solid(own_cell + Vector2i.UP)
+
+## Clears one descending step: the cell ahead at the player's row plus the
+## one below it, so holding down + a movement key while walking carves a
+## staircase in one action instead of alternating forward/down digs tile
+## by tile. Only from a standing floor: the next step is dug after the
+## drop onto this one, so every step is exactly one row lower (digging
+## from the pixel span mid-drop used to straddle three rows).
 func _dig_staircase() -> void:
-	if dig_timer > 0.0 or mine == null:
+	if dig_timer > 0.0 or mine == null or not is_on_floor():
 		return
-	var half_extents: Vector2 = (collision_shape.shape as RectangleShape2D).size / 2.0
-	var half_tile: float = mine.TILE_SIZE / 2.0
-	var target_x := global_position.x + facing * (half_extents.x + half_tile)
-	var cells := mine.cells_in_column(
-		target_x,
-		global_position.y - half_extents.y + 2.0,
-		global_position.y + half_extents.y + mine.TILE_SIZE - 2.0
-	)
-	if mine.dig_cells(cells) > 0:
+	var own_cell := mine.world_to_cell(global_position)
+	if not mine.is_solid(own_cell + Vector2i.DOWN):
+		return # standing on the lip of the last step, not on this one yet
+	var ahead := own_cell + Vector2i(facing, 0)
+	if mine.dig_cells([ahead, ahead + Vector2i.DOWN]) > 0:
 		dig_timer = DIG_COOLDOWN
 
 ## source names what hurt the player, for the run log (milestone 45).

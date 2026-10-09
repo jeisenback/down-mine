@@ -50,9 +50,10 @@ func test_failed_escort_is_stranded_in_its_layer() -> void:
 
 func test_stranded_miners_drift_then_die() -> void:
 	var p := _progress()
-	p.stranded = [{"name": "Cole", "type": "light", "layer": 1}]
+	var last_layer := MineGrid.LAYERS.size() - 1
+	p.stranded = [{"name": "Cole", "type": "light", "layer": last_layer - 1}]
 	p.end_run([], [], true)
-	assert_eq(p.stranded[0].layer, 2, "drifted one layer")
+	assert_eq(p.stranded[0].layer, last_layer, "drifted one layer")
 	var notes := p.end_run([], [], true)
 	assert_true(p.stranded.is_empty(), "gone after drifting past the last layer")
 	assert_true(notes.any(func(n): return "lost for good" in n), "death announced")

@@ -9,6 +9,10 @@ signal noise_changed(value: float, fraction: float)
 @export var threshold: float = 100.0
 ## Scales all incoming noise; a noise-type crew member lowers it.
 var noise_multiplier: float = 1.0
+## Returns true while nothing can hear: noise still shows on the meter's
+## path but adds nothing (the quiet layers at the top of the mine). Main
+## sets it; pull-based so a teleport is honoured on the very next call.
+var quiet_check: Callable = func(): return false
 
 var noise: float = 0.0
 
@@ -18,6 +22,8 @@ func _process(delta: float) -> void:
 		noise_changed.emit(noise, noise / max_noise)
 
 func add_noise(amount: float) -> void:
+	if quiet_check.call():
+		amount = 0.0
 	noise = min(max_noise, noise + amount * noise_multiplier)
 	noise_changed.emit(noise, noise / max_noise)
 	# Filling the meter summons something, and the meter empties: more noise

@@ -42,27 +42,33 @@ time - much faster when the base's light is low.
 at a time). It drifts through rock to the lamp or base light furthest from
 you and drains it dry. Your light drives it off; flaring kills it.
 
-**Layers**: Topsoil is the calm start. Stone holds gas pockets - green-
+**Layers**: six equal bands, 160 tiles wide and 450 deep in all. Topsoil
+and Clay are the quiet zone: nothing there hears you (noise never fills
+the meter) and no Stalker ever rises into them, so climbing back up is a
+real escape - they are lonely by design. Stone holds gas pockets - green-
 tinted rock that releases a lingering gas cloud when you dig it out
-(1 health per 1.5s inside). Deep rock is unstable: decay runs twice as
-fast while you're down there, and your first descent wakes a second
-Stalker. The HUD names your layer and its hazard.
+(1 health per 1.5s inside) - and your first step into it wakes the
+Stalker. Slate is unstable: decay runs twice as fast while you're down
+there. Deep rock has gas and is unstable, and wakes a second Stalker.
+The Hollow, at the bottom, decays three times as fast. The HUD names
+your layer and its hazards; the table in `scripts/mine.gd` (`LAYERS`)
+defines them.
 
 **Mine events**: each run carves a few rooms into the rock. An abandoned
 camp waits in every layer: search it once for light, ore (more the deeper
 it is) and the next page of the old crew's journal, which carries over
 between runs; searching lights its lantern, which you can relight later
-from your own light. An old lift sits in Stone or Deep rock: repair it for
+from your own light. An old lift sits in Stone or Slate: repair it for
 30 ore (loud), then ride it once straight up to the surface, escorts and
-all. A survivor outpost, lit by its fire, sits in Stone or Deep rock:
+all. A survivor outpost, lit by its fire, sits in Stone, Slate or Deep rock:
 trade 20 ore for a supply pack (1 lamp, 2 ladders, 1 anchor - even before
 you unlock them; 2 packs per outpost) and recruit its survivor for 40
 ore, who then follows you like a rescued miner. The survivors talk, so
 lingering there fills the noise meter. A relic vault, a chamber walled in
-unbreakable brass-tinted stone, sits in Deep rock: breaking its door is one
+unbreakable brass-tinted stone, sits in Deep rock or the Hollow: breaking its door is one
 press but very loud (60 noise), and the relic inside is worth 150 ore if
 you get it home. A collapsing gallery, a room propped with old timbers and
-lined with double-value ore, sits in Stone or Deep rock: step in and its
+lined with double-value ore, sits in Slate or Deep rock: step in and its
 ceiling comes down 12s later (loud). Light doesn't stop it; support beams
 do. Anyone still inside is buried (1 damage, dig out), and any ore left
 behind is lost. A Stalker nest of pale eggs sits in Deep rock: flare your
@@ -70,17 +76,18 @@ lantern beside it for 2s to burn it (loud). A burned nest removes Deep
 rock's second Stalker for the rest of the run, or stops it ever waking.
 
 **The Heart of the mine**: the run's goal, a glowing crystal in a chamber
-near the bottom of Deep rock. Taking it is loud (50 noise) and wakes the
+near the bottom of the Hollow. Taking it is loud (50 noise) and wakes the
 mine: decay runs twice as fast until the run ends. Get it to the surface
 and extract to win the run: it banks 300 ore on top of what you carry.
 Each Heart you claim makes every later mine decay 15% faster; the hub
 shows how many you've claimed. Lose the run and the Heart stays below.
 
-**The Stalker**: it drifts through rock and always closes in on you. A
+**The Stalker**: it wakes the first time you enter Stone (a second one
+in Deep rock), drifts through rock and always closes in on you. A
 lantern above 25% (or a flare) holds it at the edge of your light; below
 that it strikes, then backs off for 3s before coming again. It never
-enters the base's light. Falls do at most 2 damage, so no single fall
-kills you from full health.
+enters the base's light, and never rises into Topsoil or Clay. Falls do
+at most 2 damage, so no single fall kills you from full health.
 
 **Sound**: every effect (digging, hits, pickups, placing tools, collapses,
 gas, alarms) is synthesized in code at startup (`scripts/sfx.gd`) - no
@@ -96,7 +103,7 @@ free (so plain digging down is safe), 7+ costs 1 health, +1 per 3 more
 tiles. Hard landings also make noise.
 
 **Lost miners**: each run hides one lost miner (faintly lit, each with their own shirt colour) on a
-cave floor partway down. Touch them and they follow your trail; extract
+cave floor around the bottom of the quiet zone. Touch them and they follow your trail; extract
 with them and they join the roster. Each miner has a type that helps
 while they are on your crew: Light (lantern burns 20% slower, reaches
 15% further), Noise (everything 25% quieter), Traversal (grapple
@@ -108,7 +115,7 @@ a title such as "Ada the Lamplighter", plus a quirk - a small effect such
 as Night eyes, Pack rat or Sure-footed, or the odd downside like Hums
 while working). Fail the run while escorting and they are stranded in the layer
 they were lost in: the hub shows where, they drift one layer deeper for
-every run that ends without rescuing them, and drifting past Deep rock
+every run that ends without rescuing them, and drifting past the Hollow
 kills them. Around each one, scraps of their shirt glow faintly on cave
 floors, from ~18 tiles out to right beside them; Veterans leave more and
 brighter ones.
@@ -150,7 +157,7 @@ Debug keys are off unless the game is launched with `?debug` (web) or
 
 - `I` god mode, `O` +100 ore, `U` refill light
 - `N` teleport to the next event room (the Heart first), `K` drop into
-  the next layer (from Deep rock, back to the base), `M` reveal the map
+  the next layer (from the Hollow, back to the base), `M` reveal the map
 
 The controls overlay (`Esc`) lists them when debug is on.
 
@@ -167,6 +174,7 @@ every pull request; the screenshots are attached to the run as
 
 ## Project layout
 
-- `scenes/` — Main, Player, Mine, Stalker, HUD
+- `scenes/` — Main, Player, Mine, HUD, and one scene per enemy, tool and
+  mine event (Stalkers are spawned by Main as you descend)
 - `scripts/` — one script per scene/system (`mine.gd` generates its own
   placeholder tileset in code, no art assets needed yet)

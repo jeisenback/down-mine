@@ -28,13 +28,16 @@ const SnufferScene := preload("res://scenes/Snuffer.tscn")
 const SNUFFER_SPAWN_INTERVAL := 45.0
 const SNUFFER_SPAWN_DISTANCE_TILES := 10
 
-# Layer identity (milestone 29): the HUD names each layer's hazard; gas
-# rock in Stone releases clouds; the first descent into Deep rock wakes a
-# second Stalker, this far off in the dark.
-const LAYER_HAZARDS := ["", "gas pockets", "unstable, a second Stalker"]
+# Layer identity (milestone 29): the HUD names each layer's hazards from
+# MineGrid.LAYERS; gas rock releases clouds; the first descent into a
+# layer flagged "stalker" wakes one, this far off in the dark. No Stalker
+# ever rises into the quiet layers on top, so climbing back up is a real
+# escape. The nest (milestone 37) sits in NEST_LAYER: burning it removes
+# that layer's Stalker, or stops it waking.
 const GasCloudScene := preload("res://scenes/GasCloud.tscn")
 const StalkerScene := preload("res://scenes/Stalker.tscn")
-const DEEP_STALKER_SPAWN_TILES := 12
+const STALKER_SPAWN_TILES := 12
+const NEST_LAYER := 4
 
 # Buildings (milestone 32): support beams anywhere; beacon and bell at base.
 const SupportScene := preload("res://scenes/Support.tscn")
@@ -80,7 +83,6 @@ const MINER_COLORS := {
 @onready var mine: MineGrid = $Mine
 @onready var run_base: RunBase = $RunBase
 @onready var player: Player = $Player
-@onready var stalker: Stalker = $Stalker
 @onready var noise_meter: NoiseMeter = $NoiseMeter
 @onready var hud: HUD = $HUD
 
@@ -93,7 +95,9 @@ var base_planted: bool = false
 var lamps_left: int = LAMPS_PER_RUN
 var _lamp_key_was_pressed: bool = false
 var _snuffer_timer: float = 0.0
-var _deep_stalker_spawned: bool = false
+## Layers whose Stalker has woken (first descent), by layer index.
+var _stalkers_woken: Dictionary = {}
+## The NEST_LAYER Stalker, which burning the nest removes.
 var deep_stalker: Stalker = null
 ## A burned nest (milestone 37) keeps the deep's second Stalker away.
 var nest_destroyed: bool = false
@@ -120,8 +124,7 @@ var crew_at_base: Array[LostMiner] = []
 
 func _ready() -> void:
 	player.mine = mine
-	stalker.player = player
-	stalker.run_base = run_base
+	noise_meter.quiet_check = func(): return mine.is_quiet_at(player.global_position)
 	mine.tile_dug.connect(_on_tile_dug)
 	mine.gas_released.connect(_on_gas_released)
 	player.made_noise.connect(_on_tile_dug) # same amount->noise_meter path, source doesn't matter
@@ -303,22 +306,29 @@ func _process(delta: float) -> void:
 	max_depth_reached = max(max_depth_reached, _current_depth())
 	_check_extraction()
 
-## HUD layer line, and the deep-rock Stalker on the first descent there.
+## HUD layer line, and the layer's Stalker on the first descent into it.
 func _check_layer() -> void:
 	var layer := mine.layer_index_at_world(player.global_position)
-	var hazard: String = LAYER_HAZARDS[layer]
-	if layer == mine.UNSTABLE_LAYER and nest_destroyed:
-		hazard = "unstable"
-	var line: String = Progress.LAYER_NAMES[layer] + (": " + hazard if hazard != "" else "")
+	var nest_calmed := layer == NEST_LAYER and nest_destroyed
+	var hazard: String = mine.hazard_text(layer, not nest_calmed)
+	var line: String = Progress.layer_name(layer) + (": " + hazard if hazard != "" else "")
 	hud.update_layer(line + ("  - CARRYING THE HEART" if carrying_heart else ""))
-	if layer == mine.UNSTABLE_LAYER and not _deep_stalker_spawned and not nest_destroyed:
-		_deep_stalker_spawned = true
-		var hunter: Stalker = StalkerScene.instantiate()
-		hunter.player = player
-		hunter.run_base = run_base
-		var side := -1 if randf() < 0.5 else 1
-		hunter.global_position = player.global_position + Vector2(side * DEEP_STALKER_SPAWN_TILES * mine.TILE_SIZE, 0)
-		add_child(hunter)
+	if mine.LAYERS[layer].stalker and not _stalkers_woken.has(layer) and not nest_calmed:
+		_stalkers_woken[layer] = true
+		_wake_stalker(layer)
+
+## One Stalker, off to one side in the dark, held out of the quiet layers.
+func _wake_stalker(layer: int) -> void:
+	var hunter: Stalker = StalkerScene.instantiate()
+	hunter.player = player
+	hunter.run_base = run_base
+	# Below the quiet floor by a tile and a strike's reach, so a player
+	# standing on the boundary row is out of range.
+	hunter.min_y = mine.cell_to_world(Vector2i(0, mine.quiet_floor_row())).y + mine.TILE_SIZE + Stalker.ATTACK_RANGE
+	var side := -1 if randf() < 0.5 else 1
+	hunter.global_position = player.global_position + Vector2(side * STALKER_SPAWN_TILES * mine.TILE_SIZE, 0)
+	add_child(hunter)
+	if layer == NEST_LAYER:
 		deep_stalker = hunter
 
 ## Taking the Heart: loud, and the mine collapses faster until the run ends.
@@ -356,11 +366,11 @@ func debug_next_event() -> void:
 	player.velocity = Vector2.ZERO
 	hud.show_message("Teleported to the %s" % room.kind)
 
-## Teleports into a cave in the next layer down; from Deep rock, back to
-## the base.
+## Teleports into a cave in the next layer down; from the last layer, back
+## to the base.
 func debug_next_layer() -> void:
 	var next := mine.layer_index_at_world(player.global_position) + 1
-	if next >= Progress.LAYER_NAMES.size():
+	if next >= mine.LAYERS.size():
 		player.global_position = run_base.global_position
 		return
 	var cell := mine.take_floor_cell_in_layer(next)

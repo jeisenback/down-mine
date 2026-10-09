@@ -85,9 +85,10 @@ const MISSING_TYPE_WEIGHT := 3
 const BASE_CREW_SLOTS := 1
 
 # Stranded NPCs drift one layer deeper for every run that ends without
-# rescuing them; drifting past the last layer kills them (PRD: death only
-# through neglect). Matches MineGrid's depth bands.
-const LAYER_NAMES := ["Topsoil", "Stone", "Deep rock"]
+# rescuing them; drifting past the last of MineGrid's layers kills them
+# (PRD: death only through neglect).
+static func layer_name(layer: int) -> String:
+	return MineGrid.LAYERS[layer].name
 
 ## Where save() writes. Tests point this elsewhere so they never touch
 ## the player's real save.
@@ -311,13 +312,13 @@ func end_run(rescued: Array, newly_stranded: Array, extracted: bool) -> Array:
 			if member.has("quirk"):
 				npc["quirk"] = member.quirk
 		settled[npc.name] = true
-		notes.append("%s is stranded in the %s" % [npc.name, LAYER_NAMES[npc.layer]])
+		notes.append("%s is stranded in the %s" % [npc.name, layer_name(npc.layer)])
 	var still_stranded: Array = []
 	for npc in stranded:
 		if settled.has(npc.name):
 			continue
 		npc.layer += 1
-		if npc.layer >= LAYER_NAMES.size():
+		if npc.layer >= MineGrid.LAYERS.size():
 			notes.append("%s drifted too deep and was lost for good" % npc.name)
 		else:
 			still_stranded.append(npc)
