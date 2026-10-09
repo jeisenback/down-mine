@@ -112,8 +112,7 @@ the base, a lamp, a camp lantern, a miner - suspends all of it.
 from just under the entrance (dig the crust to get in) into the upper half
 of Stone, where it ends in a collapse you have to dig through. An old
 ladder runs its length in 8-row pieces, about 30% of them missing, and it
-never rots. Crossing a missing piece takes the grapple or a chain of
-ropes.
+never rots. Crossing a missing piece takes a chain of ropes.
 
 **The Stalker listens**: a loud act (15 noise or more: placing a rope,
 ladder or anchor, a hard fall, gas, building, the room events - not a

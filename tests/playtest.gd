@@ -39,6 +39,7 @@ func _run() -> void:
 		["shaft_ladder_climb", _shaft_ladder_climb],
 		["shaft_ladder_gap", _shaft_ladder_gap],
 		["shaft_end_from_stone", _shaft_end_from_stone],
+		["shaft_end_with_ladder", _shaft_end_with_ladder],
 	]
 	var failed := 0
 	for entry in scenarios:
@@ -63,9 +64,9 @@ func _run() -> void:
 
 # --- helpers -------------------------------------------------------------
 
-func _start_game(show_title: bool = false) -> void:
+func _start_game(show_title: bool = false, seed_value: int = SEED) -> void:
 	HUD.title_seen = not show_title
-	MineGrid.next_seed = SEED
+	MineGrid.next_seed = seed_value
 	paused = false
 	main = load("res://scenes/Main.tscn").instantiate()
 	root.add_child(main)
@@ -374,8 +375,8 @@ func _bumps_and_dig_rhythm() -> void:
 
 # --- the old mine (milestone 51) -------------------------------------------
 
-func _in_shaft() -> void:
-	await _start_game()
+func _in_shaft(seed_value: int = SEED) -> void:
+	await _start_game(false, seed_value)
 	main.player.light.burn_rate = 0.0
 	main.player.invincible = true # these test the climb, not the fall
 
@@ -436,4 +437,16 @@ func _shaft_end_from_stone() -> void:
 	await hold([KEY_S], 240)
 	check(_cell().y > main.mine.shaft_end_row, "dug through the collapse (row %d, collapse ends row %d)" % [_cell().y, main.mine.shaft_end_row])
 	check(not main.mine.is_solid(Vector2i(col, main.mine.shaft_end_row)), "the debris in the dug column is gone")
+	await shot("through")
+
+## Seed 2002 keeps the ladder piece nearest the collapse: holding S there
+## must dig, not climb.
+func _shaft_end_with_ladder() -> void:
+	await _in_shaft(2002)
+	var open: Vector2i = main.mine.shaft_open_rows()
+	var col: int = main.mine.shaft_column()
+	check(main.mine.old_ladder_rows.has(open.x + MineGrid.OLD_LADDER_PIECE_ROWS * ((open.y - open.x) / MineGrid.OLD_LADDER_PIECE_ROWS)), "seed 2002 has a ladder piece next to the collapse")
+	await _place(Vector2i(col, open.y))
+	await hold([KEY_S], 240)
+	check(_cell().y > main.mine.shaft_end_row, "dug through the collapse past the ladder (row %d, collapse ends row %d)" % [_cell().y, main.mine.shaft_end_row])
 	await shot("through")

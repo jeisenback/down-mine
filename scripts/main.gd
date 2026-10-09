@@ -42,6 +42,7 @@ const NEST_LAYER := 4
 # Buildings (milestone 32): support beams anywhere; beacon and bell at base.
 const SupportScene := preload("res://scenes/Support.tscn")
 const LadderScene := preload("res://scenes/Ladder.tscn")
+const OLD_LADDER_CLEARANCE := 2
 const SUPPORT_ORE_COST := 15
 const BELL_WARNING_FRACTION := 0.75
 
@@ -157,11 +158,16 @@ func _ready() -> void:
 
 ## The old mine's ladder (milestone 51): each surviving 8-row piece is a run
 ## of 4-tile Ladder scenes up the shaft's centre column. They never rot.
+## Only whole scenes are placed, and none comes within OLD_LADDER_CLEARANCE
+## rows of the collapse: a player standing on the debris must not be on a
+## ladder, or holding S would climb instead of digging.
 func _spawn_old_ladder() -> void:
-	var open := mine.shaft_open_rows()
+	var last_row: int = mine.shaft_open_rows().y - OLD_LADDER_CLEARANCE
 	for row in mine.old_ladder_rows:
 		for j in range(ceili(MineGrid.OLD_LADDER_PIECE_ROWS / 4.0)):
-			var bottom_row := mini(row + 4 * j + 3, open.y)
+			var bottom_row: int = row + 4 * j + 3
+			if bottom_row > last_row:
+				continue
 			var ladder: Rope = LadderScene.instantiate()
 			ladder.life_seconds = INF
 			ladder.climb_speed = Player.LADDER_CLIMB_SPEED

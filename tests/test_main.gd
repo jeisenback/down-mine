@@ -421,3 +421,23 @@ func test_old_ladders_are_placed_and_never_decay() -> void:
 	for l in ladders:
 		assert_eq(l.lifetime, 1.0, "old ladders do not rot, in light or dark")
 	Progress.path_override = ""
+
+func test_the_old_ladder_stops_short_of_the_collapse() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	MineGrid.next_seed = 2002 # a seed whose last 8-row piece survives
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	var open: Vector2i = main.mine.shaft_open_rows()
+	var last_piece: int = open.x + MineGrid.OLD_LADDER_PIECE_ROWS * ((open.y - open.x) / MineGrid.OLD_LADDER_PIECE_ROWS)
+	assert_true(main.mine.old_ladder_rows.has(last_piece), "seed 2002 keeps the piece nearest the collapse (row %d)" % last_piece)
+	main.player.set_physics_process(false)
+	main.player.global_position = main.mine.cell_to_world(Vector2i(main.mine.shaft_column(), open.y))
+	await physics_frames(5)
+	assert_true(not main.player.is_on_rope(), "standing on the debris you are not on a ladder, so you can dig down")
+	for ladder in main.mine.get_children().filter(func(n): return n is Rope):
+		var bottom_row: int = main.mine.world_to_cell(ladder.global_position - Vector2(0.0, 1.0)).y
+		var covered := false
+		for row in main.mine.old_ladder_rows:
+			covered = covered or (bottom_row - 3 >= row and bottom_row <= row + MineGrid.OLD_LADDER_PIECE_ROWS - 1)
+		assert_true(covered, "every ladder sits inside a surviving piece (bottom row %d)" % bottom_row)
+	Progress.path_override = ""

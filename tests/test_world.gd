@@ -620,7 +620,8 @@ func test_the_same_seed_builds_the_same_shaft_and_seeds_differ() -> void:
 	assert_true(differs, "other seeds put it elsewhere")
 
 func test_event_rooms_and_pickups_keep_out_of_the_shaft() -> void:
-	for s in [11, 22, 33, 44, 55]:
+	# 3, 8, 13 and 51 are seeds whose rooms landed on the shaft before rooms learned to avoid it.
+	for s in [3, 8, 11, 13, 22, 33, 44, 51, 55]:
 		var mine := _mine_with_seed(s)
 		for room in mine.event_rooms:
 			var rect: Rect2i = room.rect.grow(1)
