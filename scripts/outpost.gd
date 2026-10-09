@@ -22,7 +22,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	if main and main.player.global_position.distance_to(global_position) < NOISE_RADIUS:
-		main.noise_meter.add_noise(NOISE_PER_SECOND * delta)
+		main.noise_meter.add_noise(NOISE_PER_SECOND * delta, global_position)
 
 func prompt(main_node: Node) -> String:
 	if stock <= 0:

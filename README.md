@@ -30,8 +30,12 @@ darkness. No crew, hub, or stranding yet.
 - `L` — on the hub, show the last 10 runs: result and cause of death, time, depth, ore, Burrowers, damage by source, seed
 - `Enter` — start a new run from the run summary (banked ore and upgrades are saved between runs)
 
-**Noise and the base**: when the noise meter fills, a Burrower surfaces
-below you and tunnels to the run base, and the meter empties - keep
+**Noise and the base**: every sound is made somewhere, and the base hears
+it by distance - in full at the base, not at all 80 tiles away - so a
+surface base barely hears the deep, while a base planted deep hears
+everything near it. Sounds made in the quiet layers are never heard.
+When the noise meter fills, a Burrower surfaces below you and tunnels to
+the run base, and the meter empties - keep
 making noise and another comes. Your light slows it; flaring kills
 it. If it takes the base from 3 health to 0, the run fails. Reinforced
 walls around the base cost a Burrower 2.5s each to chew through (tunnels
@@ -103,6 +107,18 @@ floors near you crumble away, a little faster as the run goes on. Light
 1 health every 12s, you can't dig, ropes and ladders rot three times
 faster, and the Stalker only backs off for 1.5s after a strike. Any light -
 the base, a lamp, a camp lantern, a miner - suspends all of it.
+
+**The Stalker listens**: a loud act (15 noise or more: placing a rope,
+ladder or anchor, a hard fall, gas, building, the room events - not a
+single dug tile or the mine crumbling) within 30 tiles of a Stalker alerts
+it for 4s - it hunts at full speed and forgets any retreat. Nothing in the
+base's light changes: it is still pushed out.
+
+**The mine's clock**: from 240s into a run the mine sends a Burrower at the
+base every 90s (shrinking to 45s by 480s, halved while you carry the
+Heart), whatever you did. The alarm bell rings 10s before one surfaces.
+Deep digging is quiet to a surface base, but staying long enough costs
+you the base anyway.
 
 **Falling**: landings hurt based on impact speed. Drops under 7 tiles are
 free (so plain digging down is safe), 7+ costs 1 health, +1 per 3 more

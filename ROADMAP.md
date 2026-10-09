@@ -125,6 +125,10 @@ dictates.
 - ~~**M49 - The dark hurts.**~~ Done: at zero light you drain, can't dig,
   your tools rot and the Stalker returns sooner; any other light
   suspends it. Spec: `docs/superpowers/specs/2026-10-09-run-loop-redesign-design.md`.
+- ~~**M50 - Two listeners and the mine's clock.**~~ Done: noise carries a
+  position, the base hears by distance (80 tiles), Stalkers within 30
+  tiles hear loud acts, and the mine sends a Burrower at the base every
+  90s shrinking to 45s from 240s into the run. Spec: same as M49.
 - **Tuning knobs to revisit in M22:** dig noise per tile (6), the
   Stalker's strike threshold (25% light), lantern size (60s - a dive to
   the Heart is now ~55s one way), stranded drift (5 runs to die now,

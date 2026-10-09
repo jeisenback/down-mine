@@ -6,6 +6,7 @@ extends SceneTree
 ##   godot --headless --fixed-fps 60 -s tests/balance_probe.gd
 ## dive: hold dig-down from the start until the run ends (or 150 s).
 ## dark: dig down 3 s, then stand still until the light fails.
+## idle: do nothing for 600 s - only the mine's clock (waves) can end it.
 
 const SEEDS := [1001, 2002, 3003]
 const SAVE_PATH := "user://probe_save.cfg"
@@ -16,7 +17,7 @@ func _initialize() -> void:
 func _run() -> void:
 	HUD.title_seen = true
 	Progress.path_override = SAVE_PATH
-	for probe in [["dive", _dive], ["dark", _dark]]:
+	for probe in [["dive", _dive], ["dark", _dark], ["idle", _idle]]:
 		for run_seed in SEEDS:
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
 			MineGrid.next_seed = run_seed
@@ -28,7 +29,7 @@ func _run() -> void:
 				_key(key, false)
 			var entry: Dictionary = main.progress.run_log[0] if not main.progress.run_log.is_empty() else {
 				"result": "Alive", "seconds": int(main.run_seconds), "depth": main.max_depth_reached,
-				"ore": main.player.currency, "burrowers": main.burrowers_spawned, "hits": main.player.hits_by, "seed": run_seed}
+				"ore": main.player.currency, "burrowers": main.burrowers_spawned, "waves": main.waves_spawned, "hits": main.player.hits_by, "seed": run_seed}
 			print("%-5s %s" % [probe[0], Progress.run_log_line(entry)])
 			paused = false
 			root.remove_child(main)
@@ -60,3 +61,6 @@ func _dark(main: Node) -> void:
 	await _seconds(main, 3)
 	_key(KEY_S, false)
 	await _seconds(main, 120)
+
+func _idle(main: Node) -> void:
+	await _seconds(main, 600)

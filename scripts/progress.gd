@@ -182,9 +182,11 @@ static func run_log_line(entry: Dictionary) -> String:
 	var seconds := int(entry.get("seconds", 0))
 	var hits: Dictionary = entry.get("hits", {})
 	var hit_text := ", ".join(hits.keys().map(func(k): return "%s %d" % [k, hits[k]]))
-	return "%s %d:%02d, depth %d, %d ore, %d Burrower%s%s [seed %d]" % [
+	var waves: int = entry.get("waves", 0)
+	return "%s %d:%02d, depth %d, %d ore, %d Burrower%s%s%s [seed %d]" % [
 		entry.get("result", "?"), seconds / 60, seconds % 60, entry.get("depth", 0), entry.get("ore", 0),
 		entry.get("burrowers", 0), "" if entry.get("burrowers", 0) == 1 else "s",
+		(", %d wave%s" % [waves, "" if waves == 1 else "s"]) if waves > 0 else "",
 		(", hits: " + hit_text) if hit_text != "" else "", entry.get("seed", 0)]
 
 ## The next unread journal page, marked read and saved right away (the

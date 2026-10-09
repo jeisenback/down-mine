@@ -25,12 +25,14 @@ func test_quiet_layers_hear_nothing_and_wake_no_stalker() -> void:
 	await physics_frames(5)
 	main.noise_meter.decay_rate = 0.0
 	assert_true(main.mine.is_quiet_at(main.player.global_position), "the surface is in the quiet zone")
-	main.noise_meter.add_noise(50.0)
+	main.noise_meter.add_noise(50.0, main.player.global_position)
 	assert_eq(main.noise_meter.noise, 0.0, "noise in the quiet zone adds nothing")
 	assert_true(main.get_tree().get_nodes_in_group("stalkers").is_empty(), "no Stalker above the quiet floor")
 	main.player.global_position = main.mine.cell_to_world(Vector2i(40, main.mine.quiet_floor_row() + 10))
+	# The base hears by distance; put it beside the sound so only the amount is under test.
+	main.run_base.global_position = main.player.global_position
 	assert_true(not main.mine.is_quiet_at(main.player.global_position), "below the quiet floor")
-	main.noise_meter.add_noise(50.0)
+	main.noise_meter.add_noise(50.0, main.player.global_position)
 	assert_eq(main.noise_meter.noise, 50.0, "noise counts below it")
 	await tree.create_timer(0.2).timeout # physics frames alone may not run _process
 	var stalkers := main.get_tree().get_nodes_in_group("stalkers")
@@ -55,7 +57,7 @@ func test_buildings_cost_ore_and_bell_warns() -> void:
 	await physics_frames(2)
 	assert_true(main.hud.noise_label.text.contains("LOUD"), "bell warns near the threshold")
 	main.noise_meter.noise = 0.0
-	main.noise_meter.add_noise(0.0)
+	main.noise_meter.add_noise(0.0, main.player.global_position)
 	await physics_frames(2)
 	assert_true(not main.hud.noise_label.text.contains("LOUD"), "warning clears when quiet")
 	Progress.path_override = ""
@@ -80,6 +82,8 @@ func test_camp_search_and_lift_ride() -> void:
 
 	main.player.currency = Lift.REPAIR_ORE
 	main.player.global_position = lift.global_position # below the quiet layers, so noise counts
+	# The base hears by distance; put it beside the sound so only the amount is under test.
+	main.run_base.global_position = lift.global_position
 	lift.use(main)
 	assert_eq(main.player.currency, 0, "repair paid")
 	assert_true(main.noise_meter.noise > 0.0, "repair is loud")
@@ -114,6 +118,8 @@ func test_outpost_trades_recruits_and_is_noisy() -> void:
 	main.noise_meter.decay_rate = 0.0
 	main.noise_meter.noise = 0.0
 	main.player.global_position = outpost.global_position
+	# The base hears by distance; put it beside the sound so only the amount is under test.
+	main.run_base.global_position = outpost.global_position
 	await physics_frames(30)
 	assert_true(main.noise_meter.noise > 0.0, "staying at the outpost is noisy")
 	Progress.path_override = ""
@@ -128,6 +134,8 @@ func test_vault_door_is_loud_and_relic_pays() -> void:
 	main.noise_meter.decay_rate = 0.0
 	main.noise_meter.noise = 0.0
 	main.player.global_position = door.global_position # below the quiet layers, so noise counts
+	# The base hears by distance; put it beside the sound so only the amount is under test.
+	main.run_base.global_position = door.global_position
 	door.use(main)
 	assert_eq(main.noise_meter.noise, VaultDoor.BREAK_NOISE, "breaking in is loud")
 	await physics_frames(1)
@@ -154,6 +162,8 @@ func test_gallery_collapses_after_entry_and_buries() -> void:
 	assert_true(gallery._time_left > 0.0, "countdown starts on entry")
 	main.noise_meter.decay_rate = 0.0
 	main.noise_meter.noise = 0.0
+	# The base hears by distance; put it beside the sound so only the amount is under test.
+	main.run_base.global_position = gallery.global_position
 	gallery.collapse()
 	assert_true(main.mine.is_solid(Vector2i(gallery.rect.end.x - 1, gallery.rect.position.y)), "room filled")
 	assert_true(not main.mine.is_solid(main.mine.world_to_cell(main.player.global_position)), "player's cell left open")
@@ -175,6 +185,8 @@ func test_flaring_burns_the_nest_and_calms_the_deep() -> void:
 	assert_eq(nest.burn, 0.0, "no burn without a flare")
 	main.noise_meter.decay_rate = 0.0
 	main.noise_meter.noise = 0.0
+	# The base hears by distance; put it beside the sound so only the amount is under test.
+	main.run_base.global_position = nest.global_position
 	main.player.light.is_flaring = true
 	main.player.light.fuel = main.player.light.max_fuel
 	await tree.create_timer(Nest.BURN_SECONDS + 0.3).timeout
@@ -196,6 +208,8 @@ func test_heart_wakes_the_mine_and_wins_the_run() -> void:
 	main.noise_meter.decay_rate = 0.0
 	main.noise_meter.noise = 0.0
 	main.player.global_position = heart.global_position # below the quiet layers, so noise counts
+	# The base hears by distance; put it beside the sound so only the amount is under test.
+	main.run_base.global_position = heart.global_position
 	heart.use(main)
 	assert_true(main.carrying_heart, "carrying")
 	assert_eq(main.noise_meter.noise, main.HEART_NOISE, "taking it is loud")
@@ -293,4 +307,102 @@ func test_hud_says_too_dark_to_dig() -> void:
 	main.player.light.fuel = 0.0
 	await tree.create_timer(0.2).timeout
 	assert_true(main.hud.prompt_label.text.contains("Too dark to dig"), "prompt shown in the dark")
+	Progress.path_override = ""
+
+func test_the_base_hears_by_distance_below_the_quiet_floor() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	main.noise_meter.decay_rate = 0.0
+	# The quiet layers reach about 150 rows down: plant the base below them so
+	# only distance decides what it hears.
+	var base_pos: Vector2 = main.mine.cell_to_world(Vector2i(80, main.mine.quiet_floor_row() + 10))
+	main.run_base.global_position = base_pos
+	main.noise_meter.add_noise(40.0, base_pos + Vector2(0, 20 * MineGrid.TILE_SIZE))
+	assert_eq(main.noise_meter.noise, 30.0, "20 tiles from the base: three quarters")
+	main.noise_meter.noise = 0.0
+	main.noise_meter.add_noise(50.0, base_pos + Vector2(0, 90 * MineGrid.TILE_SIZE))
+	assert_eq(main.noise_meter.noise, 0.0, "90 tiles from the base: inaudible")
+	Progress.path_override = ""
+
+func test_a_surface_base_hears_nothing_made_in_a_quiet_layer_and_replanting_moves_the_listener() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	main.noise_meter.decay_rate = 0.0
+	var deep: Vector2 = main.mine.cell_to_world(Vector2i(80, main.mine.quiet_floor_row() + 40))
+	main.noise_meter.add_noise(50.0, deep)
+	assert_eq(main.noise_meter.noise, 0.0, "surface base: the deep is out of earshot")
+	main.run_base.global_position = deep
+	main.noise_meter.add_noise(50.0, deep)
+	assert_eq(main.noise_meter.noise, 50.0, "replanted beside it: heard in full")
+	Progress.path_override = ""
+
+func test_digging_reports_where_it_happened() -> void:
+	var mine: MineGrid = add(load("res://scenes/Mine.tscn").instantiate())
+	var reports: Array = []
+	mine.tile_dug.connect(func(amount, pos): reports.append(pos))
+	var cell := Vector2i(40, 60)
+	mine.fill_cell(cell)
+	mine.dig_cells([cell])
+	assert_eq(reports.size(), 1, "one dig, one report")
+	assert_eq(reports[0], mine.cell_to_world(cell), "reported at the dug cell")
+
+func test_noise_alerts_only_stalkers_within_30_tiles() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	main.player.global_position = main.mine.cell_to_world(Vector2i(40, main.mine.quiet_floor_row() + 10))
+	await tree.create_timer(0.2).timeout # wakes the first Stalker
+	var stalker: Stalker = main.get_tree().get_nodes_in_group("stalkers")[0]
+	stalker.global_position = main.player.global_position + Vector2(20 * MineGrid.TILE_SIZE, 0)
+	main.noise_meter.add_noise(Stalker.LOUD_NOISE, main.player.global_position)
+	assert_eq(stalker.alert_timer, Stalker.ALERT_SECONDS, "20 tiles away hears it")
+	stalker.alert_timer = 0.0
+	stalker.global_position = main.player.global_position + Vector2(40 * MineGrid.TILE_SIZE, 0)
+	main.noise_meter.add_noise(Stalker.LOUD_NOISE, main.player.global_position)
+	assert_eq(stalker.alert_timer, 0.0, "40 tiles away does not")
+	Progress.path_override = ""
+
+func test_a_wave_spawns_below_the_quiet_floor_and_is_counted_apart() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	var before: int = main.get_tree().get_nodes_in_group("burrowers").size()
+	main._spawn_wave()
+	var burrowers := main.get_tree().get_nodes_in_group("burrowers")
+	assert_eq(burrowers.size(), before + 1, "one Burrower")
+	assert_eq(main.waves_spawned, 1, "counted as a wave")
+	assert_eq(main.burrowers_spawned, 0, "not as a noise Burrower")
+	var floor_y: float = main.mine.cell_to_world(Vector2i(0, main.mine.quiet_floor_row())).y
+	assert_true(burrowers[burrowers.size() - 1].global_position.y > floor_y, "never inside the quiet layers, even for a surface base")
+	Progress.path_override = ""
+
+func test_no_waves_after_the_run_ends() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	main.run_seconds = 1000.0
+	main.mine_clock._countdown = 0.01 # one frame from a wave
+	main.run_ended = true
+	var before: int = main.get_tree().get_nodes_in_group("burrowers").size()
+	await physics_frames(30)
+	assert_eq(main.get_tree().get_nodes_in_group("burrowers").size(), before, "a finished run sends nothing")
+	Progress.path_override = ""
+
+func test_quiet_noise_does_not_alert_a_stalker() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	main.player.global_position = main.mine.cell_to_world(Vector2i(40, main.mine.quiet_floor_row() + 10))
+	await tree.create_timer(0.2).timeout # wakes the first Stalker
+	var stalker: Stalker = main.get_tree().get_nodes_in_group("stalkers")[0]
+	stalker.global_position = main.player.global_position + Vector2(5 * MineGrid.TILE_SIZE, 0)
+	stalker.retreat_timer = 2.0
+	main.noise_meter.add_noise(MineGrid.DIG_NOISE, main.player.global_position)
+	main.noise_meter.add_noise(MineGrid.DECAY_NOISE, main.player.global_position)
+	assert_eq(stalker.alert_timer, 0.0, "a dug tile or a crumble is too quiet to alert it")
+	assert_eq(stalker.retreat_timer, 2.0, "so a striking Stalker keeps its retreat")
+	main.noise_meter.add_noise(Stalker.LOUD_NOISE, main.player.global_position)
+	assert_eq(stalker.alert_timer, Stalker.ALERT_SECONDS, "a loud act does")
 	Progress.path_override = ""

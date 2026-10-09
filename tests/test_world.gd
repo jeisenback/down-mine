@@ -436,7 +436,7 @@ func test_nonstop_noise_keeps_summoning() -> void:
 	var count := [0]
 	meter.threshold_reached.connect(func(): count[0] += 1)
 	for i in range(10):
-		meter.add_noise(60.0) # nonstop: never dips below the threshold between hits
+		meter.add_noise(60.0, Vector2.ZERO) # nonstop: never dips below the threshold between hits
 	assert_eq(count[0], 5, "every 100 noise summons again")
 	assert_true(meter.noise < meter.threshold, "meter empties when it fills")
 
@@ -557,3 +557,32 @@ func test_stalker_retreats_half_as_long_at_zero_light() -> void:
 	await physics_frames(5)
 	assert_true(stalker.retreat_timer > 0.0, "struck, so retreating")
 	assert_true(stalker.retreat_timer <= Stalker.RETREAT_SECONDS_DARK, "short retreat at zero light (%.2f s)" % stalker.retreat_timer)
+
+func test_alerted_stalker_hunts_at_full_speed_and_stops_retreating() -> void:
+	var player := _still_player(Vector2(1000, 1000), 0.0)
+	var stalker: Stalker = add(StalkerScene.instantiate())
+	stalker.player = player
+	stalker.run_base = _base(Vector2(-5000, -5000))
+	stalker.global_position = player.global_position + Vector2(400, 0) # far: lurking
+	await physics_frames(3)
+	assert_true(absf(stalker.velocity.length() - Stalker.HUNT_SPEED) < 1.0, "lurks at hunt speed")
+	stalker.retreat_timer = 2.0
+	stalker.alert()
+	assert_eq(stalker.retreat_timer, 0.0, "alert clears the retreat")
+	await physics_frames(3)
+	assert_true(absf(stalker.velocity.length() - Stalker.SPEED) < 1.0, "alerted: full speed")
+	stalker.alert_timer = 0.02
+	await physics_frames(5)
+	assert_true(absf(stalker.velocity.length() - Stalker.HUNT_SPEED) < 1.0, "alert wears off")
+
+func test_alert_does_not_pull_a_stalker_into_the_base_light() -> void:
+	var player := _still_player(Vector2(1000, 1000), 0.5)
+	var base := _base(Vector2(1000, 1000))
+	var stalker: Stalker = add(StalkerScene.instantiate())
+	stalker.player = player
+	stalker.run_base = base
+	stalker.global_position = base.global_position + Vector2(20, 0) # inside the base light
+	stalker.alert()
+	var before := stalker.global_position.distance_to(base.global_position)
+	await physics_frames(10)
+	assert_true(stalker.global_position.distance_to(base.global_position) > before, "still pushed out of the base")

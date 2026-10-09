@@ -1,7 +1,7 @@
 extends TileMap
 class_name MineGrid
 
-signal tile_dug(noise_amount: float)
+signal tile_dug(noise_amount: float, world_pos: Vector2)
 ## The player dug out a gas rock (milestone 29); Main releases a cloud.
 signal gas_released(world_pos: Vector2)
 
@@ -538,8 +538,10 @@ func dig_at_world(world_pos: Vector2) -> bool:
 ## chain-spawn more Burrowers.
 func dig_cells(cells: Array, emit_noise: bool = true) -> int:
 	var dug_count := 0
+	var last_dug := Vector2i.ZERO
 	for cell in cells:
 		if is_solid(cell) and not is_indestructible(cell):
+			last_dug = cell
 			if emit_noise and is_gas(cell): # player digs only; Burrowers tunnel through quietly
 				gas_released.emit(cell_to_world(cell))
 			set_cell(0, cell, -1)
@@ -548,7 +550,7 @@ func dig_cells(cells: Array, emit_noise: bool = true) -> int:
 			if emit_noise: # player digs; enemy tunnels don't collapse
 				_dug_cells.append(cell)
 	if dug_count > 0 and emit_noise:
-		tile_dug.emit(DIG_NOISE * dug_count)
+		tile_dug.emit(DIG_NOISE * dug_count, cell_to_world(last_dug))
 		Sfx.play("dig")
 	return dug_count
 
@@ -562,20 +564,21 @@ func cells_in_column(world_x: float, y_top: float, y_bottom: float) -> Array:
 	return cells
 
 ## One decay tick's worth of collapse + crumble when due. Returns the
-## noise made, for Main to feed the meter.
-func tick_decay(delta: float, player_pos: Vector2) -> float:
+## world position of each cell lost, for Main to feed the meter (each is
+## DECAY_NOISE, made where the rock fell).
+func tick_decay(delta: float, player_pos: Vector2) -> Array:
 	_run_time += delta
 	_decay_timer += delta
 	var interval := decay_interval(player_pos)
 	if _decay_timer < interval:
-		return 0.0
+		return []
 	_decay_timer = 0.0
-	var noise := 0.0
+	var lost: Array = []
 	for cell in [_collapse_tunnel(), _crumble_floor(player_pos)]:
 		if cell.x >= 0:
-			noise += DECAY_NOISE
+			lost.append(cell_to_world(cell))
 			_play_collapse(cell, player_pos)
-	return noise
+	return lost
 
 ## Rumble for a collapse or crumble, fading with distance; silent past
 ## COLLAPSE_HEARING_TILES so the far side of the mine doesn't chatter.

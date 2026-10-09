@@ -22,6 +22,16 @@ const HUNT_SPEED := 24.0
 # (it used to land three hits in 2.4 s, dead before the player could react).
 const RETREAT_SECONDS := 3.0
 const RETREAT_SECONDS_DARK := 1.5 # milestone 49: at zero light it returns sooner
+# Milestone 50: a loud act within this many tiles alerts it for a few
+# seconds - it hunts at full SPEED and forgets any retreat.
+const HEARING_TILES := 30.0
+const ALERT_SECONDS := 4.0
+# Only a loud act alerts it: a dug tile (6), a crumble (3) or an idle
+# outpost would otherwise keep it permanently alerted, and clearing its
+# retreat on every pick swing brings back the strike chain the retreat
+# exists to prevent. Ladders, ropes, anchors, falls, gas, building and
+# the room events clear this.
+const LOUD_NOISE := 15.0
 
 var player: Player
 ## The base light is a refuge: inside it the Stalker only retreats, so it
@@ -33,6 +43,7 @@ var min_y: float = -INF
 var state: State = State.LURK
 var attack_timer: float = 0.0
 var retreat_timer: float = 0.0
+var alert_timer: float = 0.0
 var _anim_time: float = 0.0
 
 # Tileset slime (milestone 30): three squash-and-stretch frames.
@@ -54,6 +65,7 @@ func _process(delta: float) -> void:
 func _physics_process(delta: float) -> void:
 	attack_timer = max(0.0, attack_timer - delta)
 	retreat_timer = max(0.0, retreat_timer - delta)
+	alert_timer = max(0.0, alert_timer - delta)
 	if player == null:
 		return
 
@@ -85,10 +97,14 @@ func _physics_process(delta: float) -> void:
 			if distance < ATTACK_RANGE and attack_timer <= 0.0:
 				_attack()
 		State.LURK:
-			velocity = to_player.normalized() * HUNT_SPEED # the dark closes in
+			velocity = to_player.normalized() * (SPEED if alert_timer > 0.0 else HUNT_SPEED) # the dark closes in
 
 	move_and_slide()
 	global_position.y = maxf(global_position.y, min_y)
+
+func alert() -> void:
+	alert_timer = ALERT_SECONDS
+	retreat_timer = 0.0
 
 func _attack() -> void:
 	attack_timer = ATTACK_COOLDOWN
