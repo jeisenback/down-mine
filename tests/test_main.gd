@@ -363,3 +363,28 @@ func test_noise_alerts_only_stalkers_within_30_tiles() -> void:
 	main.noise_meter.add_noise(5.0, main.player.global_position)
 	assert_eq(stalker.alert_timer, 0.0, "40 tiles away does not")
 	Progress.path_override = ""
+
+func test_a_wave_spawns_below_the_quiet_floor_and_is_counted_apart() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	var before: int = main.get_tree().get_nodes_in_group("burrowers").size()
+	main._spawn_wave()
+	var burrowers := main.get_tree().get_nodes_in_group("burrowers")
+	assert_eq(burrowers.size(), before + 1, "one Burrower")
+	assert_eq(main.waves_spawned, 1, "counted as a wave")
+	assert_eq(main.burrowers_spawned, 0, "not as a noise Burrower")
+	var floor_y: float = main.mine.cell_to_world(Vector2i(0, main.mine.quiet_floor_row())).y
+	assert_true(burrowers[burrowers.size() - 1].global_position.y > floor_y, "never inside the quiet layers, even for a surface base")
+	Progress.path_override = ""
+
+func test_no_waves_after_the_run_ends() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	main.run_ended = true
+	main.run_seconds = 1000.0
+	var before: int = main.get_tree().get_nodes_in_group("burrowers").size()
+	await physics_frames(30)
+	assert_eq(main.get_tree().get_nodes_in_group("burrowers").size(), before, "a finished run sends nothing")
+	Progress.path_override = ""

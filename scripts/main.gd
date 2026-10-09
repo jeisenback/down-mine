@@ -109,7 +109,9 @@ const CLAIMED_DECAY_STEP := 0.85 # each claimed Heart: later mines decay 15% fas
 var carrying_heart: bool = false
 # Run log (milestone 45).
 var run_seconds: float = 0.0
-var burrowers_spawned: int = 0
+var burrowers_spawned: int = 0 # from noise
+var waves_spawned: int = 0 # from the mine's clock
+var mine_clock := MineClock.new()
 # Debug keys (milestone 43), only with the debug launch option.
 const DEBUG_KEYS := [KEY_I, KEY_O, KEY_U, KEY_N, KEY_K, KEY_M]
 const DEBUG_ORE := 100
@@ -279,6 +281,12 @@ func _process(delta: float) -> void:
 	if run_ended:
 		return
 	run_seconds += delta
+	match mine_clock.tick(delta, run_seconds, carrying_heart):
+		"warn":
+			if run_base.has_bell:
+				Sfx.play("alarm", -4.0)
+		"wave":
+			_spawn_wave()
 	hud.update_fuel(player.light.fuel_fraction())
 	hud.update_health(player.health)
 	_check_layer()
@@ -602,7 +610,7 @@ func _extract() -> void:
 func _record_run(result: String) -> void:
 	progress.record_run({
 		"result": result, "seconds": int(run_seconds), "depth": max_depth_reached,
-		"ore": player.currency, "burrowers": burrowers_spawned,
+		"ore": player.currency, "burrowers": burrowers_spawned, "waves": waves_spawned,
 		"hits": player.hits_by.duplicate(), "seed": mine.mine_seed,
 	})
 
@@ -618,18 +626,29 @@ func _on_noise_made(position: Vector2, _amount: float) -> void:
 func _on_noise_threshold() -> void:
 	Sfx.play("alarm", -6.0) # something heard you
 	burrowers_spawned += 1
+	_spawn_burrower(mine.world_to_cell(player.global_position))
+
+## The mine's clock sends one at the base, whatever the player did.
+func _spawn_wave() -> void:
+	waves_spawned += 1
+	_spawn_burrower(mine.world_to_cell(run_base.global_position))
+
+## Surfaces a Burrower BURROWER_SPAWN_OFFSET_TILES below `origin`, bound for
+## the base.
+func _spawn_burrower(origin: Vector2i) -> void:
 	var burrower: Burrower = BurrowerScene.instantiate()
 	burrower.mine = mine
 	burrower.player = player
 	burrower.target = run_base
-	burrower.global_position = _burrower_spawn_position()
+	burrower.global_position = _burrower_spawn_position(origin)
 	add_child(burrower)
 
-## Below the player, clamped inside the bedrock walls and floor.
-func _burrower_spawn_position() -> Vector2:
-	var cell := mine.world_to_cell(player.global_position) + Vector2i(0, BURROWER_SPAWN_OFFSET_TILES)
+## Below `origin`, clamped inside the bedrock walls and floor and never
+## above the quiet floor (nothing in the mine's creatures lives there).
+func _burrower_spawn_position(origin: Vector2i) -> Vector2:
+	var cell := origin + Vector2i(0, BURROWER_SPAWN_OFFSET_TILES)
 	cell.x = clamp(cell.x, 1, mine.GRID_WIDTH - 2)
-	cell.y = clamp(cell.y, mine.SURFACE_ROWS, mine.GRID_HEIGHT - 2)
+	cell.y = clamp(cell.y, maxi(mine.SURFACE_ROWS, mine.quiet_floor_row() + 1), mine.GRID_HEIGHT - 2)
 	return mine.cell_to_world(cell)
 
 func _on_base_fell() -> void:

@@ -157,3 +157,44 @@ func test_quiet_layers_are_judged_at_the_sound() -> void:
 	assert_eq(heard.size(), 0, "and alerts nothing")
 	meter.add_noise(30.0, Vector2(0, 500))
 	assert_eq(heard.size(), 1, "sound below the quiet floor is announced")
+
+func test_wave_interval_shrinks_with_the_decay_ramp_and_halves_with_the_heart() -> void:
+	assert_eq(MineClock.wave_interval(240.0, false), 90.0, "starts at 90 s")
+	assert_eq(MineClock.wave_interval(360.0, false), 67.5, "halfway down the ramp")
+	assert_eq(MineClock.wave_interval(480.0, false), 45.0, "45 s at the end of the ramp")
+	assert_eq(MineClock.wave_interval(2000.0, false), 45.0, "clamped after")
+	assert_eq(MineClock.wave_interval(240.0, true), 45.0, "Heart halves it")
+
+func test_clock_is_silent_until_240_then_warns_then_waves() -> void:
+	var clock := MineClock.new()
+	var t := 0.0
+	var events: Array = []
+	while t < 239.0:
+		t += 1.0
+		assert_eq(clock.tick(1.0, t, false), "", "silent before the mine wakes (t=%d)" % t)
+	while t < 340.0 and events.size() < 2:
+		t += 1.0
+		var event := clock.tick(1.0, t, false)
+		if event != "":
+			events.append([event, t])
+	assert_eq(events[0][0], "warn", "warning first")
+	assert_eq(events[1][0], "wave", "then the wave")
+	assert_true(absf((events[1][1] - events[0][1]) - MineClock.WAVE_WARNING_SECONDS) <= 1.0, "warning comes 10 s ahead")
+	assert_true(events[1][1] >= 240.0 + 89.0 and events[1][1] <= 240.0 + 92.0, "first wave about 90 s after waking")
+
+func test_taking_the_heart_shortens_a_pending_wave() -> void:
+	var clock := MineClock.new()
+	clock.tick(1.0, 240.0, false) # starts a 90 s countdown
+	var event := ""
+	var t := 240.0
+	while event != "wave" and t < 300.0:
+		t += 1.0
+		event = clock.tick(1.0, t, true)
+	assert_eq(event, "wave", "wave arrives within the halved interval")
+	assert_true(t < 240.0 + 46.0, "about 45 s, not 90 (t=%d)" % t)
+
+func test_run_log_counts_waves_and_old_entries_still_print() -> void:
+	var line := Progress.run_log_line({"result": "Base fell", "seconds": 300, "depth": 50, "ore": 3, "burrowers": 1, "waves": 2, "seed": 7})
+	assert_true(line.contains("2 waves"), "waves are shown")
+	var old := Progress.run_log_line({"result": "Extracted", "seconds": 60, "depth": 5, "ore": 0, "burrowers": 0, "seed": 7})
+	assert_true(not old.contains("wave"), "old entries unchanged")
