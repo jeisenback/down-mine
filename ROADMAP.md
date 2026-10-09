@@ -129,6 +129,15 @@ dictates.
   position, the base hears by distance (80 tiles), Stalkers within 30
   tiles hear loud acts, and the mine sends a Burrower at the base every
   90s shrinking to 45s from 240s into the run. Spec: same as M49.
+- **M51 - The old mine**, in three parts (spec: same as M49).
+  - ~~**M51a - The shaft.**~~ Done: a timbered shaft on the centre column
+    ends in a 6-row collapse in upper Stone; an old ladder of 8-row pieces
+    (30% missing, never rotting) runs its length.
+  - **M51b - Galleries.** Branches off the shaft with plank floors over
+    caves; each ends in a camp, a collapsed section or the lost miner.
+  - **M51c - The works' contents.** The lift moves into the shaft, the
+    journal marks the shaft's end, camps and the lost miner move into the
+    galleries.
 - **Tuning knobs to revisit in M22:** dig noise per tile (6), the
   Stalker's strike threshold (25% light), lantern size (60s - a dive to
   the Heart is now ~55s one way), stranded drift (5 runs to die now,

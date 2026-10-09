@@ -36,6 +36,10 @@ func _run() -> void:
 		["anchor_out_of_a_pit", _anchor_out_of_a_pit],
 		["grapple_to_ceiling", _grapple_to_ceiling],
 		["bumps_and_dig_rhythm", _bumps_and_dig_rhythm],
+		["shaft_ladder_climb", _shaft_ladder_climb],
+		["shaft_ladder_gap", _shaft_ladder_gap],
+		["shaft_end_from_stone", _shaft_end_from_stone],
+		["shaft_end_with_ladder", _shaft_end_with_ladder],
 	]
 	var failed := 0
 	for entry in scenarios:
@@ -60,9 +64,9 @@ func _run() -> void:
 
 # --- helpers -------------------------------------------------------------
 
-func _start_game(show_title: bool = false) -> void:
+func _start_game(show_title: bool = false, seed_value: int = SEED) -> void:
 	HUD.title_seen = not show_title
-	MineGrid.next_seed = SEED
+	MineGrid.next_seed = seed_value
 	paused = false
 	main = load("res://scenes/Main.tscn").instantiate()
 	root.add_child(main)
@@ -368,3 +372,81 @@ func _bumps_and_dig_rhythm() -> void:
 	check(landings <= 2, "digging down never waits on the undug cell (%d floor frames)" % landings)
 	check(_cell().y >= start_y + 12, "steady descent keeps its pace (%d rows in 2s)" % (_cell().y - start_y))
 	await shot("dug_down")
+
+# --- the old mine (milestone 51) -------------------------------------------
+
+func _in_shaft(seed_value: int = SEED) -> void:
+	await _start_game(false, seed_value)
+	main.player.light.burn_rate = 0.0
+	main.player.invincible = true # these test the climb, not the fall
+
+## Climbs the old ladder where two pieces meet.
+func _shaft_ladder_climb() -> void:
+	await _in_shaft()
+	var rows: Array = main.mine.old_ladder_rows
+	var contiguous := -1
+	for i in range(rows.size() - 1):
+		if rows[i + 1] - rows[i] == MineGrid.OLD_LADDER_PIECE_ROWS:
+			contiguous = i
+			break
+	check(contiguous >= 0, "seed %d has two contiguous ladder pieces" % SEED)
+	if contiguous < 0:
+		return
+	var start := Vector2i(main.mine.shaft_column(), rows[contiguous + 1] + 6)
+	await _place(start)
+	await shot("bottom")
+	await hold([KEY_W], 120)
+	check(start.y - _cell().y >= 8, "the old ladder climbs at least 8 rows (from row %d to %d)" % [start.y, _cell().y])
+	await shot("top")
+
+## Crosses a missing piece by chaining two thrown ropes onto the next piece.
+func _shaft_ladder_gap() -> void:
+	await _in_shaft()
+	var rows: Array = main.mine.old_ladder_rows
+	var gap := -1
+	for i in range(rows.size() - 1):
+		if rows[i + 1] - rows[i] > MineGrid.OLD_LADDER_PIECE_ROWS:
+			gap = i
+			break
+	check(gap >= 0, "seed %d has a missing piece" % SEED)
+	if gap < 0:
+		return
+	var upper_bottom: int = rows[gap] + MineGrid.OLD_LADDER_PIECE_ROWS - 1 # last row of the piece above the gap
+	var lower_top: int = rows[gap + 1]
+	await _place(Vector2i(main.mine.shaft_column(), lower_top + 4))
+	await hold([KEY_W], 90) # up to the lower piece's top
+	await shot("below_the_gap")
+	for i in range(2):
+		await tap(KEY_R)
+		await hold([KEY_W], 80)
+		await frames(95) # rope cooldown
+	key_event(KEY_W, true)
+	await frames(60)
+	key_event(KEY_W, false)
+	check(_cell().y <= upper_bottom, "two ropes crossed the %d-row gap (now row %d, piece ends row %d)" % [lower_top - upper_bottom - 1, _cell().y, upper_bottom])
+	await shot("above_the_gap")
+
+## Digs down through the collapse at the shaft's end.
+func _shaft_end_from_stone() -> void:
+	await _in_shaft()
+	var open: Vector2i = main.mine.shaft_open_rows()
+	var col: int = main.mine.shaft_column()
+	await _place(Vector2i(col, open.y))
+	check(main.mine.is_solid(Vector2i(col, open.y + 1)), "the collapse is rock under the open shaft")
+	await shot("above_the_collapse")
+	await hold([KEY_S], 240)
+	check(_cell().y > main.mine.shaft_end_row, "dug through the collapse (row %d, collapse ends row %d)" % [_cell().y, main.mine.shaft_end_row])
+	check(not main.mine.is_solid(Vector2i(col, main.mine.shaft_end_row)), "the debris in the dug column is gone")
+	await shot("through")
+
+## Seed 2002 keeps the ladder piece nearest the collapse: holding S there
+## must dig, not climb.
+func _shaft_end_with_ladder() -> void:
+	await _in_shaft(2002)
+	var open: Vector2i = main.mine.shaft_open_rows()
+	var col: int = main.mine.shaft_column()
+	check(main.mine.old_ladder_rows.has(open.x + MineGrid.OLD_LADDER_PIECE_ROWS * ((open.y - open.x) / MineGrid.OLD_LADDER_PIECE_ROWS)), "seed 2002 has a ladder piece next to the collapse")
+	await _place(Vector2i(col, open.y))
+	await hold([KEY_S], 240)
+	check(_cell().y > main.mine.shaft_end_row, "dug through the collapse past the ladder (row %d, collapse ends row %d)" % [_cell().y, main.mine.shaft_end_row])
+	await shot("through")
