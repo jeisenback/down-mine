@@ -26,6 +26,12 @@ const RETREAT_SECONDS_DARK := 1.5 # milestone 49: at zero light it returns soone
 # seconds - it hunts at full SPEED and forgets any retreat.
 const HEARING_TILES := 30.0
 const ALERT_SECONDS := 4.0
+# Only a loud act alerts it: a dug tile (6), a crumble (3) or an idle
+# outpost would otherwise keep it permanently alerted, and clearing its
+# retreat on every pick swing brings back the strike chain the retreat
+# exists to prevent. Ladders, ropes, anchors, falls, gas, building and
+# the room events clear this.
+const LOUD_NOISE := 15.0
 
 var player: Player
 ## The base light is a refuge: inside it the Stalker only retreats, so it

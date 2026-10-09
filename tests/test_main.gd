@@ -356,11 +356,11 @@ func test_noise_alerts_only_stalkers_within_30_tiles() -> void:
 	await tree.create_timer(0.2).timeout # wakes the first Stalker
 	var stalker: Stalker = main.get_tree().get_nodes_in_group("stalkers")[0]
 	stalker.global_position = main.player.global_position + Vector2(20 * MineGrid.TILE_SIZE, 0)
-	main.noise_meter.add_noise(5.0, main.player.global_position)
+	main.noise_meter.add_noise(Stalker.LOUD_NOISE, main.player.global_position)
 	assert_eq(stalker.alert_timer, Stalker.ALERT_SECONDS, "20 tiles away hears it")
 	stalker.alert_timer = 0.0
 	stalker.global_position = main.player.global_position + Vector2(40 * MineGrid.TILE_SIZE, 0)
-	main.noise_meter.add_noise(5.0, main.player.global_position)
+	main.noise_meter.add_noise(Stalker.LOUD_NOISE, main.player.global_position)
 	assert_eq(stalker.alert_timer, 0.0, "40 tiles away does not")
 	Progress.path_override = ""
 
@@ -382,9 +382,27 @@ func test_no_waves_after_the_run_ends() -> void:
 	Progress.path_override = TEST_SAVE_PATH
 	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
 	await physics_frames(5)
-	main.run_ended = true
 	main.run_seconds = 1000.0
+	main.mine_clock._countdown = 0.01 # one frame from a wave
+	main.run_ended = true
 	var before: int = main.get_tree().get_nodes_in_group("burrowers").size()
 	await physics_frames(30)
 	assert_eq(main.get_tree().get_nodes_in_group("burrowers").size(), before, "a finished run sends nothing")
+	Progress.path_override = ""
+
+func test_quiet_noise_does_not_alert_a_stalker() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	main.player.global_position = main.mine.cell_to_world(Vector2i(40, main.mine.quiet_floor_row() + 10))
+	await tree.create_timer(0.2).timeout # wakes the first Stalker
+	var stalker: Stalker = main.get_tree().get_nodes_in_group("stalkers")[0]
+	stalker.global_position = main.player.global_position + Vector2(5 * MineGrid.TILE_SIZE, 0)
+	stalker.retreat_timer = 2.0
+	main.noise_meter.add_noise(MineGrid.DIG_NOISE, main.player.global_position)
+	main.noise_meter.add_noise(MineGrid.DECAY_NOISE, main.player.global_position)
+	assert_eq(stalker.alert_timer, 0.0, "a dug tile or a crumble is too quiet to alert it")
+	assert_eq(stalker.retreat_timer, 2.0, "so a striking Stalker keeps its retreat")
+	main.noise_meter.add_noise(Stalker.LOUD_NOISE, main.player.global_position)
+	assert_eq(stalker.alert_timer, Stalker.ALERT_SECONDS, "a loud act does")
 	Progress.path_override = ""

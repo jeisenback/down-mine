@@ -618,7 +618,9 @@ func _on_tile_dug(noise_amount: float, world_pos: Vector2) -> void:
 	noise_meter.add_noise(noise_amount, world_pos)
 
 ## Stalkers within hearing of a loud act close in (milestone 50).
-func _on_noise_made(position: Vector2, _amount: float) -> void:
+func _on_noise_made(position: Vector2, amount: float) -> void:
+	if amount < Stalker.LOUD_NOISE:
+		return
 	for stalker in get_tree().get_nodes_in_group("stalkers"):
 		if stalker.global_position.distance_to(position) / mine.TILE_SIZE <= Stalker.HEARING_TILES:
 			stalker.alert()
