@@ -62,6 +62,14 @@ const VAULT_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 2, 0)
 # drawn on the decor layer along the shaft's sides.
 const DEBRIS_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 3, 0)
 const FRAME_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 4, 0)
+# The galleries (milestone 51b; "drifts" in code, since Gallery is the
+# collapsing ore room): a timber post on the decor layer, and a solid plank
+# floor where a drift crosses a cave.
+const POST_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 5, 0)
+const PLANK_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 6, 0)
+const DRIFT_MIN_LENGTH := 24
+const DRIFT_MAX_LENGTH := 40
+const DRIFT_POST_SPACING := 6
 const DECOR_LAYER := 1
 const TIMBER_COLOR := Color(0.45, 0.3, 0.15)
 
@@ -176,6 +184,12 @@ var _reserved_floors: Dictionary = {}
 ## This run's event rooms: {"kind", "cell"}, cell = floor-standing
 ## center of the room.
 var event_rooms: Array = []
+## The old galleries (see Task data in _carve_drifts): one dictionary per
+## drift - layer, side (-1 left / 1 right), row (the standing row; its floor
+## is row + 1), x0 (first cell beside the shaft), x1 (far end), features.
+var drifts: Array = []
+## Floor cells a drift laid over a cave.
+var _plank_cells: Dictionary = {}
 ## Last row of the shaft's collapse (-1 until generated).
 var shaft_end_row: int = -1
 ## First row of each surviving 8-row piece of the old ladder, ascending.
@@ -197,7 +211,7 @@ func _ready() -> void:
 	_generate_layout()
 
 func _build_tileset() -> void:
-	var atlas_width := FRAME_ATLAS_COORDS.x + 1
+	var atlas_width := PLANK_ATLAS_COORDS.x + 1
 	var image := Image.create(TILE_SIZE * atlas_width, TILE_SIZE, false, Image.FORMAT_RGBA8)
 	image.fill_rect(Rect2i(BEDROCK_ATLAS_COORDS.x * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE), BEDROCK_COLOR)
 	image.fill_rect(Rect2i(WALL_ATLAS_COORDS.x * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE), WALL_COLOR)
@@ -236,6 +250,12 @@ func _build_tileset() -> void:
 			var post := x < 2 or x >= TILE_SIZE - 2 or (y >= 7 and y < 9)
 			if post:
 				image.set_pixel(FRAME_ATLAS_COORDS.x * TILE_SIZE + x, y, TIMBER_COLOR)
+			# Gallery post: an upright with a cap beam across the top.
+			if (x >= 7 and x < 9) or y < 3:
+				image.set_pixel(POST_ATLAS_COORDS.x * TILE_SIZE + x, y, TIMBER_COLOR)
+			# Plank floor: Stone's rock with three planks laid across it.
+			var board := (y >= 1 and y < 4) or (y >= 6 and y < 9) or (y >= 11 and y < 14)
+			image.set_pixel(PLANK_ATLAS_COORDS.x * TILE_SIZE + x, y, TIMBER_COLOR if board else rock)
 	var texture := ImageTexture.create_from_image(image)
 
 	var atlas := TileSetAtlasSource.new()
@@ -257,7 +277,7 @@ func _build_tileset() -> void:
 	for i in range(atlas_width):
 		var atlas_coords := Vector2i(i, 0)
 		atlas.create_tile(atlas_coords)
-		if atlas_coords == FRAME_ATLAS_COORDS:
+		if atlas_coords == FRAME_ATLAS_COORDS or atlas_coords == POST_ATLAS_COORDS:
 			continue # decoration: nothing to collide with
 		var tile_data := atlas.get_tile_data(atlas_coords, 0)
 		tile_data.add_collision_polygon(physics_layer)
@@ -304,6 +324,8 @@ func _generate_layout() -> void:
 				set_cell(0, Vector2i(x, y), source_id, BEDROCK_ATLAS_COORDS)
 			elif _vault_cells.has(Vector2i(x, y)):
 				set_cell(0, Vector2i(x, y), source_id, VAULT_ATLAS_COORDS)
+			elif _plank_cells.has(Vector2i(x, y)):
+				set_cell(0, Vector2i(x, y), source_id, PLANK_ATLAS_COORDS)
 			elif is_in_shaft(Vector2i(x, y)):
 				set_cell(0, Vector2i(x, y), source_id, DEBRIS_ATLAS_COORDS)
 			else:
@@ -343,6 +365,68 @@ func _carve_old_mine(solid: Array) -> void:
 	for row in range(open.x, open.y + 1, OLD_LADDER_PIECE_ROWS):
 		if rng.randf() >= OLD_LADDER_MISSING_CHANCE:
 			old_ladder_rows.append(row)
+	_carve_drifts(solid, rng)
+
+## One gallery per worked layer (Topsoil, Clay, Stone) off the shaft: a
+## two-tile tunnel on a random side at a random row, posted every
+## DRIFT_POST_SPACING tiles, floored with planks where it crosses a cave.
+## A layer the shaft's open part does not reach gets none.
+func _carve_drifts(solid: Array, rng: RandomNumberGenerator) -> void:
+	drifts.clear()
+	var open := shaft_open_rows()
+	for layer in range(3):
+		var rows := _layer_rows(layer)
+		var lo: int = maxi(rows.x, open.x + 3)
+		var hi: int = mini(rows.y - 3, open.y - 3)
+		if lo > hi:
+			continue
+		var row := rng.randi_range(lo, hi)
+		var side := rng.randi_range(0, 1) * 2 - 1
+		var length := rng.randi_range(DRIFT_MIN_LENGTH, DRIFT_MAX_LENGTH)
+		var x0 := shaft_column() + side * (SHAFT_WIDTH / 2 + 1)
+		var drift := {"layer": layer, "side": side, "row": row, "x0": x0, "x1": x0 + side * (length - 1), "features": {}}
+		drifts.append(drift)
+		# Step from the shaft's edge onto the drift's floor.
+		var landing := Vector2i(shaft_column() + side, row + 1)
+		_plank_cells[landing] = true
+		solid[landing.x][landing.y] = true
+		_room_cells[landing] = true
+		_reserved_floors[landing] = true
+		for i in range(length):
+			var x := x0 + side * i
+			for y in [row - 1, row]:
+				solid[x][y] = false
+				_room_cells[Vector2i(x, y)] = true
+			var floor_cell := Vector2i(x, row + 1)
+			if not solid[x][row + 1]:
+				solid[x][row + 1] = true
+				_plank_cells[floor_cell] = true
+			_room_cells[floor_cell] = true
+			_reserved_floors[floor_cell] = true
+			if i > 0 and i % DRIFT_POST_SPACING == 0:
+				set_cell(DECOR_LAYER, Vector2i(x, row), source_id, POST_ATLAS_COORDS)
+				set_cell(DECOR_LAYER, Vector2i(x, row - 1), source_id, POST_ATLAS_COORDS)
+
+## Every open cell of a drift, both rows.
+func drift_cells(drift: Dictionary) -> Array:
+	var cells: Array = []
+	for i in range(absi(drift.x1 - drift.x0) + 1):
+		var x: int = drift.x0 + drift.side * i
+		cells.append(Vector2i(x, drift.row - 1))
+		cells.append(Vector2i(x, drift.row))
+	return cells
+
+## The shaft's box, then each drift's box (its two rows and the floor).
+func _old_mine_rects() -> Array[Rect2i]:
+	var rects: Array[Rect2i] = [_shaft_rect()]
+	for d in drifts:
+		var left: int = mini(d.x0, d.x1)
+		rects.append(Rect2i(left, d.row - 1, absi(d.x1 - d.x0) + 1, 3))
+	return rects
+
+## Within the shaft or any drift.
+func is_in_old_mine(cell: Vector2i) -> bool:
+	return _old_mine_rects().any(func(r): return r.has_point(cell))
 
 func shaft_column() -> int:
 	return GRID_WIDTH / 2
@@ -370,7 +454,8 @@ func _carve_event_rooms(solid: Array, rng: RandomNumberGenerator) -> void:
 			var top_left := Vector2i(rng.randi_range(2, GRID_WIDTH - 2 - ROOM_SIZE.x),
 				rng.randi_range(max(rows.x, SURFACE_ROWS + 2), rows.y - ROOM_SIZE.y - 1))
 			var center := top_left + Vector2i(ROOM_SIZE.x / 2, ROOM_SIZE.y - 1)
-			if Rect2i(top_left, ROOM_SIZE).grow(1).intersects(_shaft_rect()):
+			var room_box := Rect2i(top_left, ROOM_SIZE).grow(1)
+			if _old_mine_rects().any(func(r): return room_box.intersects(r)):
 				continue # rooms keep out of the old mine
 			if event_rooms.any(func(r): return Vector2(r.cell - center).length() < ROOM_MIN_SPACING_TILES):
 				continue

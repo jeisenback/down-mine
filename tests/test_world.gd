@@ -602,7 +602,8 @@ func test_shaft_runs_from_below_the_crust_to_a_collapse_in_upper_stone() -> void
 	assert_eq(open.x, MineGrid.SURFACE_ROWS + 1, "opens just under the crust")
 	for y in range(open.x, open.y + 1):
 		for dx in range(-1, 2):
-			assert_true(not mine.is_solid(Vector2i(col + dx, y)), "open at (%d, %d)" % [col + dx, y])
+			var landing := mine.get_cell_atlas_coords(0, Vector2i(col + dx, y)) == MineGrid.PLANK_ATLAS_COORDS # a drift's step off the shaft
+			assert_true(landing or not mine.is_solid(Vector2i(col + dx, y)), "open at (%d, %d)" % [col + dx, y])
 	for y in range(open.y + 1, mine.shaft_end_row + 1):
 		for dx in range(-1, 2):
 			assert_true(mine.is_solid(Vector2i(col + dx, y)), "collapse at (%d, %d)" % [col + dx, y])
@@ -660,3 +661,50 @@ func test_about_thirty_percent_of_old_ladder_pieces_are_missing() -> void:
 			assert_true((row - open.x) % MineGrid.OLD_LADDER_PIECE_ROWS == 0 and row <= open.y, "piece rows sit on the 8-row grid inside the open shaft")
 	var ratio := present / float(total)
 	assert_true(ratio > 0.6 and ratio < 0.8, "about 70%% present (%.2f of %d)" % [ratio, total])
+
+func test_each_worked_layer_gets_a_drift_of_the_right_shape() -> void:
+	for s in [1001, 1, 2, 3, 4, 5, 6, 7]:
+		var mine := _mine_with_seed(s)
+		var layers: Array = mine.drifts.map(func(d): return d.layer)
+		assert_true(layers.has(0) and layers.has(1), "seed %d: Topsoil and Clay always have one" % s)
+		for d in mine.drifts:
+			assert_eq(mine.layer_index_at_world(mine.cell_to_world(Vector2i(d.x0, d.row))), d.layer, "seed %d: the drift sits in its layer" % s)
+			var length: int = absi(d.x1 - d.x0) + 1
+			assert_true(length >= MineGrid.DRIFT_MIN_LENGTH and length <= MineGrid.DRIFT_MAX_LENGTH, "seed %d: length %d" % [s, length])
+			assert_eq(d.x0, mine.shaft_column() + d.side * (MineGrid.SHAFT_WIDTH / 2 + 1), "seed %d: starts beside the shaft" % s)
+			for cell in mine.drift_cells(d):
+				assert_true(not mine.is_solid(cell) or mine.get_cell_atlas_coords(0, cell) == MineGrid.DEBRIS_ATLAS_COORDS, "seed %d: open at %s" % [s, cell])
+			for x in range(mini(d.x0, d.x1), maxi(d.x0, d.x1) + 1):
+				assert_true(mine.is_solid(Vector2i(x, d.row + 1)), "seed %d: floor at x=%d" % [s, x])
+				assert_true(not mine.is_indestructible(Vector2i(x, d.row + 1)), "seed %d: and it digs" % s)
+
+func test_drifts_floor_caves_with_planks_and_post_every_six_tiles() -> void:
+	var planks := 0
+	for s in range(1, 13):
+		var mine := _mine_with_seed(s)
+		for d in mine.drifts:
+			var step: int = d.side
+			for i in range(absi(d.x1 - d.x0) + 1):
+				var x: int = d.x0 + step * i
+				if mine.get_cell_atlas_coords(0, Vector2i(x, d.row + 1)) == MineGrid.PLANK_ATLAS_COORDS:
+					planks += 1
+				var posted := mine.get_cell_atlas_coords(MineGrid.DECOR_LAYER, Vector2i(x, d.row)) == MineGrid.POST_ATLAS_COORDS
+				assert_eq(posted, i > 0 and i % MineGrid.DRIFT_POST_SPACING == 0, "seed %d: post at step %d" % [s, i])
+	assert_true(planks > 0, "across 12 seeds some drift crosses a cave and gets planks")
+	var mine := _mine_with_seed(1001)
+	var data: TileData = (mine.tile_set.get_source(mine.source_id) as TileSetAtlasSource).get_tile_data(MineGrid.POST_ATLAS_COORDS, 0)
+	assert_eq(data.get_collision_polygons_count(0), 0, "the post has no collision")
+
+func test_event_rooms_and_pickups_keep_out_of_the_drifts() -> void:
+	for s in [3, 8, 13, 22, 33, 51, 55, 1001]:
+		var mine := _mine_with_seed(s)
+		for room in mine.event_rooms:
+			if room.has("drift"):
+				continue # a drift's own camp stands inside it
+			var rect: Rect2i = room.rect.grow(1)
+			for d in mine.drifts:
+				for cell in mine.drift_cells(d):
+					assert_true(not rect.has_point(cell), "seed %d: room %s overlaps a drift" % [s, room.kind])
+		for child in mine.get_children():
+			if child is FuelPickup or child is OrePickup:
+				assert_true(not mine.is_in_old_mine(mine.world_to_cell(child.global_position)), "seed %d: pickup in the old mine" % s)
