@@ -57,6 +57,13 @@ const GAS_ATLAS_OFFSET := LAYER_COUNT
 const BEDROCK_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT, 0)
 const WALL_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 1, 0)
 const VAULT_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 2, 0)
+# The old mine's tiles (milestone 51), drawn in code until real art: rock
+# with timber across it for the collapse, and a collision-free timber frame
+# drawn on the decor layer along the shaft's sides.
+const DEBRIS_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 3, 0)
+const FRAME_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 4, 0)
+const DECOR_LAYER := 1
+const TIMBER_COLOR := Color(0.45, 0.3, 0.15)
 
 # Bedrock: indestructible, forms the map's outer walls/floor so digging
 # can never open a path out of the generated area.
@@ -186,10 +193,11 @@ var _run_time: float = 0.0
 func _ready() -> void:
 	assert(LAYERS.size() == LAYER_COUNT, "LAYER_COUNT must match the LAYERS table")
 	_build_tileset()
+	add_layer(-1) # DECOR_LAYER
 	_generate_layout()
 
 func _build_tileset() -> void:
-	var atlas_width := VAULT_ATLAS_COORDS.x + 1
+	var atlas_width := FRAME_ATLAS_COORDS.x + 1
 	var image := Image.create(TILE_SIZE * atlas_width, TILE_SIZE, false, Image.FORMAT_RGBA8)
 	image.fill_rect(Rect2i(BEDROCK_ATLAS_COORDS.x * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE), BEDROCK_COLOR)
 	image.fill_rect(Rect2i(WALL_ATLAS_COORDS.x * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE), WALL_COLOR)
@@ -218,6 +226,16 @@ func _build_tileset() -> void:
 			# The vault shell: the deepest layer's tile, tinted brass.
 			var deep := image.get_pixel(layer_atlas(LAYERS.size() - 1).x * TILE_SIZE + x, y)
 			image.set_pixel(VAULT_ATLAS_COORDS.x * TILE_SIZE + x, y, deep.lerp(VAULT_TINT, VAULT_TINT_STRENGTH))
+	# Collapse debris: Stone's rock with two planks and a post across it.
+	for x in range(TILE_SIZE):
+		for y in range(TILE_SIZE):
+			var rock := image.get_pixel(layer_atlas(2).x * TILE_SIZE + x, y)
+			var plank := (y >= 3 and y < 5) or (y >= 11 and y < 13) or (x >= 7 and x < 9)
+			image.set_pixel(DEBRIS_ATLAS_COORDS.x * TILE_SIZE + x, y, TIMBER_COLOR if plank else rock)
+			# Shaft frame: a post up each edge and a brace across the middle.
+			var post := x < 2 or x >= TILE_SIZE - 2 or (y >= 7 and y < 9)
+			if post:
+				image.set_pixel(FRAME_ATLAS_COORDS.x * TILE_SIZE + x, y, TIMBER_COLOR)
 	var texture := ImageTexture.create_from_image(image)
 
 	var atlas := TileSetAtlasSource.new()
@@ -239,6 +257,8 @@ func _build_tileset() -> void:
 	for i in range(atlas_width):
 		var atlas_coords := Vector2i(i, 0)
 		atlas.create_tile(atlas_coords)
+		if atlas_coords == FRAME_ATLAS_COORDS:
+			continue # decoration: nothing to collide with
 		var tile_data := atlas.get_tile_data(atlas_coords, 0)
 		tile_data.add_collision_polygon(physics_layer)
 		tile_data.set_collision_polygon_points(physics_layer, 0, polygon)
@@ -284,6 +304,8 @@ func _generate_layout() -> void:
 				set_cell(0, Vector2i(x, y), source_id, BEDROCK_ATLAS_COORDS)
 			elif _vault_cells.has(Vector2i(x, y)):
 				set_cell(0, Vector2i(x, y), source_id, VAULT_ATLAS_COORDS)
+			elif is_in_shaft(Vector2i(x, y)):
+				set_cell(0, Vector2i(x, y), source_id, DEBRIS_ATLAS_COORDS)
 			else:
 				set_cell(0, Vector2i(x, y), source_id, layer_atlas(_layer_index_for_row(y)))
 	_place_gas_pockets(rng)
@@ -312,6 +334,15 @@ func _carve_old_mine(solid: Array) -> void:
 			_room_cells[cell] = true
 			if y > open.y:
 				_reserved_floors[cell] = true
+	# Timber up both sides of the open shaft.
+	for y in range(open.x, open.y + 1):
+		set_cell(DECOR_LAYER, Vector2i(left, y), source_id, FRAME_ATLAS_COORDS)
+		set_cell(DECOR_LAYER, Vector2i(left + SHAFT_WIDTH - 1, y), source_id, FRAME_ATLAS_COORDS)
+	# The old ladder, in pieces, some missing.
+	old_ladder_rows.clear()
+	for row in range(open.x, open.y + 1, OLD_LADDER_PIECE_ROWS):
+		if rng.randf() >= OLD_LADDER_MISSING_CHANCE:
+			old_ladder_rows.append(row)
 
 func shaft_column() -> int:
 	return GRID_WIDTH / 2

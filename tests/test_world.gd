@@ -632,3 +632,30 @@ func test_event_rooms_and_pickups_keep_out_of_the_shaft() -> void:
 				assert_true(not mine.is_in_shaft(mine.world_to_cell(child.global_position)), "seed %d: pickup in the shaft" % s)
 		var top_debris := Vector2i(mine.shaft_column(), mine.shaft_open_rows().y + 1)
 		assert_true(mine._reserved_floors.has(top_debris), "seed %d: the debris never crumbles" % s)
+
+func test_debris_is_rock_and_the_timber_frame_does_not_collide() -> void:
+	var mine := _mine_with_seed(1001)
+	var col := mine.shaft_column()
+	var open := mine.shaft_open_rows()
+	assert_eq(mine.get_cell_atlas_coords(0, Vector2i(col, open.y + 1)), MineGrid.DEBRIS_ATLAS_COORDS, "debris tile in the collapse")
+	var frame := Vector2i(col - 1, open.x + 5)
+	assert_eq(mine.get_cell_atlas_coords(MineGrid.DECOR_LAYER, frame), MineGrid.FRAME_ATLAS_COORDS, "timber on the shaft's side")
+	assert_true(not mine.is_solid(frame), "and it is open")
+	var data: TileData = (mine.tile_set.get_source(mine.source_id) as TileSetAtlasSource).get_tile_data(MineGrid.FRAME_ATLAS_COORDS, 0)
+	assert_eq(data.get_collision_polygons_count(0), 0, "the frame tile has no collision")
+	mine.dig_cells([Vector2i(col, open.y + 1)])
+	assert_true(not mine.is_solid(Vector2i(col, open.y + 1)), "debris digs like rock")
+
+func test_about_thirty_percent_of_old_ladder_pieces_are_missing() -> void:
+	var present := 0
+	var total := 0
+	for s in range(1, 21):
+		var mine := _mine_with_seed(s)
+		var open := mine.shaft_open_rows()
+		var pieces := int(ceil((open.y - open.x + 1) / float(MineGrid.OLD_LADDER_PIECE_ROWS)))
+		total += pieces
+		present += mine.old_ladder_rows.size()
+		for row in mine.old_ladder_rows:
+			assert_true((row - open.x) % MineGrid.OLD_LADDER_PIECE_ROWS == 0 and row <= open.y, "piece rows sit on the 8-row grid inside the open shaft")
+	var ratio := present / float(total)
+	assert_true(ratio > 0.6 and ratio < 0.8, "about 70%% present (%.2f of %d)" % [ratio, total])

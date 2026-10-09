@@ -41,6 +41,7 @@ const NEST_LAYER := 4
 
 # Buildings (milestone 32): support beams anywhere; beacon and bell at base.
 const SupportScene := preload("res://scenes/Support.tscn")
+const LadderScene := preload("res://scenes/Ladder.tscn")
 const SUPPORT_ORE_COST := 15
 const BELL_WARNING_FRACTION := 0.75
 
@@ -149,9 +150,23 @@ func _ready() -> void:
 	_spawn_lost_miners()
 	_spawn_crew()
 	_spawn_events()
+	_spawn_old_ladder()
 	debug_enabled = LaunchOptions.debug_enabled()
 	hud.show_seed(mine.mine_seed, debug_enabled)
 	Sfx.warm_up()
+
+## The old mine's ladder (milestone 51): each surviving 8-row piece is a run
+## of 4-tile Ladder scenes up the shaft's centre column. They never rot.
+func _spawn_old_ladder() -> void:
+	var open := mine.shaft_open_rows()
+	for row in mine.old_ladder_rows:
+		for j in range(ceili(MineGrid.OLD_LADDER_PIECE_ROWS / 4.0)):
+			var bottom_row := mini(row + 4 * j + 3, open.y)
+			var ladder: Rope = LadderScene.instantiate()
+			ladder.life_seconds = INF
+			ladder.climb_speed = Player.LADDER_CLIMB_SPEED
+			mine.add_child(ladder)
+			ladder.global_position = mine.cell_to_world(Vector2i(mine.shaft_column(), bottom_row)) + Vector2(0.0, mine.TILE_SIZE / 2.0)
 
 func _spawn_events() -> void:
 	for room in mine.event_rooms:

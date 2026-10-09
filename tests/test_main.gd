@@ -406,3 +406,18 @@ func test_quiet_noise_does_not_alert_a_stalker() -> void:
 	main.noise_meter.add_noise(Stalker.LOUD_NOISE, main.player.global_position)
 	assert_eq(stalker.alert_timer, Stalker.ALERT_SECONDS, "a loud act does")
 	Progress.path_override = ""
+
+func test_old_ladders_are_placed_and_never_decay() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	var ladders: Array = main.mine.get_children().filter(func(n): return n is Rope and n.life_seconds == INF)
+	assert_true(ladders.size() >= main.mine.old_ladder_rows.size(), "at least one ladder per surviving piece")
+	var col_x: float = main.mine.cell_to_world(Vector2i(main.mine.shaft_column(), 0)).x
+	for l in ladders:
+		assert_eq(l.global_position.x, col_x, "on the shaft's centre column")
+		assert_true(l.global_position.y <= main.mine.cell_to_world(Vector2i(0, main.mine.shaft_open_rows().y)).y + MineGrid.TILE_SIZE, "none hangs below the open shaft")
+	await physics_frames(120)
+	for l in ladders:
+		assert_eq(l.lifetime, 1.0, "old ladders do not rot, in light or dark")
+	Progress.path_override = ""
