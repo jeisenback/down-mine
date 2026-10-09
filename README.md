@@ -108,6 +108,13 @@ floors near you crumble away, a little faster as the run goes on. Light
 faster, and the Stalker only backs off for 1.5s after a strike. Any light -
 the base, a lamp, a camp lantern, a miner - suspends all of it.
 
+**The old mine**: an old timbered shaft runs down the map's centre column
+from just under the entrance (dig the crust to get in) into the upper half
+of Stone, where it ends in a collapse you have to dig through. An old
+ladder runs its length in 8-row pieces, about 30% of them missing, and it
+never rots. Crossing a missing piece takes the grapple or a chain of
+ropes.
+
 **The Stalker listens**: a loud act (15 noise or more: placing a rope,
 ladder or anchor, a hard fall, gas, building, the room events - not a
 single dug tile or the mine crumbling) within 30 tiles of a Stalker alerts
