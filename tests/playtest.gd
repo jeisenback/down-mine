@@ -35,6 +35,7 @@ func _run() -> void:
 		["ladder_out_of_a_pit", _ladder_out_of_a_pit],
 		["anchor_out_of_a_pit", _anchor_out_of_a_pit],
 		["grapple_to_ceiling", _grapple_to_ceiling],
+		["bumps_and_dig_rhythm", _bumps_and_dig_rhythm],
 	]
 	var failed := 0
 	for entry in scenarios:
@@ -66,7 +67,6 @@ func _start_game(show_title: bool = false) -> void:
 	main = load("res://scenes/Main.tscn").instantiate()
 	root.add_child(main)
 	await frames(10)
-	main.stalker.process_mode = Node.PROCESS_MODE_DISABLED # scenarios test mechanics, not survival
 
 func _end_game() -> void:
 	for key in [KEY_A, KEY_D, KEY_W, KEY_S, KEY_E, KEY_SPACE]:
@@ -323,3 +323,48 @@ func _grapple_to_ceiling() -> void:
 	await frames(20)
 	check(_cell().y < start.y, "grapple lifts to the ceiling")
 	await shot("up")
+
+## Movement quality pass: bumps are stepped over with Space held, a
+## staircase drops exactly one row per step, and digging down never
+## lands on the undug cell.
+func _bumps_and_dig_rhythm() -> void:
+	await _course()
+	var bumps: Array[Vector2i] = []
+	for x in [8, 12, 16, 20]:
+		bumps.append(C + Vector2i(x, 9))
+		main.mine.fill_cell(bumps[-1])
+	await _place(C + Vector2i(4, 9))
+	await hold([KEY_SPACE, KEY_D], 150) # 18 tiles at walking speed, 4 of them steps
+	check(_cell().x >= C.x + 22, "Space+D walks over 1-tile bumps (reached column %d)" % (_cell().x - C.x))
+	check(bumps.all(func(b): return main.mine.is_solid(b)), "bumps stepped over, not dug")
+	await shot("bumps")
+
+	await _place(C + Vector2i(26, 9))
+	await hold([KEY_S, KEY_D], 120)
+	var floors: Array[int] = []
+	for x in range(C.x + 27, _cell().x + 1):
+		var floor_y := C.y + 9
+		for y in range(C.y + 10, C.y + 17):
+			if not main.mine.is_solid(Vector2i(x, y)):
+				floor_y = y
+		floors.append(floor_y)
+	var regular := floors.size() >= 3
+	for i in range(1, floors.size()):
+		regular = regular and floors[i] == floors[i - 1] + 1
+	check(regular, "S+D stairs drop one row per column (floors %s)" % [floors])
+	await shot("stairs")
+
+	_fill(C.x + 30, C.y + 10, C.x + 32, C.y + 40, true) # a deep solid column
+	await _place(C + Vector2i(31, 9))
+	var start_y: int = _cell().y
+	var landings := 0
+	key_event(KEY_S, true)
+	for i in range(120):
+		await physics_frame
+		var below: Vector2i = _cell() + Vector2i.DOWN
+		if main.player.is_on_floor() and main.mine.is_solid(below) and not main.mine.is_indestructible(below):
+			landings += 1
+	key_event(KEY_S, false)
+	check(landings <= 2, "digging down never waits on the undug cell (%d floor frames)" % landings)
+	check(_cell().y >= start_y + 12, "steady descent keeps its pace (%d rows in 2s)" % (_cell().y - start_y))
+	await shot("dug_down")

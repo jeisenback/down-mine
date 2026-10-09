@@ -7,7 +7,6 @@ class_name Camp
 ## out and draws Snuffers. Once out, it can be relit from the player's
 ## own lantern.
 const SEARCH_FUEL := 25.0
-const ORE_BY_LAYER := [15, 30, 60]
 const RELIGHT_FUEL := 15.0
 const LampScene := preload("res://scenes/Lamp.tscn")
 
@@ -31,7 +30,7 @@ func use(main: Node) -> void:
 	if not searched:
 		searched = true
 		main.player.light.add_fuel(SEARCH_FUEL)
-		main.player.currency += ORE_BY_LAYER[layer]
+		main.player.currency += MineGrid.LAYERS[layer].camp_ore # deeper camps hold more
 		main.hud.show_message(main.progress.read_journal_page())
 		Sfx.play("ore")
 		_light_lantern()

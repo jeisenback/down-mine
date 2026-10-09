@@ -26,6 +26,9 @@ var player: Player
 ## The base light is a refuge: inside it the Stalker only retreats, so it
 ## never attacks there - it waits at the edge instead.
 var run_base: RunBase
+## Never rises above this world y: the quiet layers at the top of the mine
+## are off limits (Main sets it), so climbing back up is a real escape.
+var min_y: float = -INF
 var state: State = State.LURK
 var attack_timer: float = 0.0
 var retreat_timer: float = 0.0
@@ -38,6 +41,7 @@ const FRAME_COUNT := 3
 @onready var body: Sprite2D = $Body
 
 func _ready() -> void:
+	add_to_group("stalkers")
 	body.texture = PixelArt.keyed(body.texture)
 
 func _process(delta: float) -> void:
@@ -56,6 +60,7 @@ func _physics_process(delta: float) -> void:
 	if from_base.length() < run_base.light.current_radius() - SAFE_LIGHT_MARGIN:
 		velocity = from_base.normalized() * SPEED
 		move_and_slide()
+		global_position.y = maxf(global_position.y, min_y)
 		return
 
 	var to_player := player.global_position - global_position
@@ -82,6 +87,7 @@ func _physics_process(delta: float) -> void:
 			velocity = to_player.normalized() * HUNT_SPEED # the dark closes in
 
 	move_and_slide()
+	global_position.y = maxf(global_position.y, min_y)
 
 func _attack() -> void:
 	attack_timer = ATTACK_COOLDOWN

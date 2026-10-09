@@ -1,9 +1,8 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/Mine.tscn" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/Player.tscn" id="3"]
-[ext_resource type="PackedScene" path="res://scenes/Stalker.tscn" id="4"]
 [ext_resource type="PackedScene" path="res://scenes/HUD.tscn" id="5"]
 [ext_resource type="Script" path="res://scripts/noise_meter.gd" id="6"]
 [ext_resource type="PackedScene" path="res://scenes/RunBase.tscn" id="7"]
@@ -17,13 +16,10 @@ color = Color(0.03, 0.03, 0.06, 1)
 [node name="Mine" parent="." instance=ExtResource("2")]
 
 [node name="RunBase" parent="." instance=ExtResource("7")]
-position = Vector2(40, 42)
+position = Vector2(1240, 42)
 
 [node name="Player" parent="." instance=ExtResource("3")]
-position = Vector2(80, 40)
-
-[node name="Stalker" parent="." instance=ExtResource("4")]
-position = Vector2(300, 100)
+position = Vector2(1280, 40)
 
 [node name="NoiseMeter" type="Node" parent="."]
 script = ExtResource("6")

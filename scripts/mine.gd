@@ -6,41 +6,63 @@ signal tile_dug(noise_amount: float)
 signal gas_released(world_pos: Vector2)
 
 const TILE_SIZE := 16
-const GRID_WIDTH := 80
-const GRID_HEIGHT := 300
+const GRID_WIDTH := 160
+const GRID_HEIGHT := 450
 const SURFACE_ROWS := 4
 const DIG_NOISE := 6.0
-
-# Depth bands: each gets its own tile look, per the PRD's "layers have
-# their own hazards and look" pillar. Hazard variety comes later; for
-# now this just makes depth legible at a glance. Fractions (must sum to
-# ~1.0) instead of hardcoded rows, so bands scale with GRID_HEIGHT.
-const LAYER_FRACTIONS := [0.2857, 0.3571, 0.3572]
-const LAYER_ATLAS_COORDS := [Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0)]
-const LAYER_COLORS := [
-	Color(0.42, 0.32, 0.22), # topsoil
-	Color(0.45, 0.45, 0.48), # stone
-	Color(0.22, 0.16, 0.2),  # deep rock
-]
 
 # 16x16 fill regions in the Deep Night tileset (8x8 pack, so each layer
 # tile is a 2x2 block of its art). The sheet's flat background colour also
 # fills the gaps in these textures; those pixels get the layer colour
-# above instead, so solid rock still reads apart from empty cave.
+# instead, so solid rock still reads apart from empty cave.
 const TILESET_TEXTURE := preload("res://assets/deep_night/tiles.png")
-const LAYER_TEXTURE_REGIONS := [
-	Rect2i(0, 64, 16, 16),   # green speckle
-	Rect2i(104, 64, 16, 16), # blue-grey speckle
-	Rect2i(8, 120, 16, 16),  # grey stone block
+const SPECKLE_GREEN := Rect2i(0, 64, 16, 16)
+const SPECKLE_BLUE := Rect2i(104, 64, 16, 16)
+const STONE_BLOCK := Rect2i(8, 120, 16, 16)
+
+# Depth bands, top to bottom, per the PRD's "layers have their own
+# hazards and look" pillar. One table drives everything keyed by layer:
+# the tile look, cave density (denser near the surface, bigger caverns
+# deeper down), ore value (deeper = more), what the camp there holds,
+# and the hazards, all of which already exist elsewhere in the game:
+#   quiet   - noise never fills the meter and no Stalker enters (the
+#             lonely start: nothing hunts in the first two layers)
+#   gas     - gas pockets in the rock (see _place_gas_pockets)
+#   decay   - decay interval multiplier; below 1 the layer is unstable
+#   stalker - the first descent into the layer wakes a Stalker
+# Equal depth bands; the layer index is the key in saves too (stranded
+# miners' layer, where a miner was found), so order matters.
+const LAYERS := [
+	{"name": "Topsoil", "quiet": true, "gas": false, "decay": 1.0, "stalker": false,
+		"fill": 0.62, "ore": 10, "camp_ore": 15, "color": Color(0.42, 0.32, 0.22), "region": SPECKLE_GREEN},
+	{"name": "Clay", "quiet": true, "gas": false, "decay": 1.0, "stalker": false,
+		"fill": 0.60, "ore": 15, "camp_ore": 20, "color": Color(0.5, 0.3, 0.22), "region": SPECKLE_GREEN},
+	{"name": "Stone", "quiet": false, "gas": true, "decay": 1.0, "stalker": true,
+		"fill": 0.56, "ore": 25, "camp_ore": 30, "color": Color(0.45, 0.45, 0.48), "region": SPECKLE_BLUE},
+	{"name": "Slate", "quiet": false, "gas": false, "decay": 0.5, "stalker": false,
+		"fill": 0.55, "ore": 35, "camp_ore": 40, "color": Color(0.3, 0.33, 0.4), "region": SPECKLE_BLUE},
+	{"name": "Deep rock", "quiet": false, "gas": true, "decay": 0.5, "stalker": true,
+		"fill": 0.53, "ore": 50, "camp_ore": 60, "color": Color(0.22, 0.16, 0.2), "region": STONE_BLOCK},
+	{"name": "The Hollow", "quiet": false, "gas": false, "decay": 0.35, "stalker": false,
+		"fill": 0.50, "ore": 75, "camp_ore": 80, "color": Color(0.12, 0.2, 0.22), "region": STONE_BLOCK},
 ]
+# Two layers can share a texture region; the tile is tinted toward the
+# layer colour by this much so they still read apart.
+const LAYER_TINT_STRENGTH := 0.35
+
+# Tile atlas layout: one tile per layer, then one gas variant per layer,
+# then bedrock, reinforced wall and the vault shell.
+const LAYER_COUNT := 6 # LAYERS.size(); _ready checks they agree
+const GAS_ATLAS_OFFSET := LAYER_COUNT
+const BEDROCK_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT, 0)
+const WALL_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 1, 0)
+const VAULT_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 2, 0)
 
 # Bedrock: indestructible, forms the map's outer walls/floor so digging
 # can never open a path out of the generated area.
-const BEDROCK_ATLAS_COORDS := Vector2i(3, 0)
 const BEDROCK_COLOR := Color(0.05, 0.05, 0.06)
 # The relic vault's shell (milestone 35): indestructible like bedrock, but
 # deep stone tinted brass so it reads as a built chamber.
-const VAULT_ATLAS_COORDS := Vector2i(6, 0)
 const VAULT_TINT := Color(0.75, 0.6, 0.3)
 const VAULT_TINT_STRENGTH := 0.4
 
@@ -62,61 +84,58 @@ const COLLAPSE_HEARING_TILES := 16.0
 # grate (8x16, drawn twice across) over dark earth. Burrowers must chew
 # through it; the player digs it like normal rock. Walls wear back to
 # plain rock over time, faster when the base's light is low.
-const WALL_ATLAS_COORDS := Vector2i(4, 0)
 const WALL_COLOR := Color(0.2, 0.15, 0.1)
 
 # Layer identity (milestone 29, PRD: layers have "their own hazards").
-# Stone holds gas pockets: rock tinted green, readable before you dig it,
-# that releases a gas cloud when the player digs it out. Deep rock is
-# unstable: decay ticks run faster while the player is down there.
-const GAS_ATLAS_COORDS := Vector2i(5, 0)
+# Gas layers hold gas pockets: rock tinted green, readable before you dig
+# it, that releases a gas cloud when the player digs it out. Unstable
+# layers (decay < 1) tick decay faster while the player is down there.
 const GAS_TINT := Color(0.45, 0.85, 0.25)
 const GAS_TINT_STRENGTH := 0.45
-const GAS_LAYER := 1
-const GAS_POCKET_COUNT := 60
-const UNSTABLE_LAYER := 2
-const UNSTABLE_DECAY_MULTIPLIER := 0.5 # interval x0.5 = twice as fast
+const GAS_POCKET_COUNT := 60 # per gas layer
 const WALL_TEXTURE_REGION := Rect2i(80, 120, 8, 16)
 const WALL_DECAY_INTERVAL_LIT := 40.0  # seconds per wall lost, base light full
 const WALL_DECAY_INTERVAL_DARK := 8.0  # ...and with the base light out
 
-# Cellular-automata cave carving: start from a random fill below the
-# solid crust, then smooth a few times so pockets read as caves rather
-# than noise. Standard 4/5-neighbor rule. Fill is denser near the
-# surface (tighter caves) and sparser deeper down (bigger caverns),
-# matching "layers get more dangerous/rewarding with depth".
-const LAYER_INITIAL_FILL := [0.62, 0.56, 0.53]
+# Cellular-automata cave carving: start from a random fill (each layer's
+# "fill") below the solid crust, then smooth a few times so pockets read
+# as caves rather than noise. Standard 4/5-neighbor rule.
 const CA_ITERATIONS := 3
 
-const FUEL_DEPOSIT_COUNT := 80
+# Pickup counts are per mine; the mine is 160x450, so these keep the
+# density of the old 80x300 one.
+const FUEL_DEPOSIT_COUNT := 240
 const FuelPickupScene := preload("res://scenes/FuelPickup.tscn")
 
-const ORE_DEPOSIT_COUNT := 60
-const ORE_VALUE_BY_LAYER := [10, 25, 50] # topsoil/stone/deep - deeper = higher value
+const ORE_DEPOSIT_COUNT := 180
 const OrePickupScene := preload("res://scenes/OrePickup.tscn")
 
-# One lost miner per run, on a cave floor in this row band - deep enough
-# to be a detour, shallow enough to escort back (milestone 13).
-const LOST_MINER_MIN_ROW := 20
-const LOST_MINER_MAX_ROW := 70
+# One lost miner per run, on a cave floor straddling the bottom of the
+# quiet zone - deep enough to be a detour with some risk, shallow enough
+# to escort back (milestone 13).
+const LOST_MINER_ROWS_ABOVE_QUIET_FLOOR := 30
+const LOST_MINER_ROWS_BELOW_QUIET_FLOOR := 40
 
 # Event rooms (milestone 33): open chambers carved each run, each holding
 # one mine event that Main places (see Main._spawn_events). One entry per
-# room; the layer is picked from the listed ones.
+# room; the layer is picked from the listed ones. A camp in every layer.
 const EVENT_ROOMS := [
 	# First, so it always finds room in the bottom band.
-	{"kind": "heart", "layers": [2], "bottom": true},
+	{"kind": "heart", "layers": [5], "bottom": true},
 	{"kind": "camp", "layers": [0]},
 	{"kind": "camp", "layers": [1]},
 	{"kind": "camp", "layers": [2]},
-	{"kind": "lift", "layers": [1, 2]},
-	{"kind": "outpost", "layers": [1, 2]},
-	{"kind": "vault", "layers": [2]},
-	{"kind": "gallery", "layers": [1, 2]},
-	{"kind": "nest", "layers": [2]},
+	{"kind": "camp", "layers": [3]},
+	{"kind": "camp", "layers": [4]},
+	{"kind": "camp", "layers": [5]},
+	{"kind": "lift", "layers": [2, 3]},
+	{"kind": "outpost", "layers": [2, 3, 4]},
+	{"kind": "vault", "layers": [4, 5]},
+	{"kind": "gallery", "layers": [3, 4]},
+	{"kind": "nest", "layers": [4]},
 ]
 const ROOM_SIZE := Vector2i(9, 4)
-const ROOM_MIN_SPACING_TILES := 20.0
+const ROOM_MIN_SPACING_TILES := 32.0
 const ROOM_PLACE_TRIES := 50
 
 var source_id: int = 0
@@ -151,36 +170,39 @@ var decay_multiplier: float = 1.0
 var _run_time: float = 0.0
 
 func _ready() -> void:
+	assert(LAYERS.size() == LAYER_COUNT, "LAYER_COUNT must match the LAYERS table")
 	_build_tileset()
 	_generate_layout()
 
 func _build_tileset() -> void:
-	var colors := LAYER_COLORS + [BEDROCK_COLOR, WALL_COLOR, LAYER_COLORS[GAS_LAYER], LAYER_COLORS[2]]
-	var atlas_width := colors.size()
+	var atlas_width := VAULT_ATLAS_COORDS.x + 1
 	var image := Image.create(TILE_SIZE * atlas_width, TILE_SIZE, false, Image.FORMAT_RGBA8)
-	for i in range(atlas_width):
-		image.fill_rect(Rect2i(i * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE), colors[i])
+	image.fill_rect(Rect2i(BEDROCK_ATLAS_COORDS.x * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE), BEDROCK_COLOR)
+	image.fill_rect(Rect2i(WALL_ATLAS_COORDS.x * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE), WALL_COLOR)
 	var source_image := TILESET_TEXTURE.get_image()
 	source_image.decompress()
-	for i in range(LAYER_TEXTURE_REGIONS.size()):
-		var region: Rect2i = LAYER_TEXTURE_REGIONS[i]
+	# Each layer's tile: its texture region tinted toward the layer colour,
+	# background pixels replaced by it; the gas variant is that tinted green.
+	for i in range(LAYERS.size()):
+		var layer: Dictionary = LAYERS[i]
+		var region: Rect2i = layer.region
 		for x in range(TILE_SIZE):
 			for y in range(TILE_SIZE):
 				var pixel := source_image.get_pixel(region.position.x + x, region.position.y + y)
-				if not pixel.is_equal_approx(PixelArt.SHEET_BG_COLOR):
-					image.set_pixel(i * TILE_SIZE + x, y, pixel)
+				if pixel.is_equal_approx(PixelArt.SHEET_BG_COLOR):
+					pixel = layer.color
+				else:
+					pixel = pixel.lerp(layer.color, LAYER_TINT_STRENGTH)
+				image.set_pixel(layer_atlas(i).x * TILE_SIZE + x, y, pixel)
+				image.set_pixel(gas_atlas(i).x * TILE_SIZE + x, y, pixel.lerp(GAS_TINT, GAS_TINT_STRENGTH))
 	for x in range(TILE_SIZE):
 		for y in range(TILE_SIZE):
 			var grate_x := WALL_TEXTURE_REGION.position.x + x % WALL_TEXTURE_REGION.size.x
 			var pixel := source_image.get_pixel(grate_x, WALL_TEXTURE_REGION.position.y + y)
 			if not pixel.is_equal_approx(PixelArt.SHEET_BG_COLOR):
 				image.set_pixel(WALL_ATLAS_COORDS.x * TILE_SIZE + x, y, pixel)
-	# Gas rock: the stone tile, tinted green.
-	for x in range(TILE_SIZE):
-		for y in range(TILE_SIZE):
-			var stone := image.get_pixel(GAS_LAYER * TILE_SIZE + x, y)
-			image.set_pixel(GAS_ATLAS_COORDS.x * TILE_SIZE + x, y, stone.lerp(GAS_TINT, GAS_TINT_STRENGTH))
-			var deep := image.get_pixel(2 * TILE_SIZE + x, y)
+			# The vault shell: the deepest layer's tile, tinted brass.
+			var deep := image.get_pixel(layer_atlas(LAYERS.size() - 1).x * TILE_SIZE + x, y)
 			image.set_pixel(VAULT_ATLAS_COORDS.x * TILE_SIZE + x, y, deep.lerp(VAULT_TINT, VAULT_TINT_STRENGTH))
 	var texture := ImageTexture.create_from_image(image)
 
@@ -229,7 +251,7 @@ func _generate_layout() -> void:
 			elif y == SURFACE_ROWS:
 				solid[x][y] = true # a crust the player always has to dig through
 			else:
-				solid[x][y] = rng.randf() < LAYER_INITIAL_FILL[_layer_index_for_row(y)]
+				solid[x][y] = rng.randf() < LAYERS[_layer_index_for_row(y)].fill
 	_reinforce_boundaries(solid)
 
 	for i in range(CA_ITERATIONS):
@@ -248,8 +270,7 @@ func _generate_layout() -> void:
 			elif _vault_cells.has(Vector2i(x, y)):
 				set_cell(0, Vector2i(x, y), source_id, VAULT_ATLAS_COORDS)
 			else:
-				var layer_index := _layer_index_for_row(y)
-				set_cell(0, Vector2i(x, y), source_id, LAYER_ATLAS_COORDS[layer_index])
+				set_cell(0, Vector2i(x, y), source_id, layer_atlas(_layer_index_for_row(y)))
 	_place_gas_pockets(rng)
 
 	var floor_cells := _find_floor_cells(solid).filter(func(c): return not _room_cells.has(c))
@@ -368,14 +389,42 @@ func _count_wall_neighbors(grid: Array, x: int, y: int) -> int:
 				count += 1
 	return count
 
+## Equal depth bands below the surface rows.
 func _layer_index_for_row(y: int) -> int:
 	var relative := float(y - SURFACE_ROWS) / float(GRID_HEIGHT - SURFACE_ROWS)
-	var cumulative := 0.0
-	for i in range(LAYER_FRACTIONS.size()):
-		cumulative += LAYER_FRACTIONS[i]
-		if relative < cumulative:
-			return i
-	return LAYER_FRACTIONS.size() - 1
+	return clampi(int(relative * LAYERS.size()), 0, LAYERS.size() - 1)
+
+## Last row of the deepest quiet layer: the floor of the lonely zone.
+func quiet_floor_row() -> int:
+	var last := SURFACE_ROWS
+	for i in range(LAYERS.size()):
+		if LAYERS[i].quiet:
+			last = _layer_rows(i).y
+	return last
+
+## Inside a quiet layer (or above the crust): nothing hears, nothing hunts.
+func is_quiet_at(world_pos: Vector2) -> bool:
+	return LAYERS[layer_index_at_world(world_pos)].quiet
+
+## The HUD's one-line summary of a layer's hazards, from its flags.
+func hazard_text(layer: int, with_stalker: bool = true) -> String:
+	var entry: Dictionary = LAYERS[layer]
+	var parts: Array[String] = []
+	if entry.quiet:
+		parts.append("quiet")
+	if entry.gas:
+		parts.append("gas pockets")
+	if entry.decay < 1.0:
+		parts.append("unstable")
+	if entry.stalker and with_stalker:
+		parts.append("a Stalker wakes")
+	return ", ".join(parts)
+
+func layer_atlas(layer: int) -> Vector2i:
+	return Vector2i(layer, 0)
+
+func gas_atlas(layer: int) -> Vector2i:
+	return Vector2i(GAS_ATLAS_OFFSET + layer, 0)
 
 ## Open cells with solid rock directly beneath them - valid places to stand
 ## a pickup on a cave floor. Shared by fuel and ore scattering below.
@@ -408,13 +457,15 @@ func _scatter_ore_deposits(floor_cells: Array) -> void:
 	for i in range(start, end):
 		var cell: Vector2i = floor_cells[i]
 		var pickup := OrePickupScene.instantiate()
-		pickup.value = ORE_VALUE_BY_LAYER[_layer_index_for_row(cell.y)]
+		pickup.value = ore_value_at(cell_to_world(cell))
 		pickup.position = map_to_local(cell)
 		_reserved_floors[cell + Vector2i.DOWN] = true
 		add_child(pickup)
 
 func _pick_lost_miner_cell() -> void:
-	lost_miner_cell = _take_spare_floor_cell(func(cell): return cell.y >= LOST_MINER_MIN_ROW and cell.y <= LOST_MINER_MAX_ROW)
+	var first := quiet_floor_row() - LOST_MINER_ROWS_ABOVE_QUIET_FLOOR
+	var last := quiet_floor_row() + LOST_MINER_ROWS_BELOW_QUIET_FLOOR
+	lost_miner_cell = _take_spare_floor_cell(func(cell): return cell.y >= first and cell.y <= last)
 
 ## A random unclaimed cave-floor cell in a depth band, for placing a
 ## stranded miner in the layer they drifted to. (-1, -1) if none.
@@ -461,9 +512,13 @@ func _take_spare_floor_cell(accept: Callable) -> Vector2i:
 func layer_index_at_world(world_pos: Vector2) -> int:
 	return _layer_index_for_row(clamp(world_to_cell(world_pos).y, SURFACE_ROWS, GRID_HEIGHT - 1))
 
+## Ore value per pickup at a spot: deeper layers pay more.
+func ore_value_at(world_pos: Vector2) -> int:
+	return LAYERS[layer_index_at_world(world_pos)].ore
+
 ## Refills an open cell with its layer's rock (the gallery collapse).
 func fill_cell(cell: Vector2i) -> void:
-	set_cell(0, cell, source_id, LAYER_ATLAS_COORDS[_layer_index_for_row(cell.y)])
+	set_cell(0, cell, source_id, layer_atlas(_layer_index_for_row(cell.y)))
 
 func is_solid(cell: Vector2i) -> bool:
 	return get_cell_source_id(0, cell) != -1
@@ -529,28 +584,32 @@ func _play_collapse(cell: Vector2i, player_pos: Vector2) -> void:
 	if tiles <= COLLAPSE_HEARING_TILES:
 		Sfx.play("collapse", -3.0 - tiles)
 
-## Seconds between decay ticks: shrinks over the run, and halves while the
-## player is in the unstable deep layer.
+## Seconds between decay ticks: shrinks over the run, and shrinks again
+## by the layer's decay multiplier while the player is in an unstable one.
 func decay_interval(player_pos: Vector2) -> float:
 	var interval: float = lerp(DECAY_INTERVAL_START, DECAY_INTERVAL_END, min(1.0, _run_time / DECAY_RAMP_TIME))
-	if layer_index_at_world(player_pos) == UNSTABLE_LAYER:
-		interval *= UNSTABLE_DECAY_MULTIPLIER
+	interval *= LAYERS[layer_index_at_world(player_pos)].decay
 	return interval * decay_multiplier
 
+## GAS_POCKET_COUNT pockets in each gas layer, in plain rock outside rooms.
 func _place_gas_pockets(rng: RandomNumberGenerator) -> void:
-	var placed := 0
-	var tries := 0
-	while placed < GAS_POCKET_COUNT and tries < GAS_POCKET_COUNT * 20:
-		tries += 1
-		var cell := Vector2i(rng.randi_range(1, GRID_WIDTH - 2), rng.randi_range(SURFACE_ROWS + 1, GRID_HEIGHT - 2))
-		if _room_cells.has(cell):
+	for layer in range(LAYERS.size()):
+		if not LAYERS[layer].gas:
 			continue
-		if _layer_index_for_row(cell.y) == GAS_LAYER and get_cell_atlas_coords(0, cell) == LAYER_ATLAS_COORDS[GAS_LAYER]:
-			set_cell(0, cell, source_id, GAS_ATLAS_COORDS)
+		var rows := _layer_rows(layer)
+		var placed := 0
+		var tries := 0
+		while placed < GAS_POCKET_COUNT and tries < GAS_POCKET_COUNT * 20:
+			tries += 1
+			var cell := Vector2i(rng.randi_range(1, GRID_WIDTH - 2), rng.randi_range(rows.x, rows.y))
+			if _room_cells.has(cell) or get_cell_atlas_coords(0, cell) != layer_atlas(layer):
+				continue
+			set_cell(0, cell, source_id, gas_atlas(layer))
 			placed += 1
 
 func is_gas(cell: Vector2i) -> bool:
-	return get_cell_atlas_coords(0, cell) == GAS_ATLAS_COORDS
+	var atlas := get_cell_atlas_coords(0, cell)
+	return atlas.y == 0 and atlas.x >= GAS_ATLAS_OFFSET and atlas.x < GAS_ATLAS_OFFSET + LAYERS.size()
 
 ## Refills one dark dug cell; returns it, or (-1, -1) if none.
 func _collapse_tunnel() -> Vector2i:
@@ -560,7 +619,7 @@ func _collapse_tunnel() -> Vector2i:
 		return Vector2i(-1, -1)
 	var cell: Vector2i = candidates.pick_random()
 	_dug_cells.erase(cell)
-	set_cell(0, cell, source_id, LAYER_ATLAS_COORDS[_layer_index_for_row(cell.y)])
+	fill_cell(cell)
 	return cell
 
 ## Drops one dark cave floor near the player; returns it, or (-1, -1).
@@ -618,7 +677,7 @@ func decay_walls(delta: float, base_light_fraction: float) -> void:
 	_wall_decay_timer = 0.0
 	var cell: Vector2i = _wall_cells.pick_random()
 	_wall_cells.erase(cell)
-	set_cell(0, cell, source_id, LAYER_ATLAS_COORDS[_layer_index_for_row(cell.y)])
+	fill_cell(cell)
 
 func world_to_cell(world_pos: Vector2) -> Vector2i:
 	return local_to_map(to_local(world_pos))

@@ -24,7 +24,7 @@ const MESSAGE_SECONDS := 8.0
 # key can't be a letter.
 const TITLE_TEXT := """DOWN MINE
 
-Dig down through three layers to the Heart of the mine and bring it home.
+Dig down through six layers to the Heart of the mine and bring it home.
 Rescue lost miners on the way. Keep your light burning and your noise low.
 
 Enter: start        Esc: controls"""
@@ -301,15 +301,15 @@ func refresh_hub(progress: Progress) -> void:
 		var on_crew := "  [CREW]" if member.name in progress.crew_names else ""
 		var key_label := "[%s] " % char(KEY_A + i) if i < ROSTER_KEYS else ""
 		var runs: int = member.get("runs", 0)
-		var history := "%d run%s, from %s" % [runs, "" if runs == 1 else "s", Progress.LAYER_NAMES[member.get("found_in", 0)]]
+		var history := "%d run%s, from %s" % [runs, "" if runs == 1 else "s", Progress.layer_name(member.get("found_in", 0))]
 		if member.has("quirk"):
 			history += "; " + Progress.QUIRKS[member.quirk].name
 		lines.append("%s%s - %s %s: %s (%s)%s" % [key_label, progress.display_name(member),
 			progress.rank_of(member).name, Progress.NPC_TYPES[member.type].label, progress.effect_text(member), history, on_crew])
 	for npc in progress.stranded:
-		var last_layer: bool = npc.layer == Progress.LAYER_NAMES.size() - 1
-		var fate := "lost for good if not rescued next run" if last_layer else "drifts to the %s if not rescued" % Progress.LAYER_NAMES[npc.layer + 1]
-		lines.append("Stranded: %s in the %s - %s" % [npc.name, Progress.LAYER_NAMES[npc.layer], fate])
+		var last_layer: bool = npc.layer == MineGrid.LAYERS.size() - 1
+		var fate := "lost for good if not rescued next run" if last_layer else "drifts to the %s if not rescued" % Progress.layer_name(npc.layer + 1)
+		lines.append("Stranded: %s in the %s - %s" % [npc.name, Progress.layer_name(npc.layer), fate])
 	lines.append("")
 	lines.append("L: recent runs        Enter: new run")
 	run_summary_label.text = "\n".join(lines)

@@ -113,8 +113,19 @@ dictates.
   across. The courses (tunnel, staircase, ropes both ways, ladder,
   anchor, grapple) run in the CI playtest. Without tools you still
   can't climb out of a pit deeper than 2 tiles, by design.
+- ~~**M48 - Six layers, a lonely top, a bigger mine.**~~ Done: the mine
+  is 160x450 with six equal layers defined in one table
+  (`MineGrid.LAYERS`: look, cave density, ore, hazards). Topsoil and
+  Clay are quiet: noise never fills the meter and no Stalker rises into
+  them; the Stalker now wakes on the first step into Stone (a second in
+  Deep rock), spawned by Main rather than placed at the surface.
+  Movement: 1-tile bumps are stepped over before Space digs them,
+  digging down descends at a steady speed instead of landing every
+  couple of tiles, and staircases only dig from the floor.
 - **Tuning knobs to revisit in M22:** dig noise per tile (6), the
-  Stalker's strike threshold (25% light), lantern size (60s).
+  Stalker's strike threshold (25% light), lantern size (60s - a dive to
+  the Heart is now ~55s one way), stranded drift (5 runs to die now,
+  the PRD said 3).
 
 ## Open design questions (from the PRD)
 

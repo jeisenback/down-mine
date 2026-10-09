@@ -22,7 +22,7 @@ var _ore: Array[OrePickup] = []
 func _ready() -> void:
 	var mine: MineGrid = main.mine
 	var floor_row := rect.end.y - 1
-	var value: int = MineGrid.ORE_VALUE_BY_LAYER[mine.layer_index_at_world(global_position)] * ORE_MULTIPLIER
+	var value: int = mine.ore_value_at(global_position) * ORE_MULTIPLIER
 	for i in range(ORE_COUNT):
 		var pickup: OrePickup = OrePickupScene.instantiate()
 		pickup.value = value

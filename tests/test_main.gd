@@ -19,11 +19,29 @@ func test_main_scene_loads_and_runs() -> void:
 	assert_true(main.hud.layer_label.text != "", "HUD updating")
 	Progress.path_override = ""
 
+func test_quiet_layers_hear_nothing_and_wake_no_stalker() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	main.noise_meter.decay_rate = 0.0
+	assert_true(main.mine.is_quiet_at(main.player.global_position), "the surface is in the quiet zone")
+	main.noise_meter.add_noise(50.0)
+	assert_eq(main.noise_meter.noise, 0.0, "noise in the quiet zone adds nothing")
+	assert_true(main.get_tree().get_nodes_in_group("stalkers").is_empty(), "no Stalker above the quiet floor")
+	main.player.global_position = main.mine.cell_to_world(Vector2i(40, main.mine.quiet_floor_row() + 10))
+	assert_true(not main.mine.is_quiet_at(main.player.global_position), "below the quiet floor")
+	main.noise_meter.add_noise(50.0)
+	assert_eq(main.noise_meter.noise, 50.0, "noise counts below it")
+	await tree.create_timer(0.2).timeout # physics frames alone may not run _process
+	var stalkers := main.get_tree().get_nodes_in_group("stalkers")
+	assert_eq(stalkers.size(), 1, "the first descent below the quiet zone wakes one Stalker")
+	assert_true(stalkers[0].min_y > main.mine.cell_to_world(Vector2i(0, main.mine.quiet_floor_row())).y, "held out of the quiet layers")
+	Progress.path_override = ""
+
 func test_buildings_cost_ore_and_bell_warns() -> void:
 	Progress.path_override = TEST_SAVE_PATH
 	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
 	await physics_frames(10)
-	main.stalker.process_mode = Node.PROCESS_MODE_DISABLED
 	main.player.global_position = main.run_base.global_position + Vector2(0, 15)
 	await physics_frames(10)
 	main.player.currency = 100
@@ -46,7 +64,6 @@ func test_camp_search_and_lift_ride() -> void:
 	Progress.path_override = TEST_SAVE_PATH
 	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
 	await physics_frames(5)
-	main.stalker.process_mode = Node.PROCESS_MODE_DISABLED
 	var events := main.get_tree().get_nodes_in_group("mine_events")
 	var camp: Camp = events.filter(func(e): return e is Camp)[0]
 	var lift: Lift = events.filter(func(e): return e is Lift)[0]
@@ -54,18 +71,18 @@ func test_camp_search_and_lift_ride() -> void:
 	main.player.light.fuel = 10.0
 	var pages: int = main.progress.journal_read
 	camp.use(main)
-	assert_eq(main.player.currency, Camp.ORE_BY_LAYER[camp.layer], "camp gives ore")
+	assert_eq(main.player.currency, MineGrid.LAYERS[camp.layer].camp_ore, "camp gives ore")
 	assert_true(main.player.light.fuel > 10.0, "camp gives light")
 	assert_eq(main.progress.journal_read, min(pages + 1, Progress.JOURNAL.size()), "a journal page read")
 	assert_eq(camp.prompt(main), "", "lantern lit, nothing to do")
 	camp.use(main)
-	assert_eq(main.player.currency, Camp.ORE_BY_LAYER[camp.layer], "searched only once")
+	assert_eq(main.player.currency, MineGrid.LAYERS[camp.layer].camp_ore, "searched only once")
 
 	main.player.currency = Lift.REPAIR_ORE
+	main.player.global_position = lift.global_position # below the quiet layers, so noise counts
 	lift.use(main)
 	assert_eq(main.player.currency, 0, "repair paid")
 	assert_true(main.noise_meter.noise > 0.0, "repair is loud")
-	main.player.global_position = lift.global_position
 	lift.use(main)
 	assert_true(main._at_surface(), "ride ends at the surface")
 	lift.use(main)
@@ -76,7 +93,6 @@ func test_outpost_trades_recruits_and_is_noisy() -> void:
 	Progress.path_override = TEST_SAVE_PATH
 	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
 	await physics_frames(5)
-	main.stalker.process_mode = Node.PROCESS_MODE_DISABLED
 	var events := main.get_tree().get_nodes_in_group("mine_events")
 	var outpost: Outpost = events.filter(func(e): return e is Outpost)[0]
 	var survivor: LostMiner = events.filter(func(e): return e is LostMiner)[0]
@@ -106,12 +122,12 @@ func test_vault_door_is_loud_and_relic_pays() -> void:
 	Progress.path_override = TEST_SAVE_PATH
 	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
 	await physics_frames(5)
-	main.stalker.process_mode = Node.PROCESS_MODE_DISABLED
 	var events := main.get_tree().get_nodes_in_group("mine_events")
 	var door: VaultDoor = events.filter(func(e): return e is VaultDoor)[0]
 	var relic: Relic = events.filter(func(e): return e is Relic)[0]
 	main.noise_meter.decay_rate = 0.0
 	main.noise_meter.noise = 0.0
+	main.player.global_position = door.global_position # below the quiet layers, so noise counts
 	door.use(main)
 	assert_eq(main.noise_meter.noise, VaultDoor.BREAK_NOISE, "breaking in is loud")
 	await physics_frames(1)
@@ -125,7 +141,6 @@ func test_gallery_collapses_after_entry_and_buries() -> void:
 	Progress.path_override = TEST_SAVE_PATH
 	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
 	await physics_frames(5)
-	main.stalker.process_mode = Node.PROCESS_MODE_DISABLED
 	var gallery: Gallery = main.mine.get_children().filter(func(n): return n is Gallery)[0]
 	var ore: Array = main.mine.get_children().filter(func(n): return n is OrePickup and gallery.rect.has_point(main.mine.world_to_cell(n.global_position)))
 	assert_eq(ore.size(), Gallery.ORE_COUNT, "rich ore in the gallery")
@@ -152,7 +167,6 @@ func test_flaring_burns_the_nest_and_calms_the_deep() -> void:
 	Progress.path_override = TEST_SAVE_PATH
 	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
 	await physics_frames(5)
-	main.stalker.process_mode = Node.PROCESS_MODE_DISABLED
 	var nest: Nest = main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Nest)[0]
 	main.player.set_physics_process(false) # no input: flaring set by hand
 	main.player.global_position = nest.global_position
@@ -168,20 +182,20 @@ func test_flaring_burns_the_nest_and_calms_the_deep() -> void:
 	assert_true(main.noise_meter.noise >= Nest.BURN_NOISE, "burning is loud") # decay may add a little
 	await tree.create_timer(0.1).timeout
 	assert_true(not is_instance_valid(main.deep_stalker), "deep Stalker gone")
-	assert_eq(main.hud.layer_label.text, "Deep rock: unstable", "hazard line drops the Stalker")
+	assert_eq(main.hud.layer_label.text, "Deep rock: gas pockets, unstable", "hazard line drops the Stalker")
 	Progress.path_override = ""
 
 func test_heart_wakes_the_mine_and_wins_the_run() -> void:
 	Progress.path_override = TEST_SAVE_PATH
 	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
 	await physics_frames(5)
-	main.stalker.process_mode = Node.PROCESS_MODE_DISABLED
 	var heart: Heart = main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Heart)[0]
 	var claimed: int = main.progress.hearts_claimed
 	var decay: float = main.mine.decay_multiplier
 	assert_eq(decay, pow(main.CLAIMED_DECAY_STEP, claimed), "claimed Hearts speed up decay")
 	main.noise_meter.decay_rate = 0.0
 	main.noise_meter.noise = 0.0
+	main.player.global_position = heart.global_position # below the quiet layers, so noise counts
 	heart.use(main)
 	assert_true(main.carrying_heart, "carrying")
 	assert_eq(main.noise_meter.noise, main.HEART_NOISE, "taking it is loud")
@@ -219,7 +233,6 @@ func test_debug_actions_and_seed_display() -> void:
 	Progress.path_override = TEST_SAVE_PATH
 	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
 	await physics_frames(5)
-	main.stalker.process_mode = Node.PROCESS_MODE_DISABLED
 	assert_true(main.hud.seed_label.text.begins_with("Seed %d" % main.mine.mine_seed), "seed shown")
 	assert_true(not main.debug_enabled, "debug off without the launch option")
 	main.debug_toggle_god()
@@ -232,7 +245,7 @@ func test_debug_actions_and_seed_display() -> void:
 	assert_true(main.player.global_position.distance_to(main.mine.cell_to_world(room.cell)) < 40.0, "teleported to the first event")
 	main.player.global_position = main.run_base.global_position + Vector2(0, 40)
 	main.debug_next_layer()
-	assert_eq(main.mine.layer_index_at_world(main.player.global_position), 1, "dropped into Stone")
+	assert_eq(main.mine.layer_index_at_world(main.player.global_position), 1, "dropped into the next layer")
 	var dark: CanvasModulate = main.get_node("CanvasModulate")
 	main.debug_toggle_reveal()
 	assert_true(not dark.visible, "map revealed")
@@ -242,7 +255,6 @@ func test_run_log_records_runs_and_causes() -> void:
 	Progress.path_override = TEST_SAVE_PATH
 	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
 	await physics_frames(5)
-	main.stalker.process_mode = Node.PROCESS_MODE_DISABLED
 	main.progress.run_log = []
 	main.player.health = 3
 	main.player.take_hit(1, "fall")
