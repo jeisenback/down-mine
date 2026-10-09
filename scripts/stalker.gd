@@ -21,6 +21,7 @@ const HUNT_SPEED := 24.0
 # After a strike it backs off for a moment: time to flare or run for light
 # (it used to land three hits in 2.4 s, dead before the player could react).
 const RETREAT_SECONDS := 3.0
+const RETREAT_SECONDS_DARK := 1.5 # milestone 49: at zero light it returns sooner
 
 var player: Player
 ## The base light is a refuge: inside it the Stalker only retreats, so it
@@ -91,6 +92,6 @@ func _physics_process(delta: float) -> void:
 
 func _attack() -> void:
 	attack_timer = ATTACK_COOLDOWN
-	retreat_timer = RETREAT_SECONDS
+	retreat_timer = RETREAT_SECONDS_DARK if player.light.is_out() else RETREAT_SECONDS
 	if player.has_method("take_hit"):
 		player.take_hit(1, "Stalker")

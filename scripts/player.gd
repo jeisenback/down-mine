@@ -23,6 +23,9 @@ const DIG_COOLDOWN := 0.11
 const DIG_DESCENT_SPEED := MineGrid.TILE_SIZE / DIG_COOLDOWN * 0.9 # ~131 px/s, 8 tiles/s
 const DIG_CENTRE_STEP := 2.0 # px per frame toward the dug column's centre
 const MAX_HEALTH := 3
+# Milestone 49: with the lantern at zero and no other light on you, health
+# drains and you can't dig. Any other light suspends it.
+const DARK_DRAIN_SECONDS := 12.0
 
 # Jump forgiveness: a press just before landing still fires on touchdown
 # (buffer), and a press just after walking off a ledge still fires as if
@@ -118,6 +121,7 @@ var _jump_rising: bool = false # jumped and still holding up
 var invincible: bool = false # debug god mode (milestone 43)
 var hits_by: Dictionary = {} # damage taken this run, by source
 var last_hit_by: String = ""
+var _dark_timer: float = 0.0 # seconds in the dark since the last drain hit
 var _coyote_timer: float = 0.0
 var _jump_buffer_timer: float = 0.0
 var _grapple_was_pressed: bool = false
@@ -146,6 +150,7 @@ var _grapple_waypoint: Vector2 = Vector2.INF
 var _was_on_floor: bool = true
 
 func _ready() -> void:
+	add_to_group("player")
 	body_sprite.texture = PixelArt.keyed(body_sprite.texture)
 	rope_detector.area_entered.connect(_on_rope_area_entered)
 	rope_detector.area_exited.connect(_on_rope_area_exited)
@@ -161,7 +166,25 @@ func is_on_rope() -> bool:
 	_ropes_touching = _ropes_touching.filter(func(r): return is_instance_valid(r))
 	return _ropes_touching.size() > 0
 
+## Lantern out and no other light reaching the player. The player's own
+## dead lantern keeps a 30 px radius, so it is excluded from the lit test.
+func in_the_dark() -> bool:
+	return light.is_out() and not MineLight.is_lit(get_tree(), global_position, light)
+
+func can_dig() -> bool:
+	return mine != null and not in_the_dark()
+
+func _tick_dark_drain(delta: float) -> void:
+	if not in_the_dark():
+		_dark_timer = 0.0
+		return
+	_dark_timer += delta
+	if _dark_timer >= DARK_DRAIN_SECONDS:
+		_dark_timer -= DARK_DRAIN_SECONDS
+		take_hit(1, "dark")
+
 func _physics_process(delta: float) -> void:
+	_tick_dark_drain(delta)
 	dig_timer = max(0.0, dig_timer - delta)
 	_coyote_timer = max(0.0, _coyote_timer - delta)
 	_jump_buffer_timer = max(0.0, _jump_buffer_timer - delta)
@@ -518,7 +541,7 @@ func _apply_horizontal_movement(input_dir: float, delta: float) -> void:
 	velocity.x = move_toward(velocity.x, target_speed, accel * delta)
 
 func _dig_straight_down() -> void:
-	if mine == null:
+	if not can_dig():
 		return
 	var half_extents: Vector2 = (collision_shape.shape as RectangleShape2D).size / 2.0
 	var half_tile: float = mine.TILE_SIZE / 2.0
@@ -549,7 +572,7 @@ func _diggable(cell: Vector2i) -> bool:
 ## Triggered by holding Space (dig) + Up/W (the jump key) together, so it
 ## doesn't collide with either action alone.
 func _dig_straight_up() -> void:
-	if dig_timer > 0.0 or mine == null:
+	if dig_timer > 0.0 or not can_dig():
 		return
 	var half_extents: Vector2 = (collision_shape.shape as RectangleShape2D).size / 2.0
 	var half_tile: float = mine.TILE_SIZE / 2.0
@@ -563,7 +586,7 @@ func _dig_straight_up() -> void:
 ## fire before contact and flatten it, when stepping over it is faster
 ## and quieter (movement quality pass). Standing still still digs it.
 func _dig_forward(walking: bool = false) -> void:
-	if dig_timer > 0.0 or mine == null:
+	if dig_timer > 0.0 or not can_dig():
 		return
 	var half_extents: Vector2 = (collision_shape.shape as RectangleShape2D).size / 2.0
 	var half_tile: float = mine.TILE_SIZE / 2.0
@@ -594,7 +617,7 @@ func _is_steppable_bump(cells: Array) -> bool:
 ## drop onto this one, so every step is exactly one row lower (digging
 ## from the pixel span mid-drop used to straddle three rows).
 func _dig_staircase() -> void:
-	if dig_timer > 0.0 or mine == null or not is_on_floor():
+	if dig_timer > 0.0 or not can_dig() or not is_on_floor():
 		return
 	var own_cell := mine.world_to_cell(global_position)
 	if not mine.is_solid(own_cell + Vector2i.DOWN):

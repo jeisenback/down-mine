@@ -476,3 +476,84 @@ func test_rope_throws_up_to_the_ceiling_and_drops_over_an_edge() -> void:
 	player._place_rope(true)
 	rope = mine.get_children().filter(func(n): return n is Rope)[-1]
 	assert_eq(mine.world_to_cell(rope.global_position + Vector2(0, 1)), start + Vector2i(-1, 0), "S+R hangs over the edge")
+
+func test_in_the_dark_means_lantern_out_and_no_other_light() -> void:
+	var player := _still_player(Vector2(1000, 1000), 1.0)
+	assert_true(not player.in_the_dark(), "lit by own lantern")
+	player.light.fuel = 0.0
+	assert_true(player.in_the_dark(), "lantern out: dark, own dead lantern doesn't count")
+	var lamp: Node2D = add(preload("res://scenes/Lamp.tscn").instantiate())
+	lamp.global_position = player.global_position + Vector2(20, 0)
+	await physics_frames(2)
+	assert_true(not player.in_the_dark(), "a lamp beside you suspends the dark")
+
+func test_dark_drains_health_until_lit() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var player: Player = add(PlayerScene.instantiate())
+	player.mine = mine
+	player.global_position = mine.cell_to_world(_step_course(mine))
+	player.light.burn_rate = 0.0
+	player.light.fuel = 0.0
+	player.health = 3
+	await physics_frames(10)
+	assert_eq(player.health, 3, "no hit before DARK_DRAIN_SECONDS")
+	player._dark_timer = Player.DARK_DRAIN_SECONDS - 0.05
+	await physics_frames(10)
+	assert_eq(player.health, 2, "one hit after DARK_DRAIN_SECONDS in the dark")
+	assert_eq(player.hits_by.get("dark", 0), 1, "logged as dark")
+	player._dark_timer = Player.DARK_DRAIN_SECONDS - 0.05
+	player.light.add_fuel(10.0)
+	await physics_frames(10)
+	assert_eq(player.health, 2, "refuelling resets the drain")
+	assert_eq(player._dark_timer, 0.0, "timer cleared while lit")
+
+func test_dark_drain_respects_god_mode() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var player: Player = add(PlayerScene.instantiate())
+	player.mine = mine
+	player.global_position = mine.cell_to_world(_step_course(mine))
+	player.light.burn_rate = 0.0
+	player.light.fuel = 0.0
+	player.invincible = true
+	player._dark_timer = Player.DARK_DRAIN_SECONDS - 0.05
+	await physics_frames(10)
+	assert_eq(player.health, Player.MAX_HEALTH, "god mode ignores the dark")
+
+func test_no_digging_in_the_dark() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var start := _step_course(mine)
+	var player := _still_player(mine.cell_to_world(start), 0.0)
+	player.mine = mine
+	var ahead := start + Vector2i(1, 0)
+	mine.fill_cell(ahead)
+	player._dig_forward()
+	assert_true(mine.is_solid(ahead), "dark: forward dig does nothing")
+	player._dig_straight_down()
+	assert_true(mine.is_solid(start + Vector2i.DOWN), "dark: dig down does nothing")
+	player.light.fuel = 10.0
+	player._dig_forward()
+	assert_true(not mine.is_solid(ahead), "lit: digs again")
+
+func test_tools_rot_three_times_faster_when_the_lantern_is_out() -> void:
+	var player := _still_player(Vector2(1000, 1000), 1.0)
+	var rope: Rope = add(Player.RopeScene.instantiate())
+	rope.global_position = player.global_position # inside the player's light
+	rope.life_seconds = 100.0
+	await physics_frames(60)
+	var lit_loss := 1.0 - rope.lifetime
+	rope.lifetime = 1.0
+	player.light.fuel = 0.0
+	await physics_frames(60)
+	var out_loss := 1.0 - rope.lifetime
+	assert_true(out_loss > lit_loss * 2.5 and out_loss < lit_loss * 7.0,
+		"lantern out: rots about 3x (lit %.4f, out %.4f)" % [lit_loss, out_loss])
+
+func test_stalker_retreats_half_as_long_at_zero_light() -> void:
+	var player := _still_player(Vector2(1000, 1000), 0.0)
+	var stalker: Stalker = add(StalkerScene.instantiate())
+	stalker.player = player
+	stalker.run_base = _base(Vector2(-5000, -5000))
+	stalker.global_position = player.global_position + Vector2(10, 0)
+	await physics_frames(5)
+	assert_true(stalker.retreat_timer > 0.0, "struck, so retreating")
+	assert_true(stalker.retreat_timer <= Stalker.RETREAT_SECONDS_DARK, "short retreat at zero light (%.2f s)" % stalker.retreat_timer)

@@ -403,6 +403,8 @@ func _current_depth() -> int:
 
 func _action_prompts() -> Array:
 	var prompts: Array = []
+	if player.in_the_dark():
+		prompts.append("Too dark to dig")
 	if _near_base():
 		if run_base.needs_repair():
 			if player.currency < run_base.repair_cost():

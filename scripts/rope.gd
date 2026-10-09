@@ -8,6 +8,9 @@ class_name Rope
 ## twice as fast, sharing the PRD's "structures decay faster in darkness"
 ## clock with MineLight.
 const DARK_DECAY_MULTIPLIER := 2.0
+# Milestone 49: while the player's lantern is out, tools rot this much
+# faster again, wherever they hang.
+const DARK_ROT_MULTIPLIER := 3.0
 
 var life_seconds: float = 45.0
 var climb_speed: float = 80.0
@@ -32,6 +35,9 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	var rate := (1.0 / life_seconds) * (1.0 if MineLight.is_lit(get_tree(), global_position) else DARK_DECAY_MULTIPLIER)
+	var player := get_tree().get_first_node_in_group("player") as Player
+	if player != null and player.light.is_out():
+		rate *= DARK_ROT_MULTIPLIER
 	lifetime -= rate * delta
 	if lifetime <= 0.0:
 		queue_free()

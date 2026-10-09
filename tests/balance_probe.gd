@@ -4,7 +4,7 @@ extends SceneTree
 ## and everything live, over a few seeds, and print what happened - the
 ## numbers to compare before and after a tuning change.
 ##   godot --headless --fixed-fps 60 -s tests/balance_probe.gd
-## dive: hold dig-down from the start until the run ends (or 90 s).
+## dive: hold dig-down from the start until the run ends (or 150 s).
 ## dark: dig down 3 s, then stand still until the light fails.
 
 const SEEDS := [1001, 2002, 3003]
@@ -53,7 +53,7 @@ func _seconds(main: Node, count: float) -> void:
 
 func _dive(main: Node) -> void:
 	_key(KEY_S, true)
-	await _seconds(main, 90)
+	await _seconds(main, 150)
 
 func _dark(main: Node) -> void:
 	_key(KEY_S, true)
