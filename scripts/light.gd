@@ -34,11 +34,17 @@ func _process(delta: float) -> void:
 
 ## Whether any MineLight's current radius reaches world_pos - the one
 ## "is this spot lit?" test that decay, ropes and anchors share.
-static func is_lit(tree: SceneTree, world_pos: Vector2) -> bool:
+## A light equal to `except` is skipped (a lantern doesn't light its own bearer's dark).
+static func is_lit(tree: SceneTree, world_pos: Vector2, except: Node = null) -> bool:
 	for light in tree.get_nodes_in_group("mine_lights"):
+		if light == except:
+			continue
 		if world_pos.distance_to(light.global_position) < light.current_radius():
 			return true
 	return false
+
+func is_out() -> bool:
+	return fuel <= 0.0
 
 func add_fuel(amount: float) -> void:
 	fuel = min(max_fuel, fuel + amount)

@@ -122,6 +122,9 @@ dictates.
   Movement: 1-tile bumps are stepped over before Space digs them,
   digging down descends at a steady speed instead of landing every
   couple of tiles, and staircases only dig from the floor.
+- ~~**M49 - The dark hurts.**~~ Done: at zero light you drain, can't dig,
+  your tools rot and the Stalker returns sooner; any other light
+  suspends it. Spec: `docs/superpowers/specs/2026-10-09-run-loop-redesign-design.md`.
 - **Tuning knobs to revisit in M22:** dig noise per tile (6), the
   Stalker's strike threshold (25% light), lantern size (60s - a dive to
   the Heart is now ~55s one way), stranded drift (5 runs to die now,

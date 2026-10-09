@@ -85,7 +85,8 @@ shows how many you've claimed. Lose the run and the Heart stays below.
 **The Stalker**: it wakes the first time you enter Stone (a second one
 in Deep rock), drifts through rock and always closes in on you. A
 lantern above 25% (or a flare) holds it at the edge of your light; below
-that it strikes, then backs off for 3s before coming again. It never
+that it strikes, then backs off for 3s (1.5s with the lantern out) before
+coming again. It never
 enters the base's light, and never rises into Topsoil or Clay. Falls do
 at most 2 damage, so no single fall kills you from full health.
 
@@ -97,6 +98,11 @@ you hear the mine closing in around you.
 **Mine decay**: in darkness, tunnels you dug refill with rock and cave
 floors near you crumble away, a little faster as the run goes on. Light
 (yours, lamps, the base, miners) protects the ground around it.
+
+**The dark**: with the lantern at zero and no other light on you, you lose
+1 health every 12s, you can't dig, ropes and ladders rot three times
+faster, and the Stalker only backs off for 1.5s after a strike. Any light -
+the base, a lamp, a camp lantern, a miner - suspends all of it.
 
 **Falling**: landings hurt based on impact speed. Drops under 7 tiles are
 free (so plain digging down is safe), 7+ costs 1 health, +1 per 3 more

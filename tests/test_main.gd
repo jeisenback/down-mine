@@ -283,3 +283,14 @@ func test_run_log_records_runs_and_causes() -> void:
 		saved.record_run({"result": "Extracted"})
 	assert_eq(saved.run_log.size(), Progress.RUN_LOG_SIZE, "keeps the last 10")
 	Progress.path_override = ""
+
+func test_hud_says_too_dark_to_dig() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	main.player.global_position = main.mine.cell_to_world(Vector2i(40, main.mine.quiet_floor_row() + 10))
+	main.player.light.burn_rate = 0.0
+	main.player.light.fuel = 0.0
+	await tree.create_timer(0.2).timeout
+	assert_true(main.hud.prompt_label.text.contains("Too dark to dig"), "prompt shown in the dark")
+	Progress.path_override = ""
