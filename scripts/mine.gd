@@ -138,6 +138,16 @@ const ROOM_SIZE := Vector2i(9, 4)
 const ROOM_MIN_SPACING_TILES := 32.0
 const ROOM_PLACE_TRIES := 50
 
+# The old mine (milestone 51): a timbered main shaft under the entrance
+# (the map's centre column) from just below the crust to a collapse in the
+# upper half of Stone. The crust over it is left solid so the start is not
+# a fall; digging it is the way in. Built from its own RNG so the rest of
+# a seed's mine keeps its layout.
+const SHAFT_WIDTH := 3
+const SHAFT_COLLAPSE_ROWS := 6
+const OLD_LADDER_PIECE_ROWS := 8
+const OLD_LADDER_MISSING_CHANCE := 0.3
+
 var source_id: int = 0
 ## This mine's seed (milestone 43): the same seed builds the same mine.
 var mine_seed: int = 0
@@ -159,6 +169,10 @@ var _reserved_floors: Dictionary = {}
 ## This run's event rooms: {"kind", "cell"}, cell = floor-standing
 ## center of the room.
 var event_rooms: Array = []
+## Last row of the shaft's collapse (-1 until generated).
+var shaft_end_row: int = -1
+## First row of each surviving 8-row piece of the old ladder, ascending.
+var old_ladder_rows: Array = []
 ## Open cells and floors of the event rooms; no pickups, gas or crumbling.
 var _room_cells: Dictionary = {}
 ## Bedrock shell of the relic vault (milestone 35).
@@ -259,6 +273,7 @@ func _generate_layout() -> void:
 		_reinforce_boundaries(solid)
 		for x in range(GRID_WIDTH):
 			solid[x][SURFACE_ROWS] = true
+	_carve_old_mine(solid)
 	_carve_event_rooms(solid, rng)
 
 	for x in range(GRID_WIDTH):
@@ -280,6 +295,38 @@ func _generate_layout() -> void:
 	_spare_floor_cells = floor_cells.slice(min(FUEL_DEPOSIT_COUNT + ORE_DEPOSIT_COUNT, floor_cells.size()))
 	_pick_lost_miner_cell()
 
+## Opens the shaft from just below the crust, fills its last
+## SHAFT_COLLAPSE_ROWS rows with rock, and keeps both clear of pickups, gas
+## and crumbling.
+func _carve_old_mine(solid: Array) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = mine_seed + 51
+	var stone := _layer_rows(2)
+	shaft_end_row = rng.randi_range(stone.x, stone.x + (stone.y - stone.x) / 2)
+	var open := shaft_open_rows()
+	var left := shaft_column() - SHAFT_WIDTH / 2
+	for x in range(left, left + SHAFT_WIDTH):
+		for y in range(open.x, shaft_end_row + 1):
+			var cell := Vector2i(x, y)
+			solid[x][y] = y > open.y
+			_room_cells[cell] = true
+			if y > open.y:
+				_reserved_floors[cell] = true
+
+func shaft_column() -> int:
+	return GRID_WIDTH / 2
+
+## First and last open row of the shaft, above its collapse.
+func shaft_open_rows() -> Vector2i:
+	return Vector2i(SURFACE_ROWS + 1, shaft_end_row - SHAFT_COLLAPSE_ROWS)
+
+func _shaft_rect() -> Rect2i:
+	return Rect2i(shaft_column() - SHAFT_WIDTH / 2, SURFACE_ROWS + 1, SHAFT_WIDTH, shaft_end_row - SURFACE_ROWS)
+
+## Within the shaft, open part or collapse.
+func is_in_shaft(cell: Vector2i) -> bool:
+	return _shaft_rect().has_point(cell)
+
 ## Clears a ROOM_SIZE chamber per EVENT_ROOMS entry, on a solid floor,
 ## spaced apart. A room that finds no spot is skipped.
 func _carve_event_rooms(solid: Array, rng: RandomNumberGenerator) -> void:
@@ -292,6 +339,8 @@ func _carve_event_rooms(solid: Array, rng: RandomNumberGenerator) -> void:
 			var top_left := Vector2i(rng.randi_range(2, GRID_WIDTH - 2 - ROOM_SIZE.x),
 				rng.randi_range(max(rows.x, SURFACE_ROWS + 2), rows.y - ROOM_SIZE.y - 1))
 			var center := top_left + Vector2i(ROOM_SIZE.x / 2, ROOM_SIZE.y - 1)
+			if Rect2i(top_left, ROOM_SIZE).grow(1).intersects(_shaft_rect()):
+				continue # rooms keep out of the old mine
 			if event_rooms.any(func(r): return Vector2(r.cell - center).length() < ROOM_MIN_SPACING_TILES):
 				continue
 			for x in range(top_left.x, top_left.x + ROOM_SIZE.x):

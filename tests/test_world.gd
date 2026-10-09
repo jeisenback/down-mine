@@ -586,3 +586,49 @@ func test_alert_does_not_pull_a_stalker_into_the_base_light() -> void:
 	var before := stalker.global_position.distance_to(base.global_position)
 	await physics_frames(10)
 	assert_true(stalker.global_position.distance_to(base.global_position) > before, "still pushed out of the base")
+
+func _mine_with_seed(mine_seed: int) -> MineGrid:
+	MineGrid.next_seed = mine_seed
+	return add(MineScene.instantiate())
+
+func test_shaft_runs_from_below_the_crust_to_a_collapse_in_upper_stone() -> void:
+	var mine := _mine_with_seed(1001)
+	var col := mine.shaft_column()
+	assert_eq(col, MineGrid.GRID_WIDTH / 2, "on the centre column")
+	var stone := mine._layer_rows(2)
+	assert_true(mine.shaft_end_row >= stone.x and mine.shaft_end_row <= stone.x + (stone.y - stone.x) / 2, "ends in the upper half of Stone (row %d)" % mine.shaft_end_row)
+	assert_true(mine.is_solid(Vector2i(col, MineGrid.SURFACE_ROWS)), "the crust over the shaft holds: the start is not a fall")
+	var open := mine.shaft_open_rows()
+	assert_eq(open.x, MineGrid.SURFACE_ROWS + 1, "opens just under the crust")
+	for y in range(open.x, open.y + 1):
+		for dx in range(-1, 2):
+			assert_true(not mine.is_solid(Vector2i(col + dx, y)), "open at (%d, %d)" % [col + dx, y])
+	for y in range(open.y + 1, mine.shaft_end_row + 1):
+		for dx in range(-1, 2):
+			assert_true(mine.is_solid(Vector2i(col + dx, y)), "collapse at (%d, %d)" % [col + dx, y])
+			assert_true(not mine.is_indestructible(Vector2i(col + dx, y)), "and it digs like rock")
+	assert_eq(mine.shaft_end_row - open.y, MineGrid.SHAFT_COLLAPSE_ROWS, "6 rows of collapse")
+
+func test_the_same_seed_builds_the_same_shaft_and_seeds_differ() -> void:
+	var a := _mine_with_seed(4242)
+	var b := _mine_with_seed(4242)
+	assert_eq(b.shaft_end_row, a.shaft_end_row, "same seed, same shaft")
+	assert_eq(b.old_ladder_rows, a.old_ladder_rows, "same seed, same ladder")
+	var differs := false
+	for s in [1, 2, 3, 4, 5, 6]:
+		differs = differs or _mine_with_seed(s).shaft_end_row != a.shaft_end_row
+	assert_true(differs, "other seeds put it elsewhere")
+
+func test_event_rooms_and_pickups_keep_out_of_the_shaft() -> void:
+	for s in [11, 22, 33, 44, 55]:
+		var mine := _mine_with_seed(s)
+		for room in mine.event_rooms:
+			var rect: Rect2i = room.rect.grow(1)
+			for y in range(rect.position.y, rect.end.y):
+				for x in range(rect.position.x, rect.end.x):
+					assert_true(not mine.is_in_shaft(Vector2i(x, y)), "seed %d: room %s overlaps the shaft" % [s, room.kind])
+		for child in mine.get_children():
+			if child is FuelPickup or child is OrePickup:
+				assert_true(not mine.is_in_shaft(mine.world_to_cell(child.global_position)), "seed %d: pickup in the shaft" % s)
+		var top_debris := Vector2i(mine.shaft_column(), mine.shaft_open_rows().y + 1)
+		assert_true(mine._reserved_floors.has(top_debris), "seed %d: the debris never crumbles" % s)
