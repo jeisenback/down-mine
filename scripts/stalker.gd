@@ -44,23 +44,22 @@ var state: State = State.LURK
 var attack_timer: float = 0.0
 var retreat_timer: float = 0.0
 var alert_timer: float = 0.0
-var _anim_time: float = 0.0
 
-# Tileset slime (milestone 30): three squash-and-stretch frames.
-const ANIM_FPS := 5.0
-const FRAME_COUNT := 3
+# The drawn spider lunges for this long after a strike (milestone 53).
+const STRIKE_POSE_SECONDS := 0.4
+var _strike_timer: float = 0.0
 
-@onready var body: Sprite2D = $Body
+@onready var art: ArtSprite = $Art
 
 func _ready() -> void:
 	add_to_group("stalkers")
-	body.texture = PixelArt.keyed(body.texture)
 
 func _process(delta: float) -> void:
-	_anim_time += delta
-	body.frame = int(_anim_time * ANIM_FPS) % FRAME_COUNT
+	_strike_timer = maxf(0.0, _strike_timer - delta)
+	if _strike_timer <= 0.0:
+		art.art.pose = 0.0
 	if absf(velocity.x) > 1.0:
-		body.flip_h = velocity.x < 0.0
+		art.flip_h = velocity.x < 0.0
 
 func _physics_process(delta: float) -> void:
 	attack_timer = max(0.0, attack_timer - delta)
@@ -107,6 +106,8 @@ func alert() -> void:
 	retreat_timer = 0.0
 
 func _attack() -> void:
+	_strike_timer = STRIKE_POSE_SECONDS
+	art.art.pose = 1.0
 	attack_timer = ATTACK_COOLDOWN
 	retreat_timer = RETREAT_SECONDS_DARK if player.light.is_out() else RETREAT_SECONDS
 	if player.has_method("take_hit"):

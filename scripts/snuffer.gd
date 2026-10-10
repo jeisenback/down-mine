@@ -12,25 +12,18 @@ const DRAIN_RANGE := 12.0
 const DRAIN_RATE := 30.0 # fuel/s: a lamp (90) lasts ~3s, the base (200) ~7s
 const MAX_HEALTH := 1.0  # seconds of flare exposure
 const RETARGET_INTERVAL := 1.0
-const ANIM_FPS := 5.0
-const FRAME_COUNT := 4
 
 var player: Player
 var health: float = MAX_HEALTH
 var _target: MineLight
 var _retarget_timer: float = 0.0
-var _anim_time: float = 0.0
 
-@onready var sprite: Sprite2D = $Sprite2D
+@onready var art: ArtSprite = $Art
 
 func _ready() -> void:
 	add_to_group("snuffers")
-	sprite.texture = PixelArt.keyed(sprite.texture)
 
 func _physics_process(delta: float) -> void:
-	_anim_time += delta
-	sprite.frame = int(_anim_time * ANIM_FPS) % FRAME_COUNT
-
 	var from_player := global_position - player.global_position
 	if from_player.length() < player.light.current_radius():
 		if player.light.is_flaring:
@@ -48,7 +41,7 @@ func _physics_process(delta: float) -> void:
 	if _target == null:
 		return
 	var to_target := _target.global_position - global_position
-	sprite.flip_h = to_target.x < 0.0
+	art.flip_h = to_target.x < 0.0
 	if to_target.length() > DRAIN_RANGE:
 		global_position += to_target.normalized() * SPEED * delta
 	else:
