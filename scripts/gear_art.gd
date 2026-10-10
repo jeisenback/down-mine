@@ -6,7 +6,7 @@ class_name GearArt
 ## for the miner, `state` is idle / run / dig / jump / fall. The origin is the
 ## feet (miner, flag, support, lamp) or the object's centre (beacon, bell).
 
-@export_enum("player", "flag", "beacon", "bell", "support", "lamp", "ladder", "rope", "anchor", "camp", "lift", "outpost", "nest", "heart", "relic", "vault", "lost", "sign", "gas") var gear: String = "player"
+@export_enum("player", "flag", "beacon", "bell", "support", "lamp", "ladder", "rope", "anchor", "camp", "lift", "outpost", "nest", "heart", "relic", "vault", "lost", "sign", "gas", "bench", "lantern_post", "muffling_post", "rope_rack") var gear: String = "player"
 @export var length: float = 64.0   # ladder, rope and lift: how tall they stand or hang
 @export_enum("idle", "run", "dig", "jump", "fall") var state: String = "idle"
 ## The miner's coat colour (lost miners each wear their own); shades derive from it.
@@ -49,6 +49,10 @@ func _draw() -> void:
 		"lost": _draw_lost()
 		"sign": _draw_sign()
 		"gas": _draw_gas()
+		"bench": _draw_bench()
+		"lantern_post": _draw_lantern_post()
+		"muffling_post": _draw_muffling_post()
+		"rope_rack": _draw_rope_rack()
 
 ## The miner's palette with this miner's coat swapped in.
 func _person_palette() -> Dictionary:
@@ -540,3 +544,83 @@ func _draw_gas() -> void:
 		var r := 6.0 + sin(t + i) * 1.5
 		draw_colored_polygon(_ellipse(c, r, r * 0.8, 12), Color(0.42, 0.62, 0.28, 0.22 * fade))
 		draw_colored_polygon(_ellipse(c + Vector2(-1, -1), r * 0.55, r * 0.45, 10), Color(0.62, 0.8, 0.4, 0.16 * fade))
+
+# --- crew stations (the base's job props; feet at the origin) -------------------
+
+## The Mender's bench: a plank on trestle legs with a hammer and an iron block.
+func _draw_bench() -> void:
+	var w: Dictionary = GPAL["wood"]
+	var m: Dictionary = GPAL["metal"]
+	for x in [-6.0, 5.0]:
+		draw_rect(Rect2(x - 1.0, -8.0, 2.5, 8.0), w["k"])
+		draw_rect(Rect2(x - 0.5, -8.0, 1.5, 8.0), w["b"])
+	draw_line(Vector2(-5, -1), Vector2(4, -7), w["a"], 1.0)
+	draw_rect(Rect2(-8.0, -10.0, 16.0, 3.0), w["k"])
+	draw_rect(Rect2(-7.5, -9.5, 15.0, 2.0), w["b"])
+	draw_rect(Rect2(-7.5, -9.5, 15.0, 0.8), w["c"])
+	draw_rect(Rect2(2.0, -13.0, 5.0, 3.0), m["k"])                                    # an iron block
+	draw_rect(Rect2(2.5, -12.5, 4.0, 2.0), m["b"])
+	var swing := sin(t * 6.0) * 0.5
+	var hand := Vector2(-4.0, -10.0)
+	var head := hand + Vector2(-1.0, -5.0).rotated(swing)
+	draw_line(hand, head, w["k"], 2.0)
+	draw_line(hand, head, w["c"], 1.0)
+	draw_rect(Rect2(head - Vector2(2.0, 1.0), Vector2(4.0, 2.0)), m["k"])             # the hammer head
+	draw_rect(Rect2(head - Vector2(1.5, 0.5), Vector2(3.0, 1.0)), m["c"])
+
+## The Lamplighter's post: a pole with a hanging lantern and a jar of fuel.
+func _draw_lantern_post() -> void:
+	var w: Dictionary = GPAL["wood"]
+	var m: Dictionary = GPAL["metal"]
+	var f: Dictionary = GPAL["flame"]
+	var flick := 0.85 + 0.15 * sin(t * 11.0) + 0.06 * sin(t * 23.0)
+	draw_rect(Rect2(-4.0, -2.0, 8.0, 2.0), m["k"])                                    # the footing
+	draw_rect(Rect2(-3.5, -1.5, 7.0, 1.0), m["a"])
+	draw_rect(Rect2(-1.5, -20.0, 3.0, 19.0), w["k"])
+	draw_rect(Rect2(-1.0, -20.0, 2.0, 19.0), w["b"])
+	draw_rect(Rect2(-1.0, -20.0, 0.8, 19.0), w["c"])
+	draw_line(Vector2(0, -19), Vector2(6, -19), w["k"], 2.0)                           # the arm
+	draw_line(Vector2(6, -19), Vector2(6, -16), m["k"], 1.0)
+	_glow(Vector2(6, -13.5), 8.0 * flick, f["b"], 0.75)
+	draw_rect(Rect2(3.5, -16.0, 5.0, 5.0), m["k"])
+	draw_rect(Rect2(4.5, -15.0, 3.0, 3.0), f["a"])
+	draw_rect(Rect2(5.0, -14.5 + (1.0 - flick), 2.0, 2.0), f["c"])
+	draw_rect(Rect2(-8.0, -5.0, 4.0, 5.0), m["k"])                                    # a fuel jar
+	draw_rect(Rect2(-7.5, -4.5, 3.0, 4.0), Color8(150, 96, 40))
+
+## The Whisper's post: a thick post wrapped in felt, with a padded cap.
+func _draw_muffling_post() -> void:
+	var w: Dictionary = GPAL["wood"]
+	var felt: Dictionary = {"k": Color8(20, 20, 18), "a": Color8(70, 72, 62), "b": Color8(110, 112, 96), "c": Color8(156, 158, 138)}
+	draw_rect(Rect2(-4.0, -1.5, 8.0, 1.5), w["k"])
+	draw_rect(Rect2(-3.5, -1.0, 7.0, 0.8), w["a"])
+	draw_rect(Rect2(-3.5, -15.0, 7.0, 14.0), felt["k"])
+	draw_rect(Rect2(-3.0, -14.5, 6.0, 13.0), felt["b"])
+	draw_rect(Rect2(-3.0, -14.5, 2.0, 13.0), felt["c"])
+	for y in [-11.0, -7.0, -3.0]:
+		draw_line(Vector2(-3, y), Vector2(3, y), felt["a"], 1.0)                       # the wrapping
+	_blob(_ellipse(Vector2(0, -17.0), 4.0, 3.2, 10), felt)                            # the padded cap
+	var sway := sin(t * 1.8) * 1.0
+	draw_line(Vector2(3, -12), Vector2(6 + sway, -6), felt["a"], 2.0)                  # a hanging strip
+	draw_line(Vector2(3, -12), Vector2(6 + sway, -6), felt["b"], 1.0)
+
+## The Climber's rack: an A-frame with coils of rope hung on the bar.
+func _draw_rope_rack() -> void:
+	var w: Dictionary = GPAL["wood"]
+	var r: Dictionary = {"k": Color8(26, 18, 10), "a": Color8(90, 70, 40), "b": Color8(146, 116, 70), "c": Color8(196, 166, 110)}
+	for sgn in [-1.0, 1.0]:
+		draw_line(Vector2(sgn * 7.0, 0), Vector2(sgn * 2.0, -16.0), w["k"], 3.0)
+		draw_line(Vector2(sgn * 7.0, 0), Vector2(sgn * 2.0, -16.0), w["b"], 1.0)
+	draw_line(Vector2(-3, -15), Vector2(3, -15), w["k"], 3.0)
+	draw_line(Vector2(-3, -15), Vector2(3, -15), w["c"], 1.0)
+	for i in range(2):
+		var cx := -3.0 + i * 6.0
+		var coil := _ellipse(Vector2(cx, -9.0), 2.8, 5.0, 10)
+		var closed := coil.duplicate()
+		closed.append(coil[0])
+		draw_polyline(closed, r["k"], 3.0)
+		draw_polyline(closed, r["b"], 1.5)
+		draw_line(Vector2(cx - 1.5, -12.0), Vector2(cx - 1.5, -8.0), r["c"], 1.0)
+	var sway := sin(t * 1.6) * 1.0
+	draw_line(Vector2(0, -15), Vector2(0 + sway, -3), r["k"], 2.0)                    # a loose end
+	draw_line(Vector2(0, -15), Vector2(0 + sway, -3), r["b"], 1.0)

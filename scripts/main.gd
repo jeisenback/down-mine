@@ -11,7 +11,9 @@ const BASE_REFUEL_RATE := 6.0 # fuel/s moved from base light to lantern
 # crust. The flag stands this far above the floor the player is on.
 const BASE_PLANT_NOISE := 15.0
 const BASE_FLAG_HEIGHT_ABOVE_PLAYER := 15.0
-const CREW_SPACING := 12.0 # px between crew standing at the base
+const STATION_KIND := {"repair": "bench", "light": "lantern_post", "noise": "muffling_post", "traversal": "rope_rack"}
+const STATION_OFFSET_X := {"light": -20.0, "repair": -34.0, "noise": 20.0, "traversal": 34.0} # px from the flag
+const STATION_SHARE_SPACING := 8.0 # a second miner of a type stands this much further out
 
 # Burrowers surface this far below the player - the noise came from
 # there - and tunnel to the base, so the player can race or chase them.
@@ -127,6 +129,8 @@ var lost_miners: Array[LostMiner] = []
 var crew_at_base: Array[LostMiner] = []
 ## What the crew do at the base (milestone 54), bound each run in _ready.
 var crew_jobs: CrewJobs
+## Crew type -> the station prop drawn for it at the base (children of run_base).
+var stations: Dictionary = {}
 
 func _ready() -> void:
 	player.mine = mine
@@ -253,12 +257,26 @@ func _working_crew() -> Array:
 	var names: Array = crew_at_base.map(func(m): return m.miner_name)
 	return progress.job_crew().filter(func(m): return m.name in names)
 
-## Side by side on the base's floor, flanking the flag.
+## Each crew miner stands at the station for their type on the base's floor
+## (a second of a type stands a little further out). The station props are
+## children of the base, so replanting moves them with it.
 func _place_crew_at_base() -> void:
-	for i in range(crew_at_base.size()):
-		var side := -1 if i % 2 == 0 else 1
-		var offset_x := side * CREW_SPACING * (1 + floori(i / 2.0))
-		crew_at_base[i].global_position = run_base.global_position + Vector2(offset_x, BASE_FLAG_HEIGHT_ABOVE_PLAYER)
+	var seen: Dictionary = {}
+	for miner in crew_at_base:
+		var base_x: float = STATION_OFFSET_X.get(miner.npc_type, 0.0)
+		var n: int = seen.get(miner.npc_type, 0)
+		seen[miner.npc_type] = n + 1
+		var x := base_x + signf(base_x) * STATION_SHARE_SPACING * n
+		miner.global_position = run_base.global_position + Vector2(x, BASE_FLAG_HEIGHT_ABOVE_PLAYER)
+		if not stations.has(miner.npc_type):
+			var station := ArtSprite.new()
+			station.kind = STATION_KIND[miner.npc_type]
+			station.origin = Vector2i(24, 40)
+			station.cell = Vector2i(48, 48)
+			station.z_index = -1 # behind the miner
+			run_base.add_child(station)
+			station.position = Vector2(base_x, BASE_FLAG_HEIGHT_ABOVE_PLAYER + 7.0)
+			stations[miner.npc_type] = station
 
 ## This run's new find (named from miners not on the roster or stranded),
 ## plus every stranded miner, placed in the layer they have drifted to.
@@ -335,6 +353,8 @@ func _process(delta: float) -> void:
 	_check_builds()
 	_check_bell()
 	crew_jobs.tick(delta, _working_crew())
+	for miner in crew_at_base:
+		miner.set_working(crew_jobs.working.get(miner.miner_name, false))
 	if debug_enabled:
 		_check_debug_keys()
 	_check_snuffer_spawn(delta)

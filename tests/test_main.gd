@@ -576,3 +576,55 @@ func test_job_work_in_the_quiet_layers_is_not_heard() -> void:
 	main.crew_jobs.tick(10.0, main._working_crew())
 	assert_eq(main.noise_meter.noise, 0.0, "nothing hears the surface")
 	Progress.path_override = ""
+
+func _four_types() -> Array:
+	return [["Ana", "repair"], ["Bo", "light"], ["Cy", "noise"], ["Di", "traversal"]]
+
+func _miner_named(main: Node, name: String) -> LostMiner:
+	return main.crew_at_base.filter(func(m): return m.miner_name == name)[0]
+
+func test_crew_stand_at_the_station_for_their_type() -> void:
+	var main: Node = await _main_with_crew(_four_types(), {"crew_bunk": 3})
+	var offsets := {"Ana": -34.0, "Bo": -20.0, "Cy": 20.0, "Di": 34.0}
+	for name in offsets:
+		var m := _miner_named(main, name)
+		assert_eq(m.global_position - main.run_base.global_position, Vector2(offsets[name], Main.BASE_FLAG_HEIGHT_ABOVE_PLAYER), "%s stands at their station" % name)
+	var kinds := {"repair": "bench", "light": "lantern_post", "noise": "muffling_post", "traversal": "rope_rack"}
+	for type in kinds:
+		var station: ArtSprite = main.stations[type]
+		assert_eq(station.kind, kinds[type], "%s station is a %s" % [type, kinds[type]])
+		assert_eq(station.get_parent(), main.run_base, "stations hang off the base")
+	Progress.path_override = ""
+
+func test_a_second_miner_of_a_type_stands_beside_the_first() -> void:
+	var main: Node = await _main_with_crew([["Ana", "repair"], ["Ben", "repair"]], {"crew_bunk": 1})
+	var first := _miner_named(main, "Ana").global_position.x
+	var second := _miner_named(main, "Ben").global_position.x
+	assert_eq(absf(second - first), 8.0, "8 px apart")
+	assert_true(absf(second - main.run_base.global_position.x) > absf(first - main.run_base.global_position.x), "the second stands further out")
+	assert_eq(main.stations.size(), 1, "one station for the type")
+	Progress.path_override = ""
+
+func test_replanting_the_base_moves_stations_and_crew() -> void:
+	var main: Node = await _main_with_crew(_four_types(), {"crew_bunk": 3})
+	main.run_base.global_position += Vector2(300, 120)
+	main._place_crew_at_base()
+	var ana := _miner_named(main, "Ana")
+	assert_eq(ana.global_position - main.run_base.global_position, Vector2(-34.0, Main.BASE_FLAG_HEIGHT_ABOVE_PLAYER), "crew followed")
+	var bench: ArtSprite = main.stations["repair"]
+	assert_eq(bench.global_position.x - main.run_base.global_position.x, -34.0, "and so did the station")
+	Progress.path_override = ""
+
+func test_working_miners_dig_and_idle_ones_stand() -> void:
+	var main: Node = await _main_with_crew([["Ana", "repair"]])
+	var ana := _miner_named(main, "Ana")
+	main.player.currency = 50
+	main._process(0.016)
+	assert_eq(ana.art.art.state, "idle", "a healthy base gives the Mender nothing to do")
+	main.run_base.health = 1
+	main._process(0.016)
+	assert_eq(ana.art.art.state, "dig", "a damaged base puts them to work")
+	main.player.currency = 0
+	main._process(0.016)
+	assert_eq(ana.art.art.state, "idle", "no ore: they stop")
+	Progress.path_override = ""

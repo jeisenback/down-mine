@@ -80,6 +80,12 @@ func use(main: Node) -> void:
 	_refresh_art()
 	picked_up.emit()
 
+## The crew's job pose: digging while their job works, standing otherwise.
+## Nothing happens to a miner still sitting waiting to be found.
+func set_working(on: bool) -> void:
+	if art != null and art.kind == "player":
+		art.art.state = "dig" if on else "idle"
+
 ## Moves straight to pos and forgets the trail (the lift ride).
 func teleport_to(pos: Vector2) -> void:
 	_trail.clear()
