@@ -81,10 +81,49 @@ func _glow(c: Vector2, r: float, col: Color, strength: float) -> void:
 		var k := 1.0 - i / 3.0
 		draw_circle(c, r * (0.45 + 0.55 * k), Color(col.r, col.g, col.b, strength * (0.12 + 0.1 * (1.0 - k))))
 
-# --- the Stalker: a low, many-legged dark crawler with mandibles --------------
+# --- the Stalker: a big dark spider ------------------------------------------
 
 func _draw_stalker() -> void:
 	var p: Dictionary = PAL["stalker"]
+	var lunge := pose * 3.0
+	var bob := sin(t * 3.0) * 0.5
+	var ground := 7.0
+	var thorax := Vector2(2.0 + lunge, -2.0 + bob)
+	var abdomen := Vector2(-4.5 + lunge * 0.4, -1.5 + bob * 0.6)
+	# eight legs: long, high-kneed, splayed front and back; far side darker
+	for i in range(8):
+		var far := i % 2 == 0
+		var slot := i / 2                                   # 0 front .. 3 rear
+		var dir := 1.0 if slot < 2 else -1.0
+		var reach: float = [10.0, 7.0, 8.0, 11.0][slot] + (1.0 if far else 0.0)
+		var ph := t * 4.0 + (PI if far else 0.0) + slot * 1.6
+		var hip := thorax + Vector2(-slot * 2.2 + 1.5, 1.0)
+		var knee := hip + Vector2(dir * (reach * 0.5), -7.0 + sin(ph) * 0.8)
+		if slot == 0:
+			knee.y -= 1.5 + pose * 3.0                       # front legs reach up and out
+		var foot := Vector2(hip.x + dir * reach + (lunge if slot == 0 else 0.0), ground - maxf(0.0, cos(ph)) * 1.5 - (1.0 if far else 0.0))
+		if slot == 0:
+			foot.y -= pose * 5.0
+		var leg := PackedVector2Array([hip, knee, foot])
+		draw_polyline(leg, p["k"], 2.0)
+		draw_polyline(leg, p["a"] if far else p["c"], 1.0)
+	# round abdomen with a mark, smaller thorax
+	_blob(_ellipse(abdomen, 5.2, 4.4, 16), p)
+	draw_colored_polygon(PackedVector2Array([abdomen + Vector2(-2.6, -1.0), abdomen + Vector2(0.0, -2.6), abdomen + Vector2(0.6, 0.6)]), p["e"].darkened(0.35))
+	_blob(_ellipse(thorax, 3.4, 2.9, 12), p)
+	# eyes: a cluster of four, plus fangs
+	var flare := 0.8 + 0.2 * sin(t * 7.0)
+	for e in [Vector2(1.6, -1.2), Vector2(2.6, -0.4), Vector2(0.6, -0.6), Vector2(1.8, 0.3)]:
+		_glow(thorax + e, 1.6, p["e"], flare * 0.6)
+		draw_rect(Rect2(thorax + e - Vector2(0.5, 0.5), Vector2(1, 1)), p["e"])
+	var fang := 0.4 + 0.4 * sin(t * 5.0) + pose
+	for side in [-1.0, 1.0]:
+		draw_line(thorax + Vector2(3.0, 0.8 + side * 0.9), thorax + Vector2(4.2, 2.6 + side * 0.3 * fang), p["m"], 1.0)
+
+# --- the Burrower: a low, many-legged crawler with mandibles --------------
+
+func _draw_burrower() -> void:
+	var p: Dictionary = PAL["burrower"]
 	var lunge := pose * 3.0
 	var bob := sin(t * 9.0) * 0.4
 	var body_c := Vector2(-1.0 + lunge * 0.5, 0.5 + bob)
@@ -130,37 +169,6 @@ func _draw_stalker() -> void:
 		draw_rect(Rect2(head_c + e - Vector2(0.5, 0.5), Vector2(1, 1)), p["e"])
 
 
-# --- the Burrower: an armoured, many-legged worm -----------------------------
-
-func _draw_burrower() -> void:
-	var p: Dictionary = PAL["burrower"]
-	var open := 0.5 + 0.5 * sin(t * 6.0) if pose == 0.0 else pose
-	var seg_count := 7
-	var spacing := 4.2
-	# tail first, head last
-	for i in range(seg_count, 0, -1):
-		var c := Vector2(-i * spacing, sin(t * 6.0 - i * 0.9) * 1.8 * min(1.0, i / 2.0))
-		var r := lerpf(5.0, 2.6, float(i) / seg_count)
-		# legs, alternating
-		for side in [-1.0, 1.0]:
-			var swing := sin(t * 10.0 + i * 1.7) * 1.4
-			draw_line(c + Vector2(0, r * 0.7 * side), c + Vector2(swing, (r + 2.2) * side), p["k"], 1.0)
-		_blob(_ellipse(c, r + 0.8, r, 12), p)
-		draw_line(c + Vector2(-r * 0.7, -r * 0.6), c + Vector2(-r * 0.7, r * 0.6), p["a"], 1.0)  # a ring groove
-	# the head
-	var hc := Vector2(2.0, 0.0)
-	_blob(_ellipse(hc, 6.2, 5.2, 14), p)
-	draw_colored_polygon(PackedVector2Array([hc + Vector2(-2, -4.2), hc + Vector2(3, -4.2), hc + Vector2(4, -2.5), hc + Vector2(-2, -2.5)]), p["c"])
-	var eye := hc + Vector2(2.0, -0.5)
-	_glow(eye, 2.6, p["e"], 0.9)
-	draw_rect(Rect2(eye - Vector2(0.5, 0.5), Vector2(1.5, 1)), p["e"])
-	# mandibles, opening and closing
-	for side in [-1.0, 1.0]:
-		var base := hc + Vector2(5.0, 2.4 * side)
-		var tip := base + Vector2(3.0, (2.0 + 2.2 * open) * side * -1.0)
-		var mid := base + Vector2(2.0, 1.2 * side * (1.0 + open))
-		draw_polyline(PackedVector2Array([base, mid, tip]), p["k"], 2.0)
-		draw_polyline(PackedVector2Array([base, mid, tip]), p["m"], 1.0)
 
 # --- the Snuffer: a light-eating jellyfish -------------------------------------
 
