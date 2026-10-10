@@ -9,6 +9,8 @@ const ROWS := [
 	["flag", "idle", 0.0], ["flag", "idle", 0.5], ["beacon", "idle", 0.0], ["bell", "idle", 0.0],
 	["support", "idle", 0.0], ["lamp", "idle", 0.0], ["lamp", "idle", 0.3], ["bell", "idle", 1.0],
 	["support", "idle", 0.5], ["support", "idle", 1.0],
+	["ladder", "idle", 0.0], ["ladder", "idle", 0.9], ["rope", "idle", 0.0], ["rope", "idle", 0.9],
+	["anchor", "idle", 0.0], ["camp", "idle", 0.0], ["lift", "idle", 0.0], ["lift", "idle", 0.7],
 ]
 const COLS := 8
 const CELL := 48
@@ -29,8 +31,9 @@ func _initialize() -> void:
 		art.state = r[1]
 		art.animate = false
 		art.t = r[2]
-		art.pose = 1.0 if r[0] == "bell" and r[2] == 1.0 else (r[2] if r[0] == "support" else 0.0)
-		art.position = Vector2(CELL / 2, CELL / 2 + (14 if r[0] in ["player", "flag", "support", "lamp"] else 0))
+		art.pose = 1.0 if r[0] == "bell" and r[2] == 1.0 else (r[2] if r[0] in ["support", "lift"] else (1.0 if r[0] in ["ladder", "rope"] and r[2] > 0.5 else 0.0))
+		art.length = 40.0
+		art.position = Vector2(CELL / 2, CELL / 2 + (14 if r[0] in ["player", "flag", "support", "lamp", "anchor", "camp"] else (20 if r[0] in ["ladder", "lift"] else (-20 if r[0] == "rope" else 0))))
 		vp.add_child(art)
 		root.add_child(vp)
 		vps.append(vp)

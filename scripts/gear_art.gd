@@ -6,7 +6,8 @@ class_name GearArt
 ## for the miner, `state` is idle / run / dig / jump / fall. The origin is the
 ## feet (miner, flag, support, lamp) or the object's centre (beacon, bell).
 
-@export_enum("player", "flag", "beacon", "bell", "support", "lamp") var gear: String = "player"
+@export_enum("player", "flag", "beacon", "bell", "support", "lamp", "ladder", "rope", "anchor", "camp", "lift") var gear: String = "player"
+@export var length: float = 64.0   # ladder, rope and lift: how tall they stand or hang
 @export_enum("idle", "run", "dig", "jump", "fall") var state: String = "idle"
 
 const GPAL := {
@@ -29,6 +30,11 @@ func _draw() -> void:
 		"bell": _draw_bell()
 		"support": _draw_support()
 		"lamp": _draw_lamp()
+		"ladder": _draw_ladder()
+		"rope": _draw_rope()
+		"anchor": _draw_anchor()
+		"camp": _draw_camp()
+		"lift": _draw_lift()
 
 func _limb(pts: PackedVector2Array, col: Color, hi: Color, w: float = 2.0) -> void:
 	draw_polyline(pts, GPAL["player"]["k"], w + 1.0)
@@ -232,3 +238,121 @@ func _draw_lamp() -> void:
 	draw_rect(Rect2(-1.5, -14.0, 3.0, 4.0), f["a"])
 	draw_rect(Rect2(-1.0, -13.0 + (1.0 - flick), 2.0, 2.5), f["c"])
 	draw_colored_polygon(PackedVector2Array([Vector2(-3, -15), Vector2(3, -15), Vector2(0, -17.5)]), m["a"])
+
+# --- climbing tools -----------------------------------------------------------
+
+## A ladder standing up from its feet; `pose` is wear: rungs snap and rails crack.
+func _draw_ladder() -> void:
+	var w: Dictionary = GPAL["wood"]
+	var top := -length
+	for x in [-4.0, 3.0]:
+		draw_rect(Rect2(x - 1.5, top, 3.0, length), w["k"])
+		draw_rect(Rect2(x - 1.0, top, 2.0, length), w["b"])
+		draw_rect(Rect2(x - 1.0, top, 0.8, length), w["c"])
+	var n := int(length / 8.0)
+	for i in range(n):
+		var y := -3.0 - i * 8.0
+		var snapped := pose > 0.5 and (i * 7 + 3) % 5 == 0
+		var x1 := -4.0
+		var x2 := 3.0
+		if snapped:
+			x2 = -0.5                                    # a broken rung, one stub left
+		draw_line(Vector2(x1, y), Vector2(x2, y), w["k"], 3.0)
+		draw_line(Vector2(x1, y - 0.5), Vector2(x2, y - 0.5), w["c"], 1.0)
+		draw_line(Vector2(x1, y + 0.5), Vector2(x2, y + 0.5), w["a"], 1.0)
+	if pose > 0.3:
+		for i in range(int(pose * 3.0) + 1):
+			var y := top + 6.0 + i * 13.0
+			draw_line(Vector2(-4.0, y), Vector2(-3.0, y + 4.0), w["k"], 1.0)
+
+## A rope hanging from its top: twisted strands, a knot at the top, a frayed end.
+func _draw_rope() -> void:
+	var r: Dictionary = {"k": Color8(26, 18, 10), "a": Color8(90, 70, 40), "b": Color8(146, 116, 70), "c": Color8(196, 166, 110)}
+	var sway := sin(t * 1.6) * 1.2
+	var prev_a := Vector2.ZERO
+	var prev_b := Vector2.ZERO
+	var steps := int(length / 2.0)
+	for i in range(steps + 1):
+		var y := i * 2.0
+		var f := float(i) / steps
+		var cx := sway * f * f
+		var twist := sin(i * 0.9) * 1.3
+		var a := Vector2(cx + twist, y)
+		var b := Vector2(cx - twist, y)
+		if i > 0:
+			draw_line(prev_b, b, r["k"], 2.0)
+			draw_line(prev_a, a, r["k"], 2.0)
+			draw_line(prev_b, b, r["a"], 1.0)
+			draw_line(prev_a, a, r["b"] if sin(i * 0.9) > 0 else r["c"], 1.0)
+		prev_a = a
+		prev_b = b
+	draw_rect(Rect2(-2.5, 0.0, 5.0, 3.0), r["k"])                                  # the knot
+	draw_rect(Rect2(-2.0, 0.5, 4.0, 2.0), r["b"])
+	var end := Vector2(sway, length)
+	for d in [-2.0, -0.8, 0.8, 2.0]:
+		draw_line(end, end + Vector2(d + sway * 0.3, 2.5 + absf(d) * 0.4), r["c"], 1.0)  # frayed end
+	if pose > 0.5:
+		var mid := Vector2(sway * 0.25, length * 0.45)
+		draw_rect(Rect2(mid + Vector2(-1.0, -1.0), Vector2(2.0, 2.0)), r["k"])    # a worn thin spot
+
+## A hammered iron ring set into rock above the spike.
+func _draw_anchor() -> void:
+	var m: Dictionary = GPAL["metal"]
+	draw_colored_polygon(PackedVector2Array([Vector2(-1.5, -1.0), Vector2(1.5, -1.0), Vector2(0.5, 5.0), Vector2(-0.5, 5.0)]), m["a"])   # the spike
+	draw_rect(Rect2(-3.0, -2.5, 6.0, 2.0), m["k"])
+	draw_rect(Rect2(-2.5, -2.0, 5.0, 1.0), m["b"])
+	var ring := _ellipse(Vector2(0, -6.0), 3.2, 3.6, 12)
+	var closed := ring.duplicate()
+	closed.append(ring[0])
+	draw_polyline(closed, m["k"], 3.0)
+	draw_polyline(closed, m["b"], 1.5)
+	draw_arc(Vector2(0, -6.0), 3.2, PI, PI * 1.5, 6, m["c"], 1.0)
+	var glint := fmod(t, 3.0)
+	if glint < 0.25:
+		draw_rect(Rect2(-2.0, -9.0, 1.0, 1.0), Color.WHITE)
+
+# --- events ---------------------------------------------------------------------
+
+## A patched tent and a small fire.
+func _draw_camp() -> void:
+	var c: Dictionary = {"k": Color8(20, 16, 10), "a": Color8(76, 66, 46), "b": Color8(120, 106, 74), "c": Color8(168, 150, 104)}
+	var tent := PackedVector2Array([Vector2(-15, 0), Vector2(-6, -13), Vector2(3, 0)])
+	draw_colored_polygon(_shift(tent, Vector2(1, 0)), c["a"])
+	draw_colored_polygon(tent, c["b"])
+	draw_colored_polygon(PackedVector2Array([Vector2(-15, 0), Vector2(-6, -13), Vector2(-7, 0)]), c["c"])
+	draw_colored_polygon(PackedVector2Array([Vector2(-9.5, 0), Vector2(-6, -7), Vector2(-3, 0)]), c["k"])   # the opening
+	draw_polyline(tent + PackedVector2Array([tent[0]]), c["k"], 1.0)
+	draw_rect(Rect2(-11.5, -4.5, 3.0, 2.5), c["a"])                                  # a patch
+	draw_line(Vector2(-6, -13), Vector2(-6, -16), c["k"], 1.0)
+	draw_line(Vector2(5.5, -0.5), Vector2(12, -0.5), GPAL["wood"]["k"], 2.0)          # a log
+	draw_line(Vector2(5.5, -1.0), Vector2(12, -1.0), GPAL["wood"]["b"], 1.0)
+	var flick := 0.85 + 0.15 * sin(t * 12.0) + 0.07 * sin(t * 27.0)
+	var f: Dictionary = GPAL["flame"]
+	_glow(Vector2(8.5, -3.0), 8.0 * flick, f["b"], 0.8)
+	var flame := PackedVector2Array([Vector2(6.0, -1.5), Vector2(6.8, -4.0 * flick), Vector2(7.8, -2.5), Vector2(8.8, -7.0 * flick), Vector2(9.8, -3.0), Vector2(10.8, -4.5 * flick), Vector2(11.2, -1.5)])
+	draw_colored_polygon(flame, f["a"])
+	draw_colored_polygon(_shrink(flame, 0.6), f["b"])
+	draw_colored_polygon(_shift(_shrink(flame, 0.3), Vector2(0, 1.0)), f["c"])
+
+## A mine lift: guide rails, a chain and a caged platform; `pose` slides the cage.
+func _draw_lift() -> void:
+	var m: Dictionary = GPAL["metal"]
+	var w: Dictionary = GPAL["wood"]
+	var top := -length
+	for x in [-8.0, 7.0]:
+		draw_rect(Rect2(x - 1.5, top, 3.0, length), m["k"])
+		draw_rect(Rect2(x - 1.0, top, 2.0, length), m["a"])
+		draw_rect(Rect2(x - 1.0, top, 0.8, length), m["b"])
+	for i in range(int(length / 16.0)):
+		draw_line(Vector2(-8, -4.0 - i * 16.0), Vector2(7, -12.0 - i * 16.0), m["a"], 1.0)     # lattice
+	var cage_y := -4.0 - pose * (length - 24.0)
+	draw_line(Vector2(0, top), Vector2(0, cage_y - 12.0), m["k"], 2.0)
+	for i in range(int((cage_y - 12.0 - top) / 3.0)):
+		draw_rect(Rect2(-1.0, top + i * 3.0, 2.0, 1.5), m["b"])                                # chain links
+	draw_rect(Rect2(-7.0, cage_y - 12.0, 14.0, 12.0), m["k"])                                  # the cage
+	draw_rect(Rect2(-6.0, cage_y - 11.0, 12.0, 10.0), Color8(34, 30, 28))
+	for x in [-4.0, -1.0, 2.0, 5.0]:
+		draw_line(Vector2(x, cage_y - 11.0), Vector2(x, cage_y - 1.0), m["b"], 1.0)
+	draw_rect(Rect2(-8.0, cage_y, 16.0, 2.0), w["k"])                                          # the floor planks
+	draw_rect(Rect2(-7.5, cage_y, 15.0, 1.0), w["b"])
+	draw_rect(Rect2(-1.5, cage_y - 14.0, 3.0, 3.0), m["c"])
