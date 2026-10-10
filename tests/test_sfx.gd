@@ -27,3 +27,7 @@ func test_play_uses_the_pool() -> void:
 	assert_eq(pool.get_child_count(), Sfx.POOL_SIZE, "pool size")
 	await tree.process_frame
 	assert_true(pool.get_children().any(func(p): return p.stream == Sfx.stream("ore")), "a player got the ore sound")
+
+func test_the_wave_rumble_is_longer_than_half_a_second() -> void:
+	assert_true(Sfx.SOUNDS.has("rumble"), "listed")
+	assert_true(Sfx.stream("rumble").data.size() > Sfx.SAMPLE_RATE / 2 * 2, "longer than half a second of 16-bit samples")

@@ -130,9 +130,17 @@ single dug tile or the mine crumbling) within 30 tiles of a Stalker alerts
 it for 4s - it hunts at full speed and forgets any retreat. Nothing in the
 base's light changes: it is still pushed out.
 
-**The mine's clock**: from 240s into a run the mine sends a Burrower at the
-base every 90s (shrinking to 45s by 480s, halved while you carry the
-Heart), whatever you did. The alarm bell rings 10s before one surfaces.
+**The mine's clock**: from 240s into a run the mine sends waves of Burrowers at the
+base, every 90s (shrinking to 45s by 480s, halved while you carry the Heart),
+whatever you did. Waves come in cycles of five: 1, 1, 2, 2 and a peak of 4
+Burrowers, each cycle one bigger, with a calm of twice the interval after every
+peak (never more than 8 alive). A line under Base always shows the countdown
+("Wave in 42 s", red in the last 10 s) and marks a peak; the alarm bell adds the
+wave's size and rings 10s before it surfaces. When a wave surfaces the screen
+shakes and a rumble plays. The base light fights back: a Burrower inside it is
+slowed and loses health, faster the fuller the light (a full light kills one in
+10s), and three times faster while you flare inside the light - so fuel, walls
+and a Lamplighter are your defence while you are away.
 Deep digging is quiet to a surface base, but staying long enough costs
 you the base anyway.
 

@@ -18,6 +18,12 @@ const STATION_SHARE_SPACING := 8.0 # a second miner of a type stands this much f
 # Burrowers surface this far below the player - the noise came from
 # there - and tunnel to the base, so the player can race or chase them.
 const BURROWER_SPAWN_OFFSET_TILES := 10
+# Rhythm of threat (milestone 55): a wave is a group, spread across columns
+# (tiles from the base's column, in order) and never past this many alive.
+const MAX_LIVE_BURROWERS := 8
+const WAVE_SHAKE_SECONDS := 0.5 # the camera shakes when a wave surfaces, twice as hard for a peak
+const WAVE_SHAKE_PIXELS := 2.0
+const WAVE_SPREAD_TILES := [0, -3, 3, -6, 6, -9, 9, -12]
 const BurrowerScene := preload("res://scenes/Burrower.tscn")
 
 # Placed lights (milestone 20): a few per run, noisy to place.
@@ -116,6 +122,13 @@ var run_seconds: float = 0.0
 var burrowers_spawned: int = 0 # from noise
 var waves_spawned: int = 0 # from the mine's clock
 var mine_clock := MineClock.new()
+# The wave tremor. Its own generator, so shaking never moves the mine's seeded
+# random stream.
+var _shake_rng := RandomNumberGenerator.new()
+var _shake_total: float = 0.0
+var _shake_left: float = 0.0
+var _shake_pixels: float = 0.0
+var _shake_rest := Vector2.ZERO
 # Debug keys (milestone 43), only with the debug launch option.
 const DEBUG_KEYS := [KEY_I, KEY_O, KEY_U, KEY_N, KEY_K, KEY_M]
 const DEBUG_ORE := 100
@@ -332,6 +345,7 @@ func _configure_camera_limits() -> void:
 
 func _process(delta: float) -> void:
 	if run_ended:
+		_finish_shake()
 		return
 	run_seconds += delta
 	match mine_clock.tick(delta, run_seconds, carrying_heart):
@@ -340,6 +354,9 @@ func _process(delta: float) -> void:
 				Sfx.play("alarm", -4.0)
 		"wave":
 			_spawn_wave()
+	hud.update_wave(MineClock.hud_text(mine_clock.seconds_to_next(), mine_clock.next_wave_number(), mine_clock.in_calm(), run_base.has_bell, run_seconds),
+		run_seconds >= MineClock.MINE_WAKE_SECONDS and mine_clock.seconds_to_next() <= MineClock.WAVE_WARNING_SECONDS)
+	_update_shake(delta)
 	hud.update_fuel(player.light.fuel_fraction())
 	hud.update_health(player.health)
 	_check_layer()
@@ -703,10 +720,48 @@ func _on_noise_threshold() -> void:
 	burrowers_spawned += 1
 	_spawn_burrower(mine.world_to_cell(player.global_position))
 
-## The mine's clock sends one at the base, whatever the player did.
+## The mine's clock sends a group at the base, whatever the player did: the
+## size of the wave the clock has just counted, spread across columns and
+## clipped to the live cap (the shortfall is not made up).
 func _spawn_wave() -> void:
 	waves_spawned += 1
-	_spawn_burrower(mine.world_to_cell(run_base.global_position))
+	var number := maxi(1, mine_clock.wave_number)
+	var peak := MineClock.is_peak(number)
+	Sfx.play("rumble", 0.0 if peak else -6.0)
+	_shake_camera(WAVE_SHAKE_SECONDS, WAVE_SHAKE_PIXELS * (2.0 if peak else 1.0))
+	var alive := get_tree().get_nodes_in_group("burrowers").size()
+	var count := mini(MineClock.wave_size(number), MAX_LIVE_BURROWERS - alive)
+	var base_cell := mine.world_to_cell(run_base.global_position)
+	for i in range(maxi(0, count)):
+		_spawn_burrower(base_cell + Vector2i(WAVE_SPREAD_TILES[i], 0))
+
+## Starts the camera shaking for `seconds` at up to `pixels`. A second shake
+## while one is running keeps the camera's true rest offset.
+func _shake_camera(seconds: float, pixels: float) -> void:
+	var camera := player.get_node("Camera2D") as Camera2D
+	if _shake_left <= 0.0:
+		_shake_rest = camera.offset
+	_shake_total = seconds
+	_shake_left = seconds
+	_shake_pixels = pixels
+
+func _update_shake(delta: float) -> void:
+	if _shake_left <= 0.0:
+		return
+	var camera := player.get_node("Camera2D") as Camera2D
+	_shake_left = maxf(0.0, _shake_left - delta)
+	if _shake_left <= 0.0:
+		camera.offset = _shake_rest
+		return
+	var strength := _shake_pixels * _shake_left / _shake_total
+	camera.offset = _shake_rest + Vector2(_shake_rng.randf_range(-1.0, 1.0), _shake_rng.randf_range(-1.0, 1.0)) * strength
+
+## Puts the camera back where it rests, whatever the shake was doing.
+func _finish_shake() -> void:
+	if _shake_left <= 0.0:
+		return
+	_shake_left = 0.0
+	(player.get_node("Camera2D") as Camera2D).offset = _shake_rest
 
 ## Surfaces a Burrower BURROWER_SPAWN_OFFSET_TILES below `origin`, bound for
 ## the base.

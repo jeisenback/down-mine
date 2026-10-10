@@ -628,3 +628,142 @@ func test_working_miners_dig_and_idle_ones_stand() -> void:
 	main._process(0.016)
 	assert_eq(ana.art.art.state, "idle", "no ore: they stop")
 	Progress.path_override = ""
+
+# --- waves bring groups (rhythm of threat, milestone 55) ---------------------------------
+
+func _new_main() -> Node:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(3)
+	return main
+
+func _live(main: Node) -> Array:
+	return main.get_tree().get_nodes_in_group("burrowers")
+
+func test_a_wave_spawns_its_whole_group_spread_out() -> void:
+	var main: Node = await _new_main()
+	var before := _live(main).size()
+	main.mine_clock.wave_number = 3 # a wave of two
+	main._spawn_wave()
+	var group := _live(main).slice(before)
+	assert_eq(group.size(), 2, "two Burrowers")
+	var xs := group.map(func(b): return b.global_position.x)
+	assert_eq(xs[0] - xs[1], 3.0 * MineGrid.TILE_SIZE, "one in the base's column, one three tiles left of it")
+	assert_eq(main.waves_spawned, 1, "one wave, however many Burrowers")
+	Progress.path_override = ""
+
+func test_a_peak_wave_is_four_burrowers_in_the_first_four_spread_columns() -> void:
+	var main: Node = await _new_main()
+	var before := _live(main).size()
+	main.mine_clock.wave_number = 5
+	main._spawn_wave()
+	var group := _live(main).slice(before)
+	assert_eq(group.size(), 4, "the peak")
+	var base_x: float = main.mine.cell_to_world(main.mine.world_to_cell(main.run_base.global_position)).x
+	var offsets := group.map(func(b): return roundi((b.global_position.x - base_x) / MineGrid.TILE_SIZE))
+	assert_eq(offsets, [0, -3, 3, -6], "columns 0, -3, 3, -6")
+	Progress.path_override = ""
+
+func test_the_live_cap_clips_a_wave_and_counts_noise_burrowers() -> void:
+	var main: Node = await _new_main()
+	var start := _live(main).size()
+	for i in range(6 - start):
+		main._on_noise_threshold() # noise-summoned Burrowers count too
+	assert_eq(_live(main).size(), 6, "six alive")
+	main.mine_clock.wave_number = 5 # a peak of four
+	main._spawn_wave()
+	assert_eq(_live(main).size(), Main.MAX_LIVE_BURROWERS, "only two fit")
+	main._spawn_wave()
+	assert_eq(_live(main).size(), Main.MAX_LIVE_BURROWERS, "none fit")
+	assert_eq(main.waves_spawned, 2, "both still count as waves")
+	for i in range(3):
+		main._on_noise_threshold()
+	main._spawn_wave() # over the cap already: no error, nothing added
+	assert_eq(_live(main).size(), Main.MAX_LIVE_BURROWERS + 3, "noise can exceed the cap, waves cannot")
+	Progress.path_override = ""
+
+func test_wave_positions_are_deterministic() -> void:
+	var runs: Array = []
+	for i in range(2):
+		MineGrid.next_seed = 1001
+		var main: Node = await _new_main()
+		var before := _live(main).size()
+		main.mine_clock.wave_number = 5
+		main._spawn_wave()
+		runs.append(_live(main).slice(before).map(func(b): return b.global_position))
+		main.free()
+		await physics_frames(2)
+	assert_eq(runs[0], runs[1], "the same seed builds the same group in the same places")
+	Progress.path_override = ""
+
+# --- the wave line and the cue (rhythm of threat, milestone 55) --------------------------
+
+func test_wave_line_is_urgent_in_the_last_ten_seconds() -> void:
+	var hud: HUD = add(load("res://scenes/HUD.tscn").instantiate())
+	await physics_frames(2)
+	hud.update_wave("Wave in 9 s", true)
+	assert_eq(hud.wave_label.text, "Wave in 9 s", "text")
+	assert_eq(hud.wave_label.modulate, Color(1, 0.4, 0.3), "red when urgent")
+	hud.update_wave("Wave in 40 s", false)
+	assert_eq(hud.wave_label.modulate, Color(1, 1, 1), "white otherwise")
+
+func test_main_shows_the_countdown_always_and_the_size_only_with_the_bell() -> void:
+	var main: Node = await _new_main()
+	main.run_seconds = 300.0
+	main._process(0.016)
+	assert_true(main.hud.wave_label.text.begins_with("Wave in"), "the countdown is always there (%s)" % main.hud.wave_label.text)
+	assert_true(not main.hud.wave_label.text.contains("Burrower"), "no size without the bell")
+	main.run_base.build_bell()
+	main._process(0.016)
+	assert_true(main.hud.wave_label.text.contains("Burrower"), "the bell adds the size (%s)" % main.hud.wave_label.text)
+	Progress.path_override = ""
+
+func test_a_wave_shakes_the_camera_and_the_peak_shakes_harder() -> void:
+	var main: Node = await _new_main()
+	var camera := main.player.get_node("Camera2D") as Camera2D
+	var rest := camera.offset
+	main.mine_clock.wave_number = 2
+	main._spawn_wave()
+	assert_eq(main._shake_pixels, Main.WAVE_SHAKE_PIXELS, "an ordinary wave")
+	main._update_shake(0.1)
+	assert_true(camera.offset != rest, "the camera is off its rest")
+	assert_true(camera.offset.length() <= Main.WAVE_SHAKE_PIXELS * 1.5, "by no more than the amplitude")
+	main._update_shake(Main.WAVE_SHAKE_SECONDS)
+	assert_eq(camera.offset, rest, "restored exactly")
+	main.mine_clock.wave_number = 5
+	main._spawn_wave()
+	assert_eq(main._shake_pixels, Main.WAVE_SHAKE_PIXELS * 2.0, "a peak shakes twice as hard")
+	Progress.path_override = ""
+
+func test_a_second_wave_mid_shake_still_restores_the_true_rest_offset() -> void:
+	var main: Node = await _new_main()
+	var camera := main.player.get_node("Camera2D") as Camera2D
+	var rest := camera.offset
+	main._shake_camera(Main.WAVE_SHAKE_SECONDS, 2.0)
+	main._update_shake(0.2)
+	main._shake_camera(Main.WAVE_SHAKE_SECONDS, 2.0) # a second wave while the camera is off rest
+	main._update_shake(Main.WAVE_SHAKE_SECONDS + 0.1)
+	assert_eq(camera.offset, rest, "the rest offset was not overwritten by the shaken one")
+	Progress.path_override = ""
+
+func test_a_run_ending_mid_shake_restores_the_camera() -> void:
+	var main: Node = await _new_main()
+	var camera := main.player.get_node("Camera2D") as Camera2D
+	var rest := camera.offset
+	main._shake_camera(Main.WAVE_SHAKE_SECONDS, 2.0)
+	main._update_shake(0.1)
+	main.run_ended = true
+	main._process(0.1)
+	assert_eq(camera.offset, rest, "restored when the run ends")
+	Progress.path_override = ""
+
+func test_the_shake_does_not_touch_the_global_random_generator() -> void:
+	var main: Node = await _new_main()
+	seed(7)
+	var expected := randf()
+	seed(7)
+	main._shake_camera(Main.WAVE_SHAKE_SECONDS, 2.0)
+	for i in range(10):
+		main._update_shake(0.05)
+	assert_eq(randf(), expected, "the shake draws from its own generator")
+	Progress.path_override = ""
