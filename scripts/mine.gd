@@ -57,9 +57,10 @@ const GAS_ATLAS_OFFSET := LAYER_COUNT
 const BEDROCK_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT, 0)
 const WALL_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 1, 0)
 const VAULT_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 2, 0)
-# The old mine's tiles (milestone 51), drawn in code until real art: rock
-# with timber across it for the collapse, and a collision-free timber frame
-# drawn on the decor layer along the shaft's sides.
+# The old mine's tiles (milestone 51): rock with timber across it for the
+# collapse, and a collision-free timber frame drawn on the decor layer along
+# the shaft's sides. Their art (milestone 52) is drawn by tools/make_props.py
+# into the props sheet at the ART_* origins below.
 const DEBRIS_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 3, 0)
 const FRAME_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 4, 0)
 # The galleries (milestone 51b; "drifts" in code, since Gallery is the
@@ -77,7 +78,11 @@ const DRIFT_COLLAPSE_MAX := 8
 const LIFT_ROWS_FROM_CLAY_BOTTOM := 1
 const DRIFT_END_CLEAR := 4 # open tiles kept at each end of a collapsed section
 const DECOR_LAYER := 1
-const TIMBER_COLOR := Color(0.45, 0.3, 0.15)
+const OLD_MINE_ART := preload("res://assets/custom/props.png")
+const ART_FRAME := Vector2i(0, 176)
+const ART_POST := Vector2i(16, 176)
+const ART_PLANK := Vector2i(32, 176)
+const ART_DEBRIS := Vector2i(48, 176) # an overlay: translucent over Stone's rock
 
 # Bedrock: indestructible, forms the map's outer walls/floor so digging
 # can never open a path out of the generated area.
@@ -245,22 +250,17 @@ func _build_tileset() -> void:
 			# The vault shell: the deepest layer's tile, tinted brass.
 			var deep := image.get_pixel(layer_atlas(LAYERS.size() - 1).x * TILE_SIZE + x, y)
 			image.set_pixel(VAULT_ATLAS_COORDS.x * TILE_SIZE + x, y, deep.lerp(VAULT_TINT, VAULT_TINT_STRENGTH))
-	# Collapse debris: Stone's rock with two planks and a post across it.
-	for x in range(TILE_SIZE):
-		for y in range(TILE_SIZE):
-			var rock := image.get_pixel(layer_atlas(2).x * TILE_SIZE + x, y)
-			var plank := (y >= 3 and y < 5) or (y >= 11 and y < 13) or (x >= 7 and x < 9)
-			image.set_pixel(DEBRIS_ATLAS_COORDS.x * TILE_SIZE + x, y, TIMBER_COLOR if plank else rock)
-			# Shaft frame: a post up each edge and a brace across the middle.
-			var post := x < 2 or x >= TILE_SIZE - 2 or (y >= 7 and y < 9)
-			if post:
-				image.set_pixel(FRAME_ATLAS_COORDS.x * TILE_SIZE + x, y, TIMBER_COLOR)
-			# Gallery post: an upright with a cap beam across the top.
-			if (x >= 7 and x < 9) or y < 3:
-				image.set_pixel(POST_ATLAS_COORDS.x * TILE_SIZE + x, y, TIMBER_COLOR)
-			# Plank floor: Stone's rock with three planks laid across it.
-			var board := (y >= 1 and y < 4) or (y >= 6 and y < 9) or (y >= 11 and y < 14)
-			image.set_pixel(PLANK_ATLAS_COORDS.x * TILE_SIZE + x, y, TIMBER_COLOR if board else rock)
+	# The old mine's tiles come from the props sheet. The collapse debris is
+	# Stone's rock with the drawn beams and stones blended over it.
+	var art := OLD_MINE_ART.get_image()
+	art.decompress()
+	var tile := Vector2i(TILE_SIZE, TILE_SIZE)
+	image.blit_rect(art, Rect2i(ART_FRAME, tile), Vector2i(FRAME_ATLAS_COORDS.x * TILE_SIZE, 0))
+	image.blit_rect(art, Rect2i(ART_POST, tile), Vector2i(POST_ATLAS_COORDS.x * TILE_SIZE, 0))
+	image.blit_rect(art, Rect2i(ART_PLANK, tile), Vector2i(PLANK_ATLAS_COORDS.x * TILE_SIZE, 0))
+	var debris_at := Vector2i(DEBRIS_ATLAS_COORDS.x * TILE_SIZE, 0)
+	image.blit_rect(image, Rect2i(Vector2i(layer_atlas(2).x * TILE_SIZE, 0), tile), debris_at)
+	image.blend_rect(art, Rect2i(ART_DEBRIS, tile), debris_at)
 	var texture := ImageTexture.create_from_image(image)
 
 	var atlas := TileSetAtlasSource.new()

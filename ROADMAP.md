@@ -146,6 +146,11 @@ dictates.
     dig up two cells, jump, dig the notch ahead at the apex, step in,
     repeat. It works (about 32s for the climb in `shaft_from_below`) but is
     slow and loud. The journal's last page says so.
+- ~~**M52 - Art for the works.**~~ Done: the shaft frame, gallery post,
+  plank floor and collapse debris are drawn tiles (`tools/make_props.py`,
+  the props sheet, rows from y=176) in the pack's wood palette: outlined,
+  shaded timber, with tumbled stones and splintered beams over the
+  collapse. Prototypes and the choice: `docs/m52-prototypes/`.
 - **Tuning knobs to revisit in M22:** dig noise per tile (6), the
   Stalker's strike threshold (25% light), lantern size (60s - a dive to
   the Heart is now ~55s one way), stranded drift (5 runs to die now,
