@@ -215,3 +215,84 @@ func test_effect_text_describes_the_job() -> void:
 	assert_eq(p.effect_text({"name": "A", "type": "light", "runs": 0}), "refines 4 ore into 20 base fuel every 15 s", "Lamplighter")
 	assert_eq(p.effect_text({"name": "A", "type": "traversal", "runs": 0}), "makes a ladder, anchor or lamp every 60 s", "Climber")
 	assert_eq(p.effect_text({"name": "A", "type": "noise", "runs": 0}), "noise -25%", "Whisper")
+
+# --- the wave cycle (rhythm of threat, milestone 55) --------------------------------
+
+## Ticks a fresh clock a second at a time from the wake, returning the run
+## time of each wave until `count` have come.
+func _wave_times(clock: MineClock, count: int, carrying_heart: bool = false) -> Array:
+	var times: Array = []
+	var t := MineClock.MINE_WAKE_SECONDS - 1.0
+	while times.size() < count and t < 3000.0:
+		t += 1.0
+		if clock.tick(1.0, t, carrying_heart) == "wave":
+			times.append(t)
+	return times
+
+func test_wave_sizes_cycle_and_grow() -> void:
+	var sizes: Array = []
+	for n in range(1, 11):
+		sizes.append(MineClock.wave_size(n))
+	assert_eq(sizes, [1, 1, 2, 2, 4, 2, 2, 3, 3, 5], "two cycles")
+	assert_eq(MineClock.wave_size(11), 3, "the third cycle starts at 3")
+
+func test_every_fifth_wave_is_a_peak() -> void:
+	for n in [5, 10, 15]:
+		assert_true(MineClock.is_peak(n), "wave %d is a peak" % n)
+	for n in [1, 4, 6, 9]:
+		assert_true(not MineClock.is_peak(n), "wave %d is not" % n)
+
+func test_a_calm_follows_each_peak() -> void:
+	var clock := MineClock.new()
+	var times := _wave_times(clock, 5)
+	assert_eq(clock.wave_number, 5, "five waves so far")
+	assert_true(clock.in_calm(), "calm after the peak")
+	var interval := MineClock.wave_interval(times[4], false)
+	assert_true(absf(clock.seconds_to_next() - MineClock.CALM_MULTIPLIER * interval) <= 1.5, "the countdown is a calm, not one interval (%f)" % clock.seconds_to_next())
+	var t: float = times[4]
+	var next := 0.0
+	while next == 0.0 and t < 3000.0:
+		t += 1.0
+		if clock.tick(1.0, t, false) == "wave":
+			next = t
+	assert_true(absf((next - times[4]) - 2.0 * interval) <= 1.5, "the sixth wave comes two intervals later (%f)" % (next - times[4]))
+	assert_true(not clock.in_calm(), "the calm is over")
+	var after := 0.0
+	while after == 0.0 and t < 3000.0:
+		t += 1.0
+		if clock.tick(1.0, t, false) == "wave":
+			after = t
+	assert_true(absf((after - next) - MineClock.wave_interval(next, false)) <= 1.5, "back to one interval between ordinary waves")
+
+func test_seconds_to_next_before_and_after_the_wake() -> void:
+	var clock := MineClock.new()
+	assert_eq(clock.seconds_to_next(), -1.0, "not started")
+	clock.tick(1.0, 100.0, false)
+	assert_eq(clock.seconds_to_next(), -1.0, "still asleep at 100 s")
+	clock.tick(1.0, 240.0, false)
+	assert_true(absf(clock.seconds_to_next() - 89.0) <= 1.0, "about 90 right after the wake")
+	var before := clock.seconds_to_next()
+	clock.tick(2.0, 242.0, false)
+	assert_eq(clock.seconds_to_next(), before - 2.0, "counts down with the delta")
+	assert_eq(clock.next_wave_number(), 1, "the first wave is next")
+
+func test_the_heart_halves_a_calm_and_keeps_the_cycle_position() -> void:
+	var clock := MineClock.new()
+	var times := _wave_times(clock, 5)
+	var t: float = times[4]
+	var event := ""
+	var waited := 0.0
+	while event != "wave" and waited < 200.0:
+		t += 1.0
+		waited += 1.0
+		event = clock.tick(1.0, t, true)
+	assert_eq(event, "wave", "a wave comes")
+	assert_true(waited <= MineClock.CALM_MULTIPLIER * MineClock.wave_interval(t, true) + 1.5, "within the halved calm (%f)" % waited)
+	assert_eq(clock.wave_number, 6, "the sixth wave, not a restart")
+	assert_eq(MineClock.wave_size(clock.wave_number), 2, "of size two")
+
+func test_wave_number_counts_each_wave() -> void:
+	var clock := MineClock.new()
+	assert_eq(clock.wave_number, 0, "none yet")
+	_wave_times(clock, 3)
+	assert_eq(clock.wave_number, 3, "three waves")
