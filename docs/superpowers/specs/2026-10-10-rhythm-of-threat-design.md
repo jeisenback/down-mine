@@ -32,6 +32,10 @@ The mine clock keeps its start (`MINE_WAKE_SECONDS` 240) and its interval (`wave
 - With the bell built the line also shows the size ("Wave in 42 s: 3 Burrowers" or "... 4 Burrowers, PEAK"). The 10 s alarm stays as it is.
 - The line is part of the existing HUD, not a new panel. During the calm it reads "Calm: next wave in N s".
 
+## The cue
+
+When a wave surfaces the player feels and hears it, wherever they are: a **tremor** (a short shake of the player's camera, `WAVE_SHAKE_SECONDS` 0.5 s at `WAVE_SHAKE_PIXELS` 2 px, doubled for a peak) and a **rumble** (a new synthesized sound, `"rumble"`, a low noise burst of about 0.7 s, played louder for a peak). They are cues only: no gameplay effect, and no new art.
+
 ## Defence
 
 - **Slow:** a Burrower inside the base light's current radius moves at `LIT_SPEED_MULTIPLIER` (0.4), as it already does in the player's light.
@@ -45,6 +49,8 @@ The mine clock keeps its start (`MINE_WAKE_SECONDS` 240) and its interval (`wave
 - **`MineClock`** (modify, `scripts/mine_clock.gd`): keeps `tick(delta, run_seconds, carrying_heart)` returning "" / "warn" / "wave"; gains `wave_number` (starting at 0, incremented on each "wave"), `static wave_size(n)`, `static is_peak(n)`, and `seconds_to_next() -> float` (-1 before the mine wakes). After a peak wave it sets the next countdown to `CALM_MULTIPLIER` times the interval.
 - **`Main`** (modify): `_spawn_wave` spawns `min(MineClock.wave_size(n), MAX_LIVE_BURROWERS - alive)` Burrowers at the spread positions; the HUD line is fed each frame from the clock and the bell state.
 - **`Burrower`** (modify): inside the base light (distance to `target.global_position` below `target.light.current_radius()`) it is slowed and takes the damage above, with the presence multiplier when the player is within the base light radius and `player.light.is_flaring`.
+- **`Sfx`** (modify): a new `"rumble"` sound in `SOUNDS` (low-passed noise with a slow decay, audible like the others).
+- **`Main`** (modify): on a wave it plays the rumble and starts the camera shake on the player's `Camera2D` (offset jitter decaying to zero over `WAVE_SHAKE_SECONDS`, restored exactly afterwards).
 - **`HUD`** (modify): one `update_wave(text)` line.
 - Saves and the run log: no format change; `waves_spawned` keeps counting waves.
 
@@ -58,6 +64,11 @@ The mine clock keeps its start (`MINE_WAKE_SECONDS` 240) and its interval (`wave
 - The base light is empty (fuel 0): no damage and no slow beyond the 60 px radius; the wave behaves as it does today.
 - A noise-summoned Burrower arriving during a wave counts toward the live cap.
 
+## Decided in review
+
+- Burrowers in the base light are slowed as well as damaged (recommended option kept).
+- The cue is both a tremor and a sound.
+
 ## Out of scope
 
 - New enemy types, mixed waves, waves that follow depth (different ideas, rejected for now).
@@ -70,6 +81,7 @@ The mine clock keeps its start (`MINE_WAKE_SECONDS` 240) and its interval (`wave
 - `MineClock`: `wave_size` and `is_peak` across two cycles (1, 1, 2, 2, 4 then 2, 2, 3, 3, 5; every fifth is a peak); the calm after a peak (the next wave comes 2x the interval later); `seconds_to_next` before and after the wake; the Heart's halving.
 - `Main`: a wave of size 3 spawns 3 Burrowers, spread; the live cap clips a wave; a noise-summoned Burrower counts toward the cap.
 - `Burrower`: slowed inside the base light and not outside; damage per second at full, 40% and empty fuel; the presence multiplier only while flaring inside the light; none for a flare outside it; dies at 1.5 health.
+- Cue: a wave plays the rumble and shakes the camera, a peak shakes harder, and the camera offset is exactly restored afterwards; `Sfx` generates "rumble" audibly (the existing sound tests cover every entry in `SOUNDS`).
 - HUD: the countdown always, the size only with the bell, the peak mark, and the calm wording.
 - Playtest: a staged base with a full light clears a first-cycle wave without losing health, and the same base with a nearly empty light loses health.
 - `tests/balance_probe.gd`: an idle probe with the new waves, before and after, to see how long a bare base survives.
@@ -77,4 +89,3 @@ The mine clock keeps its start (`MINE_WAKE_SECONDS` 240) and its interval (`wave
 ## Open questions for the plan to settle, not the design
 
 - Where the HUD wave line sits among the existing lines.
-- Whether the spawned group should appear with a short tremor or sound cue (no new art or sound is planned).
