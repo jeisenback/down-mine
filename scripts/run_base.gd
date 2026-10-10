@@ -82,6 +82,13 @@ func tick_repair(delta: float, available_ore: int) -> bool:
 	health_changed.emit(health, MAX_HEALTH)
 	return true
 
+## Adds health up to MAX_HEALTH (a crew Mender). A fallen base stays down.
+func heal(amount: int) -> void:
+	if health <= 0:
+		return
+	health = min(MAX_HEALTH, health + amount)
+	health_changed.emit(health, MAX_HEALTH)
+
 func take_hit(amount: int) -> void:
 	if health <= 0:
 		return
