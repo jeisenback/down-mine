@@ -628,3 +628,70 @@ func test_working_miners_dig_and_idle_ones_stand() -> void:
 	main._process(0.016)
 	assert_eq(ana.art.art.state, "idle", "no ore: they stop")
 	Progress.path_override = ""
+
+# --- waves bring groups (rhythm of threat, milestone 55) ---------------------------------
+
+func _new_main() -> Node:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(3)
+	return main
+
+func _live(main: Node) -> Array:
+	return main.get_tree().get_nodes_in_group("burrowers")
+
+func test_a_wave_spawns_its_whole_group_spread_out() -> void:
+	var main: Node = await _new_main()
+	var before := _live(main).size()
+	main.mine_clock.wave_number = 3 # a wave of two
+	main._spawn_wave()
+	var group := _live(main).slice(before)
+	assert_eq(group.size(), 2, "two Burrowers")
+	var xs := group.map(func(b): return b.global_position.x)
+	assert_eq(xs[0] - xs[1], 3.0 * MineGrid.TILE_SIZE, "one in the base's column, one three tiles left of it")
+	assert_eq(main.waves_spawned, 1, "one wave, however many Burrowers")
+	Progress.path_override = ""
+
+func test_a_peak_wave_is_four_burrowers_in_the_first_four_spread_columns() -> void:
+	var main: Node = await _new_main()
+	var before := _live(main).size()
+	main.mine_clock.wave_number = 5
+	main._spawn_wave()
+	var group := _live(main).slice(before)
+	assert_eq(group.size(), 4, "the peak")
+	var base_x: float = main.mine.cell_to_world(main.mine.world_to_cell(main.run_base.global_position)).x
+	var offsets := group.map(func(b): return roundi((b.global_position.x - base_x) / MineGrid.TILE_SIZE))
+	assert_eq(offsets, [0, -3, 3, -6], "columns 0, -3, 3, -6")
+	Progress.path_override = ""
+
+func test_the_live_cap_clips_a_wave_and_counts_noise_burrowers() -> void:
+	var main: Node = await _new_main()
+	var start := _live(main).size()
+	for i in range(6 - start):
+		main._on_noise_threshold() # noise-summoned Burrowers count too
+	assert_eq(_live(main).size(), 6, "six alive")
+	main.mine_clock.wave_number = 5 # a peak of four
+	main._spawn_wave()
+	assert_eq(_live(main).size(), Main.MAX_LIVE_BURROWERS, "only two fit")
+	main._spawn_wave()
+	assert_eq(_live(main).size(), Main.MAX_LIVE_BURROWERS, "none fit")
+	assert_eq(main.waves_spawned, 2, "both still count as waves")
+	for i in range(3):
+		main._on_noise_threshold()
+	main._spawn_wave() # over the cap already: no error, nothing added
+	assert_eq(_live(main).size(), Main.MAX_LIVE_BURROWERS + 3, "noise can exceed the cap, waves cannot")
+	Progress.path_override = ""
+
+func test_wave_positions_are_deterministic() -> void:
+	var runs: Array = []
+	for i in range(2):
+		MineGrid.next_seed = 1001
+		var main: Node = await _new_main()
+		var before := _live(main).size()
+		main.mine_clock.wave_number = 5
+		main._spawn_wave()
+		runs.append(_live(main).slice(before).map(func(b): return b.global_position))
+		main.free()
+		await physics_frames(2)
+	assert_eq(runs[0], runs[1], "the same seed builds the same group in the same places")
+	Progress.path_override = ""

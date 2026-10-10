@@ -18,6 +18,10 @@ const STATION_SHARE_SPACING := 8.0 # a second miner of a type stands this much f
 # Burrowers surface this far below the player - the noise came from
 # there - and tunnel to the base, so the player can race or chase them.
 const BURROWER_SPAWN_OFFSET_TILES := 10
+# Rhythm of threat (milestone 55): a wave is a group, spread across columns
+# (tiles from the base's column, in order) and never past this many alive.
+const MAX_LIVE_BURROWERS := 8
+const WAVE_SPREAD_TILES := [0, -3, 3, -6, 6, -9, 9, -12]
 const BurrowerScene := preload("res://scenes/Burrower.tscn")
 
 # Placed lights (milestone 20): a few per run, noisy to place.
@@ -703,10 +707,16 @@ func _on_noise_threshold() -> void:
 	burrowers_spawned += 1
 	_spawn_burrower(mine.world_to_cell(player.global_position))
 
-## The mine's clock sends one at the base, whatever the player did.
+## The mine's clock sends a group at the base, whatever the player did: the
+## size of the wave the clock has just counted, spread across columns and
+## clipped to the live cap (the shortfall is not made up).
 func _spawn_wave() -> void:
 	waves_spawned += 1
-	_spawn_burrower(mine.world_to_cell(run_base.global_position))
+	var alive := get_tree().get_nodes_in_group("burrowers").size()
+	var count := mini(MineClock.wave_size(maxi(1, mine_clock.wave_number)), MAX_LIVE_BURROWERS - alive)
+	var base_cell := mine.world_to_cell(run_base.global_position)
+	for i in range(maxi(0, count)):
+		_spawn_burrower(base_cell + Vector2i(WAVE_SPREAD_TILES[i], 0))
 
 ## Surfaces a Burrower BURROWER_SPAWN_OFFSET_TILES below `origin`, bound for
 ## the base.
