@@ -6,7 +6,7 @@ class_name GearArt
 ## for the miner, `state` is idle / run / dig / jump / fall. The origin is the
 ## feet (miner, flag, support, lamp) or the object's centre (beacon, bell).
 
-@export_enum("player", "flag", "beacon", "bell", "support", "lamp", "ladder", "rope", "anchor", "camp", "lift", "outpost", "nest", "heart", "relic", "vault", "lost", "sign", "gas", "bench", "lantern_post", "muffling_post", "rope_rack") var gear: String = "player"
+@export_enum("player", "flag", "beacon", "bell", "support", "lamp", "ladder", "rope", "anchor", "camp", "lift", "outpost", "nest", "heart", "relic", "vault", "lost", "sign", "gas", "bench", "lantern_post", "muffling_post", "rope_rack", "palisade", "rampart") var gear: String = "player"
 @export var length: float = 64.0   # ladder, rope and lift: how tall they stand or hang
 @export_enum("idle", "run", "dig", "jump", "fall") var state: String = "idle"
 ## The miner's coat colour (lost miners each wear their own); shades derive from it.
@@ -53,6 +53,8 @@ func _draw() -> void:
 		"lantern_post": _draw_lantern_post()
 		"muffling_post": _draw_muffling_post()
 		"rope_rack": _draw_rope_rack()
+		"palisade": _draw_palisade()
+		"rampart": _draw_rampart()
 
 ## The miner's palette with this miner's coat swapped in.
 func _person_palette() -> Dictionary:
@@ -624,3 +626,43 @@ func _draw_rope_rack() -> void:
 	var sway := sin(t * 1.6) * 1.0
 	draw_line(Vector2(0, -15), Vector2(0 + sway, -3), r["k"], 2.0)                    # a loose end
 	draw_line(Vector2(0, -15), Vector2(0 + sway, -3), r["b"], 1.0)
+
+# --- the base's tier props (feet at the origin, about 88 px across) -------------
+
+## The Outpost's palisade: a row of sharpened posts of uneven height, bound by a rail.
+func _draw_palisade() -> void:
+	var w: Dictionary = GPAL["wood"]
+	for i in range(9):
+		var x := -40.0 + i * 10.0
+		var h := 17.0 + float((i * 7) % 4) * 2.0
+		draw_rect(Rect2(x - 2.0, -h, 4.0, h), w["k"])
+		draw_rect(Rect2(x - 1.5, -h + 1.0, 3.0, h - 1.0), w["b"])
+		draw_rect(Rect2(x - 1.5, -h + 1.0, 1.2, h - 1.0), w["c"])
+		draw_colored_polygon(PackedVector2Array([Vector2(x - 2.0, -h), Vector2(x + 2.0, -h), Vector2(x, -h - 3.0)]), w["k"])
+		draw_colored_polygon(PackedVector2Array([Vector2(x - 1.2, -h), Vector2(x + 1.2, -h), Vector2(x, -h - 2.0)]), w["c"])
+	draw_rect(Rect2(-42.0, -7.0, 84.0, 2.0), w["k"])
+	draw_rect(Rect2(-42.0, -6.5, 84.0, 1.0), w["a"])
+
+## The Fort's rampart: a stone wall with battlements and a gate, grey and weathered.
+func _draw_rampart() -> void:
+	var st: Dictionary = {"k": Color8(18, 18, 20), "a": Color8(58, 58, 64), "b": Color8(94, 94, 102), "c": Color8(138, 138, 148)}
+	var w: Dictionary = GPAL["wood"]
+	for side in [-1.0, 1.0]:
+		var x0: float = 8.0 if side > 0.0 else -44.0
+		draw_rect(Rect2(x0 - 1.0, -19.0, 38.0, 19.0), st["k"])
+		draw_rect(Rect2(x0, -18.0, 36.0, 18.0), st["a"])
+		draw_rect(Rect2(x0, -18.0, 36.0, 6.0), st["b"])
+		for j in range(4):                                                    # battlements
+			draw_rect(Rect2(x0 + j * 10.0, -22.0, 6.0, 4.0), st["b"])
+			draw_rect(Rect2(x0 + j * 10.0, -22.0, 6.0, 1.0), st["c"])
+		for row in range(3):                                                  # stone courses
+			var y := -14.0 + row * 5.0
+			draw_line(Vector2(x0, y), Vector2(x0 + 36.0, y), st["k"], 1.0)
+			for j in range(4):
+				var off := 3.0 if row % 2 == 0 else 8.0
+				draw_line(Vector2(x0 + off + j * 9.0, y), Vector2(x0 + off + j * 9.0, y + 5.0), st["k"], 1.0)
+	draw_rect(Rect2(-8.0, -16.0, 16.0, 16.0), st["k"])                       # the gate, in shadow
+	draw_rect(Rect2(-7.0, -15.0, 14.0, 15.0), Color8(10, 8, 8))
+	draw_line(Vector2(-7.0, -15.0), Vector2(7.0, -15.0), w["k"], 2.0)
+	for x in [-5.0, -2.0, 1.0, 4.0]:
+		draw_line(Vector2(x, -15.0), Vector2(x, 0.0), w["a"], 1.0)           # the portcullis

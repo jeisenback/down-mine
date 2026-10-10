@@ -101,10 +101,11 @@ func grow() -> bool:
 	_show_tier_props()
 	return true
 
-## Shows the props for this tier (the palisade, the rampart); the art arrives
-## with the tiers' drawn props.
+## Shows the props for this tier: the Outpost's palisade, which the Fort's
+## rampart replaces. (The beacon and bell show themselves when built.)
 func _show_tier_props() -> void:
-	pass
+	$Palisade.visible = tier == 1
+	$Rampart.visible = tier == 2
 
 func needs_repair() -> bool:
 	return health > 0 and health < max_health()

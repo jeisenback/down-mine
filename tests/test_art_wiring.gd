@@ -327,3 +327,36 @@ func _make(kind: String) -> ArtSprite:
 	a.kind = kind
 	add(a)
 	return a
+
+# --- the base's tier props (run base as a settlement, milestone 56) ----------------------
+
+func test_each_tier_prop_is_a_drawn_gear() -> void:
+	for kind in ["palisade", "rampart"]:
+		var a := _make(kind)
+		await tree.process_frame
+		assert_true(a.art is GearArt, "%s builds a gear art" % kind)
+		assert_eq(a.art.gear, kind, "%s gear" % kind)
+
+func test_the_base_shows_the_props_for_its_tier() -> void:
+	var base: RunBase = add(RunBaseScene.instantiate())
+	await tree.process_frame
+	var palisade: ArtSprite = base.get_node("Palisade")
+	var rampart: ArtSprite = base.get_node("Rampart")
+	assert_eq(palisade.kind, "palisade", "palisade kind")
+	assert_eq(rampart.kind, "rampart", "rampart kind")
+	assert_true(not palisade.visible and not rampart.visible, "a Camp has neither")
+	assert_true(not base.get_node("Beacon").visible and not base.get_node("Bell").visible, "nor the beacon or bell")
+	base.grow()
+	assert_true(palisade.visible and not rampart.visible, "the Outpost has the palisade")
+	assert_true(base.get_node("Beacon").visible and not base.get_node("Bell").visible, "and the beacon")
+	base.grow()
+	assert_true(rampart.visible and not palisade.visible, "the Fort's rampart replaces the palisade")
+	assert_true(base.get_node("Bell").visible, "and has the bell")
+
+func test_props_follow_a_replanted_base() -> void:
+	var base: RunBase = add(RunBaseScene.instantiate())
+	base.grow()
+	await tree.process_frame
+	var offset: Vector2 = base.get_node("Palisade").global_position - base.global_position
+	base.global_position += Vector2(300, 120)
+	assert_eq(base.get_node("Palisade").global_position - base.global_position, offset, "the palisade moves with the base")
