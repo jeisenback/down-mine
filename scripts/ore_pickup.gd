@@ -6,7 +6,6 @@ class_name OrePickup
 
 func _ready() -> void:
 	body_entered.connect(_on_body_entered)
-	$Body.texture = PixelArt.keyed($Body.texture) # tileset gold nugget (milestone 30)
 
 func _on_body_entered(body: Node) -> void:
 	if body is Player:

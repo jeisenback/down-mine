@@ -78,3 +78,24 @@ func test_burrower_snaps_its_mandibles_when_it_strikes() -> void:
 	burrower.global_position = base.global_position + Vector2(Burrower.ATTACK_RANGE - 1.0, 0)
 	burrower._physics_process(0.016)
 	assert_eq(burrower.get_node("Art").art.pose, 1.0, "mandibles wide on a strike")
+
+# --- pickups -----------------------------------------------------------------
+
+func test_pickup_scenes_draw_their_own_art() -> void:
+	var fuel := await _art_of("res://scenes/FuelPickup.tscn", "fuel")
+	assert_true(fuel.get_node_or_null("Body") == null, "no old fuel sprite")
+	var ore := await _art_of("res://scenes/OrePickup.tscn", "ore")
+	assert_true(ore.get_node_or_null("Body") == null, "no old ore sprite")
+
+func test_pickups_are_still_picked_up() -> void:
+	var player := _still_player(Vector2.ZERO)
+	player.light.fuel = 10.0
+	var fuel: FuelPickup = add(load("res://scenes/FuelPickup.tscn").instantiate())
+	fuel._on_body_entered(player)
+	assert_true(player.light.fuel > 10.0, "fuel added")
+	assert_true(fuel.is_queued_for_deletion(), "fuel pickup consumed")
+	var ore: OrePickup = add(load("res://scenes/OrePickup.tscn").instantiate())
+	var before := player.currency
+	ore._on_body_entered(player)
+	assert_eq(player.currency, before + ore.value, "ore banked")
+	assert_true(ore.is_queued_for_deletion(), "ore pickup consumed")
