@@ -24,9 +24,9 @@ All rates are Rookie rates; the interval divides by rank strength (so a Veteran 
 | Mender | Bench | Repairs the base 1 health per 12 s while it is damaged | 5 ore per health, plus noise |
 | Lamplighter | Lantern post | 4 ore becomes 20 fuel in the base light every 15 s, only while the base light is under 90% full | 4 ore per batch, plus noise |
 | Whisper | Muffling post | Noise the base hears is 25% lower while they work (rank-scaled) | Nothing; silent |
-| Climber | Rope rack | Makes one item every 60 s, rotating ladder, anchor, lamp; honours the hub's unlocks; stops at 2 above the run's starting count of that item | 6 ore (ladder), 10 (anchor), 8 (lamp), plus noise |
+| Climber | Rope rack | Makes one item every 60 s, rotating ladder, anchor, lamp; honours the hub's unlocks; makes at most 2 of each item per run, however many are used | 6 ore (ladder), 10 (anchor), 8 (lamp), plus noise |
 
-**Noise.** Every working miner except the Whisper adds 1 noise at the base every 10 s (`JOB_NOISE`, `JOB_NOISE_INTERVAL`). It goes through `noise_meter.add_noise(amount, base_position)`, so distance, quiet layers and the one-meter rule already apply.
+**Noise.** Every working miner except the Whisper adds 1 noise at the base every second (`JOB_NOISE`, `JOB_NOISE_INTERVAL`). The meter drains 8 a second, so the first draft's 1 per 10 s vanished before anything could see it (found in review); a full crew of three now slows the meter's drain by about 40%. It goes through `noise_meter.add_noise(amount, base_position)`, so distance, quiet layers and the one-meter rule already apply.
 
 **When they work.** All run long, whether or not the player is at the base. They stop when the base has fallen, or if they are not at the base (stranded, lost, or not on the crew).
 
@@ -45,7 +45,7 @@ All rates are Rookie rates; the interval divides by rank strength (so a Veteran 
 - No ore: jobs that need ore wait; Whisper keeps working.
 - Base light already near full: the Lamplighter waits, so ore is not wasted past 90%.
 - Hub has not unlocked a tool: the Climber skips it and rotates to the next unlocked item; with none unlocked it idles and spends nothing.
-- Item cap reached: the Climber skips that item.
+- Item cap reached (2 made of that item this run): the Climber skips it, even if the player has used them all.
 - Base at full health: the Mender idles and spends nothing.
 - Base falls mid-run: all jobs stop.
 - Two crew of the same type: both work; a duplicate Whisper stacks multiplicatively, and the total noise reduction is capped at 60%.

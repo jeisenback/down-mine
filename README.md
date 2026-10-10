@@ -148,7 +148,7 @@ the flag for the whole run (rates are Rookie rates; Seasoned is 1.5x, Veteran 2x
 the Mender (Repair) mends the base 1 health per 12 s for 5 of your ore, the
 Lamplighter (Light) refines 4 ore into 20 base fuel every 15 s while the base light
 is under 90%, the Climber (Traversal) makes a ladder, anchor or lamp every 60 s for
-6, 10 or 8 ore (only unlocked tools, up to 2 above your starting count), and the
+6, 10 or 8 ore (only unlocked tools, at most 2 of each per run), and the
 Whisper (Noise) makes everything the base hears 25% quieter, free and silent. Jobs
 spend the ore you carry and pause when you have none; every working miner but the
 Whisper adds a little noise at the base, so a bigger crew is a louder base (a base

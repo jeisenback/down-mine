@@ -23,6 +23,8 @@
 - Jobs stop when the base has fallen (`RunBase.health == 0`) and for any miner not at the base.
 - No change to the save format. No emojis anywhere. Every commit message ends with the two attribution lines used on this branch (see `git log -1`).
 
+**Amended after the whole-branch review:** job noise is 1 per second per working miner (not per 10 s), the Climber's cap is 2 made of each item per run (`CLIMBER_MAX_MADE`), and `bind` takes `(base, player, noise_meter, unlocked, give_lamp)` with no lamp-count callable.
+
 ## Review Focus
 
 1. Ore never goes negative and a job never runs on ore it does not have, including when two jobs would spend the last ore in one tick. Task 1.

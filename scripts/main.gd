@@ -157,7 +157,7 @@ func _ready() -> void:
 		"ladders": progress.has_unlock("ladders"),
 		"anchors": progress.has_unlock("anchors"),
 		"lamps": progress.has_unlock("lamps"),
-	}, func(): return lamps_left, func(): lamps_left += 1)
+	}, func(): lamps_left += 1)
 	hud.update_banked(progress.banked_ore)
 	_configure_camera_limits()
 	_spawn_lost_miners()

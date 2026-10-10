@@ -24,7 +24,7 @@ func _rig(unlocked: Dictionary = {"ladders": true, "anchors": true, "lamps": tru
 	var stock := [3] # captured by the callables instead of self, so the test case holds no cycle
 	lamps = stock
 	jobs = CrewJobs.new()
-	jobs.bind(base, player, meter, unlocked, func(): return stock[0], func(): stock[0] += 1)
+	jobs.bind(base, player, meter, unlocked, func(): stock[0] += 1)
 
 func _member(type: String, strength: float = 1.0, name: String = "") -> Dictionary:
 	return {"name": name if name != "" else type, "type": type, "strength": strength}
@@ -83,7 +83,7 @@ func test_climber_rotates_ladder_anchor_lamp_and_charges_each() -> void:
 	assert_eq(lamps[0], 4, "then a lamp")
 	assert_eq(player.currency, 76, "8 ore")
 
-func test_climber_respects_unlocks_and_caps() -> void:
+func test_climber_respects_unlocks() -> void:
 	_rig({"ladders": true, "anchors": false, "lamps": true})
 	player.currency = 100
 	var anchors: int = player.anchors_left
@@ -91,18 +91,28 @@ func test_climber_respects_unlocks_and_caps() -> void:
 	jobs.tick(60.1, [_member("traversal")])
 	assert_eq(player.anchors_left, anchors, "locked anchors are never made")
 	assert_eq(lamps[0], 4, "the second item skipped to a lamp")
-	_rig()
-	player.currency = 100
-	player.ladders_left += CrewJobs.CLIMBER_CAP_OVER_START
-	var ladders: int = player.ladders_left
-	jobs.tick(60.1, [_member("traversal")])
-	assert_eq(player.ladders_left, ladders, "capped ladders are skipped")
-	assert_eq(player.anchors_left, Player.ANCHORS_PER_RUN + 1, "so an anchor came first")
 	_rig({"ladders": false, "anchors": false, "lamps": false})
 	player.currency = 100
 	jobs.tick(300.0, [_member("traversal")])
 	assert_eq(player.currency, 100, "nothing to make: no ore spent")
 	assert_true(not jobs.working["traversal"], "and not working")
+
+func test_climber_stops_at_two_made_of_each_item_even_if_they_are_used() -> void:
+	_rig()
+	player.currency = 1000
+	var ladders: int = player.ladders_left
+	var anchors: int = player.anchors_left
+	for i in range(6):
+		jobs.tick(60.1, [_member("traversal")])
+	assert_eq(player.ladders_left, ladders + 2, "two ladders made")
+	assert_eq(player.anchors_left, anchors + 2, "two anchors made")
+	assert_eq(lamps[0], 5, "two lamps made")
+	player.ladders_left = 0 # the player placed them all
+	var currency: int = player.currency
+	jobs.tick(60.1, [_member("traversal")])
+	assert_eq(player.ladders_left, 0, "using them does not reopen the cap")
+	assert_eq(player.currency, currency, "and nothing more is made or paid for")
+	assert_true(not jobs.working["traversal"], "the Climber is done")
 
 func test_whisper_factor_stacks_and_caps() -> void:
 	assert_eq(CrewJobs.whisper_factor([1.0]), 0.75, "rookie")
@@ -111,11 +121,11 @@ func test_whisper_factor_stacks_and_caps() -> void:
 	assert_eq(CrewJobs.whisper_factor([2.0, 2.0, 2.0]), 1.0 - CrewJobs.WHISPER_MAX_REDUCTION, "capped")
 	assert_eq(CrewJobs.whisper_factor([]), 1.0, "none")
 
-func test_working_miners_make_one_noise_per_ten_seconds_except_the_whisper() -> void:
+func test_working_miners_make_one_noise_per_second_except_the_whisper() -> void:
 	_rig()
 	base.health = 1
 	player.currency = 100
-	jobs.tick(10.0, [_member("repair"), _member("noise")])
+	jobs.tick(1.0, [_member("repair"), _member("noise")])
 	assert_eq(meter.noise, 1.0, "one noise, from the Mender only")
 	assert_true(jobs.working["repair"] and jobs.working["noise"], "both working")
 
@@ -161,3 +171,20 @@ func test_heal_stops_at_full_health_and_at_zero() -> void:
 	base.health = 0
 	base.heal(1)
 	assert_eq(base.health, 0, "a fallen base stays down")
+
+func test_crew_noise_shows_on_the_meter_with_real_decay() -> void:
+	# The meter drains 8 a second; a job noise too small or too rare is gone before
+	# anything can see it, and then a bigger crew would not be a louder base.
+	_rig()
+	meter.decay_rate = 8.0
+	base.health = 1
+	base.light.fuel = base.light.max_fuel * 0.5
+	player.currency = 1000
+	var crew := [_member("repair"), _member("light"), _member("traversal")]
+	var seen := 0
+	for second in range(20):
+		jobs.tick(1.0, crew)
+		if meter.noise > 0.0:
+			seen += 1
+		meter._process(1.0)
+	assert_eq(seen, 20, "three working miners are on the meter every second")

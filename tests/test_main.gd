@@ -564,8 +564,8 @@ func test_job_work_is_heard_through_the_noise_meter() -> void:
 	main.run_base.health = 1
 	main.player.currency = 50
 	main.noise_meter.noise = 0.0
-	main.crew_jobs.tick(10.0, main._working_crew())
-	assert_eq(main.noise_meter.noise, CrewJobs.JOB_NOISE, "one noise per ten seconds of work")
+	main.crew_jobs.tick(CrewJobs.JOB_NOISE_INTERVAL, main._working_crew())
+	assert_eq(main.noise_meter.noise, CrewJobs.JOB_NOISE, "one noise per interval of work")
 	Progress.path_override = ""
 
 func test_job_work_in_the_quiet_layers_is_not_heard() -> void:

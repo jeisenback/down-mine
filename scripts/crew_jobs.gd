@@ -17,9 +17,12 @@ const LAMPLIGHTER_FULL_FRACTION := 0.9
 const CLIMBER_INTERVAL := 60.0
 const CLIMBER_ORDER := ["ladders", "anchors", "lamps"]
 const CLIMBER_COSTS := {"ladders": 6, "anchors": 10, "lamps": 8}
-const CLIMBER_CAP_OVER_START := 2
+## The Climber makes at most this many of each item per run, however many are used.
+const CLIMBER_MAX_MADE := 2
+## 1 noise per second per working miner: the meter drains 8 a second, so anything
+## much smaller or rarer would be gone before it could be seen.
 const JOB_NOISE := 1.0
-const JOB_NOISE_INTERVAL := 10.0
+const JOB_NOISE_INTERVAL := 1.0
 const WHISPER_REDUCTION := 0.25
 const WHISPER_MAX_REDUCTION := 0.6
 
@@ -30,21 +33,18 @@ var _base: RunBase
 var _player: Player
 var _noise: NoiseMeter
 var _unlocked: Dictionary = {}
-var _lamps: Callable
 var _give_lamp: Callable
-var _start: Dictionary = {}
+var _made: Dictionary = {}
 var _state: Dictionary = {}
 
-## Binds the run's objects and records the starting tool counts the Climber's
-## cap is measured from. `unlocked` is {"ladders", "anchors", "lamps"} -> bool.
-func bind(base: RunBase, player: Player, noise_meter: NoiseMeter, unlocked: Dictionary, lamps: Callable, give_lamp: Callable) -> void:
+## Binds the run's objects. `unlocked` is {"ladders", "anchors", "lamps"} -> bool.
+func bind(base: RunBase, player: Player, noise_meter: NoiseMeter, unlocked: Dictionary, give_lamp: Callable) -> void:
 	_base = base
 	_player = player
 	_noise = noise_meter
 	_unlocked = unlocked
-	_lamps = lamps
 	_give_lamp = give_lamp
-	_start = {"ladders": player.ladders_left, "anchors": player.anchors_left, "lamps": lamps.call()}
+	_made.clear()
 	_state.clear()
 	working.clear()
 
@@ -115,6 +115,7 @@ func _act(type: String, state: Dictionary) -> void:
 			var index := _next_item(state)
 			var item: String = CLIMBER_ORDER[index]
 			_player.currency -= CLIMBER_COSTS[item]
+			_made[item] = _made.get(item, 0) + 1
 			match item:
 				"ladders": _player.ladders_left += 1
 				"anchors": _player.anchors_left += 1
@@ -122,17 +123,11 @@ func _act(type: String, state: Dictionary) -> void:
 			state.next = (index + 1) % CLIMBER_ORDER.size()
 
 ## Index into CLIMBER_ORDER of the next item to make, starting from this
-## member's turn: unlocked and under its cap. -1 when there is none.
+## member's turn: unlocked and not yet made CLIMBER_MAX_MADE times. -1 when there is none.
 func _next_item(state: Dictionary) -> int:
 	for step in range(CLIMBER_ORDER.size()):
 		var index: int = (state.next + step) % CLIMBER_ORDER.size()
 		var item: String = CLIMBER_ORDER[index]
-		if _unlocked.get(item, false) and _count(item) < _start[item] + CLIMBER_CAP_OVER_START:
+		if _unlocked.get(item, false) and _made.get(item, 0) < CLIMBER_MAX_MADE:
 			return index
 	return -1
-
-func _count(item: String) -> int:
-	match item:
-		"ladders": return _player.ladders_left
-		"anchors": return _player.anchors_left
-	return _lamps.call()
