@@ -133,8 +133,9 @@ dictates.
   - ~~**M51a - The shaft.**~~ Done: a timbered shaft on the centre column
     ends in a 6-row collapse in upper Stone; an old ladder of 8-row pieces
     (30% missing, never rotting) runs its length.
-  - **M51b - Galleries.** Branches off the shaft with plank floors over
-    caves; each ends in a camp, a collapsed section or the lost miner.
+  - ~~**M51b - Galleries.**~~ Done: a gallery per worked layer off the
+    shaft (posts, plank floors over caves); Topsoil and Clay end in their
+    camp, Stone at the lost miner; Clay and Stone have a collapsed section.
   - **M51c - The works' contents.** The lift moves into the shaft, the
     journal marks the shaft's end, camps and the lost miner move into the
     galleries.
