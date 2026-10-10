@@ -24,7 +24,7 @@ darkness. No crew, hub, or stranding yet.
 - `F` — hold at the run base to repair it (1 health per 3s, 10 of this run's ore per point, noisy)
 - `B` — at the run base, fortify: reinforce the 12 nearest plain rock tiles within 5 tiles (2 of this run's ore per tile, noisy); press again for more
 - `1` — build a support beam where you stand (15 of this run's ore): stops collapses and crumbling within 3 tiles; wears out, faster in the dark
-- `2` / `3` — at the run base, build a beacon (30 ore: base light reaches 50% further but burns 50% faster) or an alarm bell (20 ore: warns when noise nears the Burrower threshold); one each per run
+- `U` — at the run base, grow it to its next tier (see The run base below); the Outpost brings a beacon (base light reaches 50% further but burns 50% faster) and the Fort an alarm bell (warns when noise nears the Burrower threshold and shows each wave's size)
 - `1`-`6` — on the run summary (the hub), spend banked ore: lantern tank (+15s light), hard hat (+1 health), crew bunk (+1 crew slot, up to 4), or unlock lamps (40), ladders (60) or anchors (100). The grapple and ropes are always available.
 - `A`-`J` — on the hub, put a rescued miner on the crew or take them off
 - `L` — on the hub, show the last 10 runs: result and cause of death, time, depth, ore, Burrowers, damage by source, seed
@@ -135,7 +135,7 @@ base, every 90s (shrinking to 45s by 480s, halved while you carry the Heart),
 whatever you did. Waves come in cycles of five: 1, 1, 2, 2 and a peak of 4
 Burrowers, each cycle one bigger, with a calm of twice the interval after every
 peak (never more than 8 alive). A line under Base always shows the countdown
-("Wave in 42 s", red in the last 10 s) and marks a peak; the alarm bell adds the
+("Wave in 42 s", red in the last 10 s) and marks a peak; the Fort's alarm bell adds the
 wave's size and rings 10s before it surfaces. When a wave surfaces the screen
 shakes and a rumble plays. The base light fights back: a Burrower inside it is
 slowed and loses health, faster the fuller the light (a full light kills one in
@@ -182,6 +182,13 @@ camp. Standing at it refills your lantern from the base's light (which
 makes its walls wear faster). Stalkers won't enter the base's light, so
 it is a refuge - one that shrinks as you draw on it. Extraction is always at the surface, so a
 deep base doesn't shorten the climb home.
+
+The base grows in three tiers, bought at it with `U` and your carried ore, each with its own
+look (a palisade, then a stone rampart): the **Camp** (the start: 3 health, a 200 fuel light,
+walls that hold a Burrower 2.5s), the **Outpost** (70 ore: 4 health, 260 fuel, walls 3.5s, and
+the beacon) and the **Fort** (120 more ore: 5 health, 340 fuel, walls 5s, and the alarm bell).
+Growing heals the base and fills its light, and makes the usual build noise. Tiers last for the
+run; replanting the base keeps them.
 
 **Run it**: open the project folder in Godot 4.3+ and press Play (main scene
 is `scenes/Main.tscn`).
