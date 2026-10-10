@@ -51,6 +51,7 @@ func _run() -> void:
 		["shaft_lift_ride", _shaft_lift_ride],
 		["shaft_lift_from_the_ladder", _shaft_lift_from_the_ladder],
 		["shaft_from_below", _shaft_from_below],
+		["drawn_art_on_screen", _drawn_art_on_screen],
 	]
 	var failed := 0
 	for entry in scenarios:
@@ -663,3 +664,44 @@ func _shaft_from_below() -> void:
 	await frames(30)
 	check(_cell().y <= open.y and main.mine.is_in_shaft(_cell()), "climbed the collapse on a dug stair into the open shaft (cell %s, open rows end at %d, %d steps)" % [_cell(), open.y, steps])
 	await shot("in_the_shaft")
+
+## Every drawn thing, set out in a row near the player: each ArtSprite's
+## viewport must hold painted pixels, be exactly its cell in size, and the
+## frame must show them (a screenshot is saved to look at).
+func _drawn_art_on_screen() -> void:
+	await _start_game()
+	var scenes := ["Stalker", "Burrower", "Snuffer", "FuelPickup", "OrePickup", "Lamp", "Support", "Ladder",
+		"Rope", "Anchor", "Camp", "Outpost", "Lift", "Nest", "Heart", "Relic", "VaultDoor", "StrandedSign", "GasCloud", "LostMiner"]
+	var origin: Vector2 = main.player.global_position + Vector2(-100, -44)
+	var placed: Array[Node] = []
+	for i in range(scenes.size()):
+		var node: Node = load("res://scenes/%s.tscn" % scenes[i]).instantiate()
+		if "player" in node:
+			node.player = main.player
+		if "target" in node:
+			node.target = main.run_base
+		if "main" in node:
+			node.main = main
+		main.mine.add_child(node)
+		node.global_position = origin + Vector2((i % 10) * 22, (i / 10) * 50)
+		if node.has_method("set_physics_process"):
+			node.set_physics_process(false) # hold creatures still
+		placed.append(node)
+	await frames(40)
+	var arts := 0
+	for node in placed:
+		for art in node.find_children("*", "ArtSprite", true, false):
+			if not art.is_visible_in_tree() or art.art == null:
+				continue
+			arts += 1
+			var image: Image = art.viewport.get_texture().get_image()
+			check(image.get_size() == Vector2i(art.cell), "%s viewport is its cell size" % art.kind)
+			var painted := 0
+			for x in range(image.get_width()):
+				for y in range(image.get_height()):
+					if image.get_pixel(x, y).a > 0.05:
+						painted += 1
+			check(painted > 10, "%s paints pixels (%d)" % [art.kind, painted])
+	check(arts >= scenes.size(), "all %d drawn things found, got %d" % [scenes.size(), arts])
+	await shot("everything")
+	_end_game()

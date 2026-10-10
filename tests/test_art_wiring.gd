@@ -12,6 +12,8 @@ func _art_of(scene_path: String, kind: String) -> Node:
 		var stub: Node = preload("res://tests/art_main_stub.gd").new()
 		stub.player = _still_player(Vector2(5000, 0))
 		stub.noise_meter = NoiseMeter.new()
+		stub.add_child(stub.noise_meter)
+		add(stub) # the runner frees what the test adds
 		node.main = stub
 	add(node)
 	node.set_physics_process(false) # creatures need a player and target before they tick
@@ -249,17 +251,15 @@ func test_lift_shows_its_cage_dim_until_repaired_and_empty_once_used() -> void:
 	await tree.process_frame
 	var dim: Color = lift.cage.modulate
 	assert_true(dim.r < 1.0, "rust-dark until repaired")
-	var main := Node.new()
+	var main: Node = add(preload("res://tests/art_main_stub.gd").new())
 	var player := _still_player(Vector2.ZERO)
 	player.currency = Lift.REPAIR_ORE
-	main.set_script(preload("res://tests/art_main_stub.gd"))
 	main.player = player
 	lift.use(main)
 	assert_eq(lift.cage.modulate, Color(1, 1, 1), "repaired")
 	lift.use(main)
 	assert_true(lift.cage.art.empty, "the cage has gone up")
 	assert_eq(main.rode_from, lift.global_position.x, "and it carried the rider")
-	main.free()
 
 func test_nest_scorches_when_destroyed() -> void:
 	var nest: Nest = await _art_of("res://scenes/Nest.tscn", "nest")
