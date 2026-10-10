@@ -198,3 +198,20 @@ func test_run_log_counts_waves_and_old_entries_still_print() -> void:
 	assert_true(line.contains("2 waves"), "waves are shown")
 	var old := Progress.run_log_line({"result": "Extracted", "seconds": 60, "depth": 5, "ore": 0, "burrowers": 0, "seed": 7})
 	assert_true(not old.contains("wave"), "old entries unchanged")
+
+func test_job_crew_lists_name_type_and_rank_strength() -> void:
+	var p := _progress()
+	p.roster = [{"name": "Ana", "type": "repair", "runs": 0}, {"name": "Ben", "type": "light", "runs": 5}, {"name": "Cy", "type": "noise", "runs": 0}]
+	p.crew_names = ["Ana", "Ben"]
+	assert_eq(p.job_crew(), [
+		{"name": "Ana", "type": "repair", "strength": 1.0},
+		{"name": "Ben", "type": "light", "strength": 2.0},
+	], "only the crew, each with their rank's strength")
+
+func test_effect_text_describes_the_job() -> void:
+	var p := _progress()
+	assert_eq(p.effect_text({"name": "A", "type": "repair", "runs": 0}), "repairs the base 1 health per 12 s, 5 ore", "Mender")
+	assert_eq(p.effect_text({"name": "A", "type": "repair", "runs": 5}), "repairs the base 1 health per 6 s, 5 ore", "Veteran Mender")
+	assert_eq(p.effect_text({"name": "A", "type": "light", "runs": 0}), "refines 4 ore into 20 base fuel every 15 s", "Lamplighter")
+	assert_eq(p.effect_text({"name": "A", "type": "traversal", "runs": 0}), "makes a ladder, anchor or lamp every 60 s", "Climber")
+	assert_eq(p.effect_text({"name": "A", "type": "noise", "runs": 0}), "noise -25%", "Whisper")

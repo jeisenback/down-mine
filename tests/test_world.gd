@@ -111,14 +111,12 @@ func test_quirks_apply_their_effects() -> void:
 	assert_eq(player.safe_fall_tiles, Player.SAFE_FALL_TILES + Progress.SURE_FOOTED_TILES, "sure-footed")
 	assert_true(meter.noise_multiplier > 1.0, "hums makes you louder")
 
-func test_ladders_outclimb_and_outlast_ropes_with_traversal_bonus() -> void:
+func test_ladders_outclimb_and_outlast_ropes() -> void:
 	var mine: MineGrid = add(MineScene.instantiate())
 	var player := _still_player(mine.cell_to_world(Vector2i(40, 150)), 1.0)
 	player.mine = mine
 	var p := Progress.new()
 	p.save_path = TEST_SAVE_PATH
-	p.roster = [{"name": "Cole", "type": "traversal", "runs": 0}]
-	p.crew_names = ["Cole"]
 	p.levels = {"ladders": 1}
 	p.apply_to(player, add(NoiseMeter.new()), _base(Vector2(-500, 0)))
 	player._place_rope()
@@ -126,11 +124,46 @@ func test_ladders_outclimb_and_outlast_ropes_with_traversal_bonus() -> void:
 	var tools := mine.get_children().filter(func(c): return c is Rope)
 	var rope: Rope = tools[0]
 	var ladder: Rope = tools[1]
-	assert_eq(rope.life_seconds, Player.ROPE_LIFE_SECONDS * 1.5, "rope life +50%")
-	assert_eq(ladder.life_seconds, Player.LADDER_LIFE_SECONDS * 1.5, "ladder life +50%")
-	assert_eq(ladder.climb_speed, Player.LADDER_CLIMB_SPEED * 1.25, "ladder climb +25%")
+	assert_eq(rope.life_seconds, Player.ROPE_LIFE_SECONDS, "rope life")
+	assert_eq(ladder.life_seconds, Player.LADDER_LIFE_SECONDS, "ladder life")
+	assert_eq(ladder.climb_speed, Player.LADDER_CLIMB_SPEED, "ladder climb")
 	assert_true(ladder.climb_speed > rope.climb_speed, "ladders climb faster than ropes")
 	assert_eq(player.ladders_left, Player.LADDERS_PER_RUN - 1, "a ladder was used up")
+
+func test_types_no_longer_add_hidden_bonuses() -> void:
+	var baseline_player: Player = add(PlayerScene.instantiate())
+	baseline_player.set_physics_process(false)
+	var baseline_base := _base(Vector2(-500, 0))
+	var empty := Progress.new()
+	empty.save_path = TEST_SAVE_PATH
+	empty.apply_to(baseline_player, add(NoiseMeter.new()), baseline_base)
+	var player: Player = add(PlayerScene.instantiate())
+	player.set_physics_process(false)
+	var base := _base(Vector2(-500, 0))
+	var meter: NoiseMeter = add(NoiseMeter.new())
+	var p := Progress.new()
+	p.save_path = TEST_SAVE_PATH
+	p.roster = [
+		{"name": "A", "type": "light", "runs": 0}, {"name": "B", "type": "repair", "runs": 0},
+		{"name": "C", "type": "traversal", "runs": 0}, {"name": "D", "type": "noise", "runs": 0},
+	]
+	p.crew_names = ["A", "B", "C", "D"]
+	p.apply_to(player, meter, base)
+	assert_eq(player.light.burn_rate, baseline_player.light.burn_rate, "no hidden burn bonus")
+	assert_eq(player.light.radius_max, baseline_player.light.radius_max, "no hidden reach bonus")
+	assert_eq(player.grapple_range, baseline_player.grapple_range, "no hidden grapple bonus")
+	assert_eq(player.tool_life_multiplier, 1.0, "no hidden rope life")
+	assert_eq(player.ladder_speed_multiplier, 1.0, "no hidden ladder speed")
+	assert_eq(base.repair_cost_multiplier, 1.0, "no hidden repair discount")
+	assert_eq(base.repair_speed_multiplier, 1.0, "no hidden repair speed")
+	assert_eq(meter.noise_multiplier, 0.75, "the Whisper still hushes the base")
+	var veteran := Progress.new()
+	veteran.save_path = TEST_SAVE_PATH
+	veteran.roster = [{"name": "E", "type": "noise", "runs": 5}]
+	veteran.crew_names = ["E"]
+	var veteran_meter: NoiseMeter = add(NoiseMeter.new())
+	veteran.apply_to(player, veteran_meter, base)
+	assert_eq(veteran_meter.noise_multiplier, 0.5, "a Veteran Whisper hushes it twice as much")
 
 func test_locked_tools_are_unavailable_until_bought() -> void:
 	var mine: MineGrid = add(MineScene.instantiate())
