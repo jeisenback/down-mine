@@ -114,6 +114,14 @@ of Stone, where it ends in a collapse you have to dig through. An old
 ladder runs its length in 8-row pieces, about 30% of them missing, and it
 never rots. Crossing a missing piece takes a chain of ropes.
 
+Galleries branch off the shaft, one each in Topsoil, Clay and upper Stone:
+two-tile tunnels 24 to 40 tiles long on a random side, a timber post every
+6 tiles, plank floors where they cross a cave. The Topsoil and Clay ones
+end in that layer's camp, the Stone one at the lost miner; the Clay and
+Stone ones have a collapsed section midway that you dig through. (If the
+shaft's collapse sits too high in Stone, that layer gets no gallery and the
+miner waits where he used to.)
+
 **The Stalker listens**: a loud act (15 noise or more: placing a rope,
 ladder or anchor, a hard fall, gas, building, the room events - not a
 single dug tile or the mine crumbling) within 30 tiles of a Stalker alerts

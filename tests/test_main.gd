@@ -441,3 +441,16 @@ func test_the_old_ladder_stops_short_of_the_collapse() -> void:
 			covered = covered or (bottom_row - 3 >= row and bottom_row <= row + MineGrid.OLD_LADDER_PIECE_ROWS - 1)
 		assert_true(covered, "every ladder sits inside a surviving piece (bottom row %d)" % bottom_row)
 	Progress.path_override = ""
+
+func test_main_places_a_camp_and_the_miner_inside_the_drifts() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	var stone: Array = main.mine.drifts.filter(func(d): return d.layer == 2)
+	assert_true(not stone.is_empty(), "seed 1001 has a Stone drift")
+	var miner_cell: Vector2i = main.mine.world_to_cell(main.lost_miners[0].global_position)
+	assert_true(absi(miner_cell.x - stone[0].x1) <= 1 and absi(miner_cell.y - stone[0].row) <= 1, "the lost miner is at the Stone drift's far end")
+	var camps := main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Camp)
+	var topsoil: Array = main.mine.drifts.filter(func(d): return d.layer == 0)
+	assert_true(camps.any(func(c): return main.mine.world_to_cell(c.global_position) == Vector2i(topsoil[0].x1, topsoil[0].row)), "the Topsoil camp stands at its drift's end")
+	Progress.path_override = ""

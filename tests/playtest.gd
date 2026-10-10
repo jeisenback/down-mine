@@ -9,6 +9,10 @@ extends SceneTree
 ## Exits 1 if any scenario fails.
 
 const SEED := 1001
+## A seed whose Topsoil gallery (no collapsed section) crosses caves on planks.
+const PLANK_SEED := 8
+## A seed whose Topsoil gallery mouth has an old ladder piece at its row.
+const LANDING_SEED := 1
 const OUT_DIR := "res://playtest_out"
 const SAVE_PATH := "user://playtest_save.cfg"
 
@@ -40,6 +44,10 @@ func _run() -> void:
 		["shaft_ladder_gap", _shaft_ladder_gap],
 		["shaft_end_from_stone", _shaft_end_from_stone],
 		["shaft_end_with_ladder", _shaft_end_with_ladder],
+		["drift_to_camp", _drift_to_camp],
+		["drift_collapse", _drift_collapse],
+		["drift_planks", _drift_planks],
+		["drift_from_the_ladder", _drift_from_the_ladder],
 	]
 	var failed := 0
 	for entry in scenarios:
@@ -190,7 +198,7 @@ func jump_right() -> void:
 func _camp_search() -> void:
 	await _start_game()
 	var camp: Camp = main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Camp)[0]
-	teleport(main.mine.world_to_cell(camp.global_position) + Vector2i(-1, 0))
+	teleport(main.mine.world_to_cell(camp.global_position)) # its own cell: a gallery camp has a cave beside it
 	await frames(20)
 	var ore: int = main.player.currency
 	await tap(KEY_E)
@@ -450,3 +458,107 @@ func _shaft_end_with_ladder() -> void:
 	await hold([KEY_S], 240)
 	check(_cell().y > main.mine.shaft_end_row, "dug through the collapse past the ladder (row %d, collapse ends row %d)" % [_cell().y, main.mine.shaft_end_row])
 	await shot("through")
+
+# --- the old galleries (milestone 51b) ---------------------------------------
+
+func _drift_of(layer: int) -> Dictionary:
+	for d in main.mine.drifts:
+		if d.layer == layer:
+			return d
+	return {}
+
+## The walk key that goes along a drift away from the shaft.
+func _walk_key(drift: Dictionary) -> int:
+	return KEY_D if drift.side > 0 else KEY_A
+
+## Walks along a drift until the player's cell reaches target_x (or the
+## frames run out), then stops: walking on would pass its end into a cave.
+func _walk_to(drift: Dictionary, target_x: int, max_frames: int) -> void:
+	key_event(_walk_key(drift), true)
+	for i in range(max_frames):
+		await physics_frame
+		if (_cell().x - target_x) * drift.side >= 0:
+			break
+	key_event(_walk_key(drift), false)
+	await frames(10)
+
+## Frames to walk a drift's length at 120 px/s, with a third to spare.
+func _walk_frames(drift: Dictionary) -> int:
+	return int((absi(drift.x1 - drift.x0) + 1) * 16.0 / 120.0 * 60.0 * 1.35)
+
+## Walks the Topsoil gallery to its camp and searches it.
+func _drift_to_camp() -> void:
+	await _in_shaft()
+	var d := _drift_of(0)
+	check(not d.is_empty(), "seed %d has a Topsoil gallery" % SEED)
+	if d.is_empty():
+		return
+	await _place(Vector2i(d.x0, d.row))
+	await shot("mouth")
+	await _walk_to(d, d.x1, _walk_frames(d))
+	check(absi(_cell().x - d.x1) <= 1, "walked the gallery to its far end (x %d, end %d)" % [_cell().x, d.x1])
+	await tap(KEY_E)
+	var camps := main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Camp and main.mine.world_to_cell(e.global_position) == Vector2i(d.x1, d.row))
+	check(camps.size() == 1 and camps[0].searched, "the camp at the end was searched")
+	await shot("camp")
+
+## Digs through the Clay gallery's collapsed section.
+func _drift_collapse() -> void:
+	await _in_shaft()
+	var d := _drift_of(1)
+	check(not d.is_empty(), "seed %d has a Clay gallery" % SEED)
+	if d.is_empty():
+		return
+	var box: Rect2i = d.features.collapse
+	var mouth_edge: int = box.position.x if d.side > 0 else box.end.x - 1
+	await _place(Vector2i(mouth_edge - d.side * 3, d.row))
+	await shot("before")
+	await hold([KEY_SPACE, _walk_key(d)], 360)
+	var far_edge: int = box.end.x - 1 if d.side > 0 else box.position.x
+	var past: bool = _cell().x > far_edge if d.side > 0 else _cell().x < far_edge
+	check(past, "dug through the collapsed section (x %d, section %d..%d)" % [_cell().x, box.position.x, box.end.x - 1])
+	var open_cells := 0
+	for cell in main.mine.drift_cells(d):
+		if box.has_point(cell) and not main.mine.is_solid(cell):
+			open_cells += 1
+	check(open_cells >= box.size.y, "the dug column is open (%d cells)" % open_cells)
+	await shot("after")
+
+## Walks a gallery that crosses caves on plank floors without falling.
+func _drift_planks() -> void:
+	await _in_shaft(PLANK_SEED)
+	var d := _drift_of(0)
+	var planks := 0
+	for i in range(absi(d.x1 - d.x0) + 1):
+		if main.mine.get_cell_atlas_coords(0, Vector2i(d.x0 + d.side * i, d.row + 1)) == MineGrid.PLANK_ATLAS_COORDS:
+			planks += 1
+	check(planks > 0, "seed %d's Topsoil gallery has plank floors" % PLANK_SEED)
+	await _place(Vector2i(d.x0, d.row))
+	var lowest := _cell().y
+	key_event(_walk_key(d), true)
+	for i in range(_walk_frames(d)):
+		await physics_frame
+		lowest = maxi(lowest, _cell().y)
+	key_event(_walk_key(d), false)
+	check(lowest <= d.row, "never fell below the gallery floor (lowest row %d, floor row %d)" % [lowest, d.row + 1])
+	check(absi(_cell().x - d.x1) <= 2, "reached the far end (x %d, end %d)" % [_cell().x, d.x1])
+	await shot("end")
+
+## Steps off the old ladder, sideways, into a gallery's mouth.
+func _drift_from_the_ladder() -> void:
+	await _in_shaft(LANDING_SEED)
+	var d := _drift_of(0)
+	await _place(Vector2i(main.mine.shaft_column(), d.row))
+	check(main.player.is_on_rope(), "seed %d: the player starts on the old ladder at the gallery's row" % LANDING_SEED)
+	await shot("on_the_ladder")
+	var lowest := _cell().y
+	key_event(_walk_key(d), true)
+	for i in range(240):
+		await physics_frame
+		lowest = maxi(lowest, _cell().y)
+		if (_cell().x - (d.x0 + d.side * 4)) * d.side >= 0:
+			break
+	key_event(_walk_key(d), false)
+	check((_cell().x - (d.x0 + d.side * 4)) * d.side >= 0, "walked 4 tiles into the gallery (x %d, mouth %d)" % [_cell().x, d.x0])
+	check(lowest <= d.row, "stepped onto the landing without dropping down the shaft (lowest row %d, floor row %d)" % [lowest, d.row + 1])
+	await shot("in_the_mouth")
