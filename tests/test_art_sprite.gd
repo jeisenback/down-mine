@@ -66,8 +66,23 @@ func test_offscreen_art_does_not_render() -> void:
 	await tree.process_frame
 	a._on_screen_exited()
 	assert_eq(a.viewport.render_target_update_mode, SubViewport.UPDATE_DISABLED, "off screen")
+	assert_true(not a.art.is_processing(), "off-screen art does not animate")
+	a._on_art_drawn()
+	assert_eq(a.viewport.render_target_update_mode, SubViewport.UPDATE_DISABLED, "a stray redraw does not wake it")
 	a._on_screen_entered()
-	assert_eq(a.viewport.render_target_update_mode, SubViewport.UPDATE_ALWAYS, "on screen")
+	assert_true(a.art.is_processing(), "back on screen it animates again")
+	a._on_art_drawn()
+	assert_eq(a.viewport.render_target_update_mode, SubViewport.UPDATE_ONCE, "renders once per redraw")
+
+func test_art_redraws_at_a_fixed_rate_not_every_frame() -> void:
+	var a := _make("stalker")
+	await tree.process_frame
+	var redraws := [0]
+	a.art.draw.connect(func(): redraws[0] += 1)
+	for i in range(30):
+		a.art._process(1.0 / 60.0)
+		await tree.process_frame
+	assert_true(redraws[0] > 0 and redraws[0] <= 20, "about REDRAW_FPS draws in half a second, got %d" % redraws[0])
 
 func test_unknown_kind_is_a_blank() -> void:
 	var a := _make("nope")

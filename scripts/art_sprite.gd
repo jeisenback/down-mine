@@ -16,7 +16,13 @@ const GEAR_KINDS := ["player", "flag", "beacon", "bell", "support", "lamp", "lad
 @export var cell: Vector2i = Vector2i(48, 48)
 @export var origin: Vector2i = Vector2i(24, 24)
 @export var length: float = 64.0
+@export var coat: Color = GearArt.DEFAULT_COAT # the miner's coat (player and lost kinds)
 
+# Art phases come from their own generator: drawing must never consume the
+# global one, which the mine's seeded generation and spawns share.
+static var _phase_rng := RandomNumberGenerator.new()
+
+var _on_screen: bool = true
 var art # CreatureArt or GearArt (a CreatureArt subclass)
 var viewport: SubViewport
 var sprite: Sprite2D
@@ -33,15 +39,17 @@ func _ready() -> void:
 		var gear := GearArt.new()
 		gear.gear = kind
 		gear.length = length
+		gear.coat = coat
 		art = gear
 	else:
 		return
-	art.t = randf() * 10.0
+	art.t = _phase_rng.randf() * 10.0
 	viewport = SubViewport.new()
 	viewport.size = cell
 	viewport.transparent_bg = true
 	viewport.msaa_2d = Viewport.MSAA_DISABLED
-	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+	art.draw.connect(_on_art_drawn)
 	art.position = Vector2(origin)
 	viewport.add_child(art)
 	add_child(viewport)
@@ -63,8 +71,17 @@ func _place_sprite() -> void:
 	sprite.position = Vector2(-centre.x if flip_h else centre.x, centre.y)
 	sprite.scale.x = -1.0 if flip_h else 1.0
 
+## The viewport renders once per redraw of the art, not every frame.
+func _on_art_drawn() -> void:
+	if _on_screen:
+		viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+
 func _on_screen_entered() -> void:
-	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	_on_screen = true
+	art.set_process(true)
+	art.queue_redraw()
 
 func _on_screen_exited() -> void:
+	_on_screen = false
+	art.set_process(false)
 	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED

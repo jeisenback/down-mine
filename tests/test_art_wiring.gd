@@ -99,3 +99,107 @@ func test_pickups_are_still_picked_up() -> void:
 	ore._on_body_entered(player)
 	assert_eq(player.currency, before + ore.value, "ore banked")
 	assert_true(ore.is_queued_for_deletion(), "ore pickup consumed")
+
+# --- the miner and lost miners -------------------------------------------------
+
+func test_miner_state_follows_movement() -> void:
+	assert_eq(Player.animation_state(true, false, 0.0, 0.0), "idle", "standing")
+	assert_eq(Player.animation_state(true, false, 1.0, 0.0), "run", "running")
+	assert_eq(Player.animation_state(true, true, 0.0, 0.0), "dig", "digging in place")
+	assert_eq(Player.animation_state(true, true, 1.0, 0.0), "dig", "digging forward")
+	assert_eq(Player.animation_state(false, false, 1.0, -50.0), "jump", "rising")
+	assert_eq(Player.animation_state(false, false, 0.0, 50.0), "fall", "falling")
+
+func test_player_scene_draws_the_miner_and_mirrors_with_facing() -> void:
+	var player := _still_player(Vector2.ZERO)
+	await tree.process_frame
+	var art: ArtSprite = player.get_node("Art")
+	assert_eq(art.kind, "player", "kind")
+	assert_true(player.get_node_or_null("Body") == null, "no old sprite")
+	player.facing = -1
+	player._update_animation(0.0, 0.016)
+	assert_true(art.flip_h, "mirrored facing left")
+	player.facing = 1
+	player._update_animation(0.0, 0.016)
+	assert_true(not art.flip_h, "not mirrored facing right")
+
+func _lost_miner(color: Color) -> LostMiner:
+	var miner: LostMiner = load("res://scenes/LostMiner.tscn").instantiate()
+	miner.shirt_color = color
+	miner.player = _still_player(Vector2(500, 0))
+	add(miner)
+	miner.set_physics_process(false)
+	return miner
+
+func test_lost_miners_wear_their_own_coat() -> void:
+	var a := _lost_miner(Color(0.2, 0.6, 0.9))
+	var b := _lost_miner(Color(0.9, 0.7, 0.1))
+	await tree.process_frame
+	assert_true(a.get_node("Art").art.coat != b.get_node("Art").art.coat, "different coats")
+
+func test_lost_miner_sits_until_found_then_runs_and_mirrors() -> void:
+	var miner := _lost_miner(Color(0.2, 0.6, 0.9))
+	await tree.process_frame
+	assert_eq(miner.get_node("Art").kind, "lost", "waiting miner sits")
+	miner.following = true
+	miner.global_position = Vector2(100, 0)
+	miner.player.global_position = Vector2(100, 0)
+	miner.follow_delay = 0
+	miner.player.global_position = Vector2(80, 0) # the trail leads left
+	miner._physics_process(0.016)
+	var art: ArtSprite = miner.get_node("Art")
+	assert_eq(art.kind, "player", "found miner is a person on their feet")
+	assert_eq(art.art.state, "run", "moving")
+	assert_true(art.flip_h, "mirrored heading left")
+	miner.player.global_position = miner.global_position
+	miner._physics_process(0.016)
+	assert_eq(miner.get_node("Art").art.state, "idle", "stopped")
+
+func test_drawing_never_consumes_the_global_random_generator() -> void:
+	seed(42)
+	var expected := randf()
+	seed(42)
+	for i in range(5):
+		add(ArtSprite.new()).kind = "stalker"
+	await tree.process_frame
+	assert_eq(randf(), expected, "global generator untouched by art")
+
+# --- the base and placed buildings ----------------------------------------------
+
+func test_run_base_keeps_its_node_names_and_draws_its_art() -> void:
+	var base: RunBase = add(RunBaseScene.instantiate())
+	await tree.process_frame
+	for pair in [["Flag", "flag"], ["Beacon", "beacon"], ["Bell", "bell"]]:
+		var art := base.get_node_or_null(pair[0])
+		assert_true(art is ArtSprite, "%s is an ArtSprite" % pair[0])
+		if art is ArtSprite:
+			assert_eq(art.kind, pair[1], "%s kind" % pair[0])
+	assert_true(not base.get_node("Beacon").visible and not base.get_node("Bell").visible, "built later")
+	base.build_beacon()
+	base.build_bell()
+	assert_true(base.get_node("Beacon").visible and base.get_node("Bell").visible, "built")
+
+func test_the_bell_swings_harder_while_it_warns() -> void:
+	var base: RunBase = add(RunBaseScene.instantiate())
+	await tree.process_frame
+	base.ring_bell(true)
+	assert_eq(base.get_node("Bell").art.pose, 1.0, "ringing")
+	base.ring_bell(false)
+	assert_eq(base.get_node("Bell").art.pose, 0.0, "quiet")
+
+func test_support_wears_with_its_lifetime() -> void:
+	var support: Support = add(load("res://scenes/Support.tscn").instantiate())
+	await tree.process_frame
+	assert_eq(support.get_node("Art").kind, "support", "kind")
+	support.lifetime = 1.0
+	support._process(0.0)
+	assert_eq(support.get_node("Art").art.pose, 0.0, "fresh")
+	support.lifetime = 0.25
+	support._process(0.0)
+	assert_eq(support.get_node("Art").art.pose, 0.75, "worn")
+
+func test_lamp_and_anchor_scenes_draw_their_art() -> void:
+	var lamp := await _art_of("res://scenes/Lamp.tscn", "lamp")
+	assert_true(lamp.get_node_or_null("Sprite") == null, "no old lamp sprite")
+	var anchor := await _art_of("res://scenes/Anchor.tscn", "anchor")
+	assert_true(anchor.get_node_or_null("Sprite") == null, "no old anchor sprite")

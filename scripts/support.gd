@@ -17,6 +17,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	var rate := (1.0 / LIFE_SECONDS) * (1.0 if MineLight.is_lit(get_tree(), global_position) else DARK_DECAY_MULTIPLIER)
 	lifetime -= rate * delta
+	$Art.art.pose = 1.0 - clampf(lifetime, 0.0, 1.0)
 	if lifetime <= 0.0:
 		queue_free()
 

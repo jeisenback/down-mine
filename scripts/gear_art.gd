@@ -9,6 +9,10 @@ class_name GearArt
 @export_enum("player", "flag", "beacon", "bell", "support", "lamp", "ladder", "rope", "anchor", "camp", "lift", "outpost", "nest", "heart", "relic", "vault", "lost", "sign", "gas") var gear: String = "player"
 @export var length: float = 64.0   # ladder, rope and lift: how tall they stand or hang
 @export_enum("idle", "run", "dig", "jump", "fall") var state: String = "idle"
+## The miner's coat colour (lost miners each wear their own); shades derive from it.
+@export var coat: Color = DEFAULT_COAT
+
+const DEFAULT_COAT := Color8(138, 52, 44)
 
 const GPAL := {
 	"player": {"k": Color8(16, 12, 10), "skin": Color8(214, 160, 118), "skinsh": Color8(150, 100, 74),
@@ -44,6 +48,15 @@ func _draw() -> void:
 		"sign": _draw_sign()
 		"gas": _draw_gas()
 
+## The miner's palette with this miner's coat swapped in.
+func _person_palette() -> Dictionary:
+	var p: Dictionary = GPAL["player"].duplicate()
+	if coat != DEFAULT_COAT:
+		p["coat"] = coat
+		p["coatsh"] = coat.darkened(0.4)
+		p["coatlt"] = coat.lightened(0.3)
+	return p
+
 func _limb(pts: PackedVector2Array, col: Color, hi: Color, w: float = 2.0) -> void:
 	draw_polyline(pts, GPAL["player"]["k"], w + 1.0)
 	draw_polyline(pts, col, w)
@@ -52,7 +65,7 @@ func _limb(pts: PackedVector2Array, col: Color, hi: Color, w: float = 2.0) -> vo
 # --- the miner ---------------------------------------------------------------
 
 func _draw_player() -> void:
-	var p: Dictionary = GPAL["player"]
+	var p: Dictionary = _person_palette()
 	var ground := 7.0
 	var running := state == "run"
 	var digging := state == "dig"
@@ -468,7 +481,7 @@ func _draw_vault() -> void:
 
 ## A lost miner: slumped against the rock, one arm raised, headlamp guttering.
 func _draw_lost() -> void:
-	var p: Dictionary = GPAL["player"]
+	var p: Dictionary = _person_palette()
 	var flick := 0.5 + 0.5 * sin(t * 9.0) * sin(t * 2.3)
 	var bob := sin(t * 2.0) * 0.4
 	var wave := sin(t * 5.0)

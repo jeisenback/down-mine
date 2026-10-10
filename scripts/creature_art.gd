@@ -27,10 +27,18 @@ const PAL := {
 		"y": Color8(232, 192, 80), "Y": Color8(255, 238, 150)},
 }
 
+## The art redraws this many times a second: it reads as hand-animated, and
+## rebuilding every polygon each frame costs far more than it is worth.
+const REDRAW_FPS := 20.0
+var _since_redraw: float = 1.0
+
 func _process(delta: float) -> void:
 	if animate:
 		t += delta
-	queue_redraw()
+	_since_redraw += delta
+	if _since_redraw >= 1.0 / REDRAW_FPS:
+		_since_redraw = 0.0
+		queue_redraw()
 
 func _draw() -> void:
 	match kind:

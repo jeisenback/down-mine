@@ -55,6 +55,10 @@ func build_bell() -> void:
 	has_bell = true
 	$Bell.visible = true
 
+## The drawn bell swings harder while it warns of noise (milestone 53).
+func ring_bell(ringing: bool) -> void:
+	$Bell.art.pose = 1.0 if ringing else 0.0
+
 func needs_repair() -> bool:
 	return health > 0 and health < MAX_HEALTH
 
