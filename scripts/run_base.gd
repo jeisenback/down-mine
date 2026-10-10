@@ -32,13 +32,12 @@ const FORTIFY_RADIUS_TILES := 5
 const FORTIFY_BATCH_TILES := 12
 const WALL_ORE_COST := 2
 const WALL_NOISE := 2.0
-# Base buildings (milestone 32), one of each per run, paid from run ore.
-# Beacon: the base light reaches further (a bigger refuge) but burns
-# faster. Alarm bell: warns when noise nears the Burrower threshold.
-const BEACON_ORE_COST := 30
+# Base buildings (milestone 32), now part of the tiers (milestone 56): the
+# Outpost brings the beacon (the base light reaches further, a bigger refuge,
+# but burns faster), the Fort the alarm bell (warns when noise nears the
+# Burrower threshold, and tells you each wave's size).
 const BEACON_RADIUS_MULTIPLIER := 1.5
 const BEACON_BURN_MULTIPLIER := 1.5
-const BELL_ORE_COST := 20
 const BUILD_NOISE := 10.0
 
 @onready var light: MineLight = $MineLight

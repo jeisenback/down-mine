@@ -48,10 +48,10 @@ func test_buildings_cost_ore_and_bell_warns() -> void:
 	await physics_frames(10)
 	main.player.currency = 100
 	assert_true(not main.build_support(), "no supports at the surface")
-	assert_true(main.build_beacon(), "beacon built at the base")
-	assert_true(not main.build_beacon(), "one beacon per run")
-	assert_true(main.build_bell(), "bell built")
-	assert_eq(main.player.currency, 100 - RunBase.BEACON_ORE_COST - RunBase.BELL_ORE_COST, "paid from run ore")
+	main.player.currency = 200
+	assert_true(main.grow_base(), "the Outpost, with the beacon")
+	assert_true(main.grow_base(), "the Fort, with the bell")
+	assert_eq(main.player.currency, 200 - RunBase.TIER_COSTS[1] - RunBase.TIER_COSTS[2], "paid from run ore")
 	main.noise_meter.decay_rate = 0.0
 	main.noise_meter.noise = main.noise_meter.threshold * 0.8
 	await physics_frames(2)
@@ -766,4 +766,112 @@ func test_the_shake_does_not_touch_the_global_random_generator() -> void:
 	for i in range(10):
 		main._update_shake(0.05)
 	assert_eq(randf(), expected, "the shake draws from its own generator")
+	Progress.path_override = ""
+
+
+# --- the base grows with one key (run base as a settlement, milestone 56) --------------------
+
+func _press(code: int) -> void:
+	var e := InputEventKey.new()
+	e.physical_keycode = code
+	e.keycode = code
+	e.pressed = true
+	Input.parse_input_event(e)
+	await physics_frames(3)
+	e.pressed = false
+	Input.parse_input_event(e)
+	await physics_frames(3)
+
+## A Main with its player standing at a base planted deep, where noise is heard.
+func _main_at_a_deep_base() -> Node:
+	var main: Node = await _new_main()
+	main.run_base.global_position = main.mine.cell_to_world(Vector2i(40, MineGrid.GRID_HEIGHT - 2))
+	main.player.global_position = main.run_base.global_position
+	main.noise_meter.decay_rate = 0.0
+	main.noise_meter.noise = 0.0
+	return main
+
+func test_u_grows_the_base_and_charges_the_ore() -> void:
+	var main: Node = await _main_at_a_deep_base()
+	main.player.currency = 200
+	assert_true(main.grow_base(), "the Outpost")
+	assert_eq(main.run_base.tier, 1, "tier 1")
+	assert_eq(main.player.currency, 130, "70 ore")
+	assert_eq(main.noise_meter.noise, RunBase.BUILD_NOISE, "a build's noise, heard at a deep base")
+	assert_true(main.grow_base(), "the Fort")
+	assert_eq(main.player.currency, 10, "120 more")
+	assert_true(not main.grow_base(), "nothing above the Fort")
+	assert_eq(main.player.currency, 10, "no ore taken")
+	Progress.path_override = ""
+
+func test_growing_is_refused_short_of_ore_away_from_the_base_and_when_fallen() -> void:
+	var main: Node = await _main_at_a_deep_base()
+	main.player.currency = 69
+	assert_true(not main.grow_base(), "69 ore is short of 70")
+	main.player.currency = 200
+	main.player.global_position = main.run_base.global_position + Vector2(200, 0)
+	assert_true(not main.grow_base(), "too far from the base")
+	main.player.global_position = main.run_base.global_position
+	main.run_base.health = 0
+	assert_true(not main.grow_base(), "a fallen base cannot grow")
+	assert_eq(main.run_base.tier, 0, "still a Camp")
+	assert_eq(main.player.currency, 200, "nothing taken")
+	assert_eq(main.noise_meter.noise, 0.0, "and no noise")
+	Progress.path_override = ""
+
+func test_the_u_key_grows_and_the_old_keys_do_nothing() -> void:
+	var main: Node = await _main_at_a_deep_base()
+	main.player.currency = 200
+	await _press(KEY_2)
+	await _press(KEY_3)
+	assert_true(not main.run_base.has_beacon and not main.run_base.has_bell, "the 2 and 3 keys build nothing")
+	assert_eq(main.player.currency, 200, "and charge nothing")
+	assert_true(not main.has_method("build_beacon") and not main.has_method("build_bell"), "the separate builds are gone")
+	await _press(KEY_U)
+	assert_eq(main.run_base.tier, 1, "U grows the base")
+	assert_true(main.run_base.has_beacon, "with the beacon")
+	Progress.path_override = ""
+
+func test_replanting_keeps_the_tier() -> void:
+	var main: Node = await _main_at_a_deep_base()
+	main.player.currency = 300
+	main.grow_base()
+	main.grow_base()
+	main.run_base.global_position += Vector2(160, 0)
+	main._place_crew_at_base()
+	assert_eq(main.run_base.tier, 2, "still a Fort")
+	assert_eq(main.run_base.light.max_fuel, 340.0, "with its light capacity")
+	Progress.path_override = ""
+
+func test_the_wave_size_arrives_with_the_fort() -> void:
+	var main: Node = await _main_at_a_deep_base()
+	main.player.currency = 300
+	main.run_seconds = 300.0
+	main._process(0.016)
+	assert_true(not main.hud.wave_label.text.contains("Burrower"), "no size at the Camp")
+	main.grow_base()
+	main._process(0.016)
+	assert_true(not main.hud.wave_label.text.contains("Burrower"), "nor at the Outpost")
+	main.grow_base()
+	main._process(0.016)
+	assert_true(main.hud.wave_label.text.contains("Burrower"), "the Fort's bell adds the size (%s)" % main.hud.wave_label.text)
+	Progress.path_override = ""
+
+func test_base_line_and_prompts() -> void:
+	var main: Node = await _main_at_a_deep_base()
+	main.player.currency = 200
+	main._process(0.016)
+	assert_eq(main.hud.base_label.text, "Base: Camp 3/3  walls 0", "the Camp")
+	assert_true(main._action_prompts().has("U: grow the base to an Outpost, 70 ore"), "affordable")
+	main.player.currency = 10
+	assert_true(main._action_prompts().has("Outpost needs 70 ore"), "short of ore")
+	main.player.currency = 300
+	main.grow_base()
+	main._process(0.016)
+	assert_eq(main.hud.base_label.text, "Base: Outpost 4/4  walls 0", "the Outpost")
+	assert_true(main._action_prompts().has("U: grow the base to a Fort, 120 ore"), "article for the Fort")
+	main.grow_base()
+	var prompts: Array = main._action_prompts()
+	assert_true(not prompts.any(func(p): return p.begins_with("U:") or p.ends_with("ore") and p.contains("needs")), "nothing to buy at the Fort")
+	assert_true(not prompts.any(func(p): return p.begins_with("2:") or p.begins_with("3:")), "the old key prompts are gone")
 	Progress.path_override = ""

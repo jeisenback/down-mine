@@ -208,7 +208,7 @@ summary. Report it with a bug and the same mine can be replayed:
 Debug keys are off unless the game is launched with `?debug` (web) or
 `-- --debug` (Godot); both options combine, e.g. `?seed=1234&debug`:
 
-- `I` god mode, `O` +100 ore, `U` refill light
+- `I` god mode, `O` +100 ore, `Y` refill light
 - `N` teleport to the next event room (the Heart first), `K` drop into
   the next layer (from the Hollow, back to the base), `M` reveal the map
 

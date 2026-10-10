@@ -130,7 +130,7 @@ var _shake_left: float = 0.0
 var _shake_pixels: float = 0.0
 var _shake_rest := Vector2.ZERO
 # Debug keys (milestone 43), only with the debug launch option.
-const DEBUG_KEYS := [KEY_I, KEY_O, KEY_U, KEY_N, KEY_K, KEY_M]
+const DEBUG_KEYS := [KEY_I, KEY_O, KEY_Y, KEY_N, KEY_K, KEY_M] # (U grows the base)
 const DEBUG_ORE := 100
 var debug_enabled: bool = false
 var _debug_keys_down: Dictionary = {}
@@ -428,7 +428,7 @@ func _check_debug_keys() -> void:
 			match key:
 				KEY_I: debug_toggle_god()
 				KEY_O: player.currency += DEBUG_ORE
-				KEY_U: player.light.fuel = player.light.max_fuel
+				KEY_Y: player.light.fuel = player.light.max_fuel
 				KEY_N: debug_next_event()
 				KEY_K: debug_next_layer()
 				KEY_M: debug_toggle_reveal()
@@ -496,10 +496,13 @@ func _action_prompts() -> Array:
 			else:
 				prompts.append("F (hold): repair, %d ore" % run_base.repair_cost())
 		prompts.append("B: fortify, %d ore/tile" % run_base.wall_cost())
-		if not run_base.has_beacon:
-			prompts.append("2: beacon, %d ore" % run_base.BEACON_ORE_COST)
-		if not run_base.has_bell:
-			prompts.append("3: bell, %d ore" % run_base.BELL_ORE_COST)
+		var next_cost := run_base.next_tier_cost()
+		if next_cost >= 0:
+			var next_name: String = RunBase.TIER_NAMES[run_base.tier + 1]
+			if player.currency < next_cost:
+				prompts.append("%s needs %d ore" % [next_name, next_cost])
+			else:
+				prompts.append("U: grow the base to %s %s, %d ore" % ["an" if next_name[0] in "AEIOU" else "a", next_name, next_cost])
 	if not _at_surface() and player.currency >= SUPPORT_ORE_COST:
 		prompts.append("1: support, %d ore" % SUPPORT_ORE_COST)
 	if _can_plant():
@@ -540,13 +543,12 @@ func _check_plant() -> void:
 ## support beam where you stand, 2 a beacon and 3 an alarm bell at the
 ## base (one each per run). The hub reads these keys only while paused.
 func _check_builds() -> void:
-	for key in [KEY_1, KEY_2, KEY_3]:
+	for key in [KEY_1, KEY_U]:
 		var pressed := Input.is_physical_key_pressed(key)
 		if pressed and not _build_keys_down.get(key, false):
 			match key:
 				KEY_1: build_support()
-				KEY_2: build_beacon()
-				KEY_3: build_bell()
+				KEY_U: grow_base()
 		_build_keys_down[key] = pressed
 
 func build_support() -> bool:
@@ -558,18 +560,15 @@ func build_support() -> bool:
 	_pay_for_build(SUPPORT_ORE_COST)
 	return true
 
-func build_beacon() -> bool:
-	if not _near_base() or run_base.has_beacon or player.currency < run_base.BEACON_ORE_COST:
+## U at the base: pays for the next tier (the Outpost brings the beacon, the
+## Fort the bell). Refused away from the base, short of ore, at the Fort, or
+## when the base has fallen.
+func grow_base() -> bool:
+	var cost := run_base.next_tier_cost()
+	if not _near_base() or run_base.health <= 0 or cost < 0 or player.currency < cost:
 		return false
-	run_base.build_beacon()
-	_pay_for_build(run_base.BEACON_ORE_COST)
-	return true
-
-func build_bell() -> bool:
-	if not _near_base() or run_base.has_bell or player.currency < run_base.BELL_ORE_COST:
-		return false
-	run_base.build_bell()
-	_pay_for_build(run_base.BELL_ORE_COST)
+	run_base.grow()
+	_pay_for_build(cost)
 	return true
 
 func _pay_for_build(cost: int) -> void:
