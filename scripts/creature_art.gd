@@ -81,48 +81,54 @@ func _glow(c: Vector2, r: float, col: Color, strength: float) -> void:
 		var k := 1.0 - i / 3.0
 		draw_circle(c, r * (0.45 + 0.55 * k), Color(col.r, col.g, col.b, strength * (0.12 + 0.1 * (1.0 - k))))
 
-# --- the Stalker: a hooded wraith -------------------------------------------
+# --- the Stalker: a low, many-legged dark crawler with mandibles --------------
 
 func _draw_stalker() -> void:
 	var p: Dictionary = PAL["stalker"]
-	var sway := sin(t * 2.2) * 0.9
-	var bob := sin(t * 2.2 + 1.0) * 0.8
-	var lean := pose * 3.0
-	var hood_c := Vector2(sway * 0.5 + lean, -9.0 + bob)
-	# the cloak: shoulders to a tattered, rippling hem
-	var cloak := PackedVector2Array()
-	cloak.append(hood_c + Vector2(-4.0, 3.0))
-	cloak.append(hood_c + Vector2(4.0, 3.0))
-	var n := 9
-	for i in range(n + 1):
-		var fx := float(i) / n
-		var x := lerpf(7.5, -7.5, fx) + sway * 0.4
-		var tatter := (3.0 if i % 2 == 0 else 0.0) + (2.0 if i % 3 == 0 else 0.0)
-		cloak.append(Vector2(x, 4.0 + tatter * 0.6 + sin(t * 5.0 + i * 1.3) * 1.0))
-	# arms: two-segment, swinging; one reaches out in a lunge
-	var arm_l := PackedVector2Array([hood_c + Vector2(-4, 4), Vector2(-8.0 + sway, -2.0 + bob), Vector2(-9.0 + sin(t * 3.0) * 1.5, 3.0)])
-	var arm_r := PackedVector2Array([hood_c + Vector2(4, 4), Vector2(8.0 - sway, -3.0 + bob), Vector2(9.0 + pose * 5.0, 2.0 - pose * 7.0 + sin(t * 3.0 + 1.0) * 1.0)])
-	for arm in [arm_l, arm_r]:
-		draw_polyline(arm, p["k"], 3.0)
-		draw_polyline(arm, p["a"], 1.5)
-		var hand: Vector2 = arm[2]
-		for d in [-1.5, 0.0, 1.5]:
-			draw_line(hand, hand + Vector2(d, 2.5), p["m"], 1.0)         # claws
-	_blob(cloak, p)
-	# the hood
-	var hood := _ellipse(hood_c, 4.6, 5.2)
-	_blob(hood, p)
-	# the dark under the hood, burning eyes, a ragged mouth
-	draw_colored_polygon(_ellipse(hood_c + Vector2(0.8, 0.8), 2.8, 3.1, 10), p["v"])
-	var eye_l := hood_c + Vector2(-0.8, 0.2)
-	var eye_r := hood_c + Vector2(2.4, 0.2)
-	var flare := 0.8 + 0.2 * sin(t * 7.0)
-	_glow(eye_l, 3.0, p["e"], flare)
-	_glow(eye_r, 3.0, p["e"], flare)
-	draw_rect(Rect2(eye_l - Vector2(0.5, 0.5), Vector2(1, 1)), p["e"])
-	draw_rect(Rect2(eye_r - Vector2(0.5, 0.5), Vector2(1, 1)), p["e"])
+	var lunge := pose * 3.0
+	var bob := sin(t * 9.0) * 0.4
+	var body_c := Vector2(-1.0 + lunge * 0.5, 0.5 + bob)
+	var ground := 5.5
+	# eight legs, jointed, spread wide around the body; far side darker
+	for i in range(8):
+		var far := i % 2 == 0
+		var slot := i / 2                                   # 0 (front) .. 3 (rear)
+		var hip := body_c + Vector2(4.5 - slot * 3.0, 1.0)
+		var ph := t * 9.0 + (PI if far else 0.0) + slot * 1.4
+		var lift := maxf(0.0, cos(ph)) * 1.8
+		var splay := (slot - 1.5) * -2.2 + (1.5 if far else -1.5)
+		var foot := Vector2(hip.x + splay * 1.6 + sin(ph) * 1.6 + lunge * 0.5, ground - lift - (1.0 if far else 0.0))
+		var knee := Vector2(hip.x + splay * 0.7, hip.y - 5.0 - (1.0 if far else 0.0))
+		var leg := PackedVector2Array([hip, knee, foot])
+		draw_polyline(leg, p["k"], 2.0)
+		draw_polyline(leg, p["a"] if far else p["c"], 1.0)
+	# the body: a flat, armoured oval with a spiny ridge
+	var body := _ellipse(body_c, 7.0, 3.3, 16)
+	_blob(body, p)
+	for i in range(5):
+		var sx := body_c.x - 5.0 + i * 2.3
+		var sy := body_c.y - 3.0 + absf(i - 2) * 0.35
+		draw_colored_polygon(PackedVector2Array([Vector2(sx - 0.9, sy + 0.4), Vector2(sx + 0.9, sy + 0.4), Vector2(sx + 0.3, sy - 1.8)]), p["k"])
+	# plate seams
 	for i in range(3):
-		draw_rect(Rect2(hood_c + Vector2(-0.5 + i * 1.3, 2.3), Vector2(1, 1)), p["m"])  # teeth
+		draw_line(body_c + Vector2(-3.0 + i * 2.8, -2.4), body_c + Vector2(-3.4 + i * 2.8, 2.2), p["a"], 1.0)
+	# the head, low and forward
+	var head_c := body_c + Vector2(7.0 + lunge * 0.3, 0.8)
+	_blob(_ellipse(head_c, 3.2, 2.6, 12), p)
+	# mandibles: two curved hooks that open and snap
+	var open := 0.35 + 0.35 * sin(t * 5.0) + pose * 0.9
+	for side in [-1.0, 1.0]:
+		var base := head_c + Vector2(2.2, side * 1.2)
+		var mid := base + Vector2(2.2, side * (1.0 + open * 2.2))
+		var tip := mid + Vector2(1.6, -side * (1.2 + open * 0.6))
+		draw_polyline(PackedVector2Array([base, mid, tip]), p["k"], 2.2)
+		draw_polyline(PackedVector2Array([base, mid, tip]), p["m"], 1.0)
+	# a cluster of burning eyes
+	var flare := 0.8 + 0.2 * sin(t * 7.0)
+	for e in [Vector2(0.4, -1.2), Vector2(1.6, -0.7), Vector2(-0.8, -0.4)]:
+		_glow(head_c + e, 1.8, p["e"], flare * 0.6)
+		draw_rect(Rect2(head_c + e - Vector2(0.5, 0.5), Vector2(1, 1)), p["e"])
+
 
 # --- the Burrower: an armoured, many-legged worm -----------------------------
 
