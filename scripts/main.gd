@@ -635,6 +635,14 @@ func _record_run(result: String) -> void:
 		"hits": player.hits_by.duplicate(), "seed": mine.mine_seed,
 	})
 
+## The next journal page; the last one also marks where the old shaft's
+## collapse ends (milestone 51), so the way home from below can be found.
+func read_journal_page() -> String:
+	var text := progress.read_journal_page()
+	if progress.journal_read == Progress.JOURNAL.size() and text.begins_with("Journal "):
+		text += " In the margin: the old shaft ends in a collapse at depth %d. Dig up into it from below." % (mine.shaft_end_row - MineGrid.SURFACE_ROWS)
+	return text
+
 func _on_tile_dug(noise_amount: float, world_pos: Vector2) -> void:
 	noise_meter.add_noise(noise_amount, world_pos)
 

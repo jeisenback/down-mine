@@ -454,3 +454,18 @@ func test_main_places_a_camp_and_the_miner_inside_the_drifts() -> void:
 	var topsoil: Array = main.mine.drifts.filter(func(d): return d.layer == 0)
 	assert_true(camps.any(func(c): return main.mine.world_to_cell(c.global_position) == Vector2i(topsoil[0].x1, topsoil[0].row)), "the Topsoil camp stands at its drift's end")
 	Progress.path_override = ""
+
+func test_the_last_journal_page_marks_the_shafts_end() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	var depth: int = main.mine.shaft_end_row - MineGrid.SURFACE_ROWS
+	main.progress.journal_read = Progress.JOURNAL.size() - 2
+	var earlier: String = main.read_journal_page()
+	assert_true(not earlier.contains("depth"), "an ordinary page carries no pointer")
+	var last: String = main.read_journal_page()
+	assert_true(last.contains("Last page"), "that read the last page")
+	assert_true(last.contains("depth %d" % depth), "and it names the collapse's depth (%d)" % depth)
+	var after: String = main.read_journal_page()
+	assert_true(not after.contains("depth"), "afterwards the journal is unreadable, with no pointer")
+	Progress.path_override = ""
