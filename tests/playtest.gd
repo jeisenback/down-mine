@@ -687,7 +687,13 @@ func _drawn_art_on_screen() -> void:
 		if node.has_method("set_physics_process"):
 			node.set_physics_process(false) # hold creatures still
 		placed.append(node)
+	var far := ArtSprite.new() # spawned far off screen: it must stay asleep
+	far.kind = "fuel"
+	main.mine.add_child(far)
+	far.global_position = main.player.global_position + Vector2(5000, 5000)
 	await frames(40)
+	check(far.viewport.render_target_update_mode == SubViewport.UPDATE_DISABLED and not far.art.is_processing(), "art spawned off screen stays asleep")
+	far.queue_free()
 	var arts := 0
 	for node in placed:
 		for art in node.find_children("*", "ArtSprite", true, false):

@@ -27,7 +27,10 @@ const GEAR_KINDS := ["player", "flag", "beacon", "bell", "support", "lamp", "lad
 # global one, which the mine's seeded generation and spawns share.
 static var _phase_rng := RandomNumberGenerator.new()
 
-var _on_screen: bool = true
+# Starts false: the notifier reports an exit only after an entry, so art
+# that begins off screen must begin asleep and be woken by screen_entered.
+var _on_screen: bool = false
+var _notifier: VisibleOnScreenNotifier2D
 var art # CreatureArt or GearArt (a CreatureArt subclass)
 var viewport: SubViewport
 var sprite: Sprite2D
@@ -53,21 +56,23 @@ func _ready() -> void:
 	viewport.size = cell
 	viewport.transparent_bg = true
 	viewport.msaa_2d = Viewport.MSAA_DISABLED
-	viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	art.draw.connect(_on_art_drawn)
 	art.position = Vector2(origin)
 	viewport.add_child(art)
 	add_child(viewport)
+	art.set_process(false) # entering the tree switched it on; it wakes on screen_entered
 	sprite = Sprite2D.new()
 	sprite.texture = viewport.get_texture()
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	add_child(sprite)
 	_place_sprite()
-	var notifier := VisibleOnScreenNotifier2D.new()
-	notifier.rect = Rect2(sprite.position - Vector2(cell) / 2.0, Vector2(cell))
-	notifier.screen_entered.connect(_on_screen_entered)
-	notifier.screen_exited.connect(_on_screen_exited)
-	add_child(notifier)
+	_notifier = VisibleOnScreenNotifier2D.new()
+	_notifier.name = "Notifier"
+	_notifier.screen_entered.connect(_on_screen_entered)
+	_notifier.screen_exited.connect(_on_screen_exited)
+	add_child(_notifier)
+	_place_sprite()
 
 func _place_sprite() -> void:
 	if sprite == null:
@@ -75,6 +80,8 @@ func _place_sprite() -> void:
 	var centre := Vector2(cell) / 2.0 - Vector2(origin)
 	sprite.position = Vector2(-centre.x if flip_h else centre.x, centre.y)
 	sprite.scale.x = -1.0 if flip_h else 1.0
+	if _notifier != null:
+		_notifier.rect = Rect2(sprite.position - Vector2(cell) / 2.0, Vector2(cell))
 
 ## The viewport renders once per redraw of the art, not every frame.
 func _on_art_drawn() -> void:

@@ -61,18 +61,35 @@ func test_clock_phase_differs_per_instance() -> void:
 		phases[a.art.t] = true
 	assert_true(phases.size() > 1, "phases differ")
 
-func test_offscreen_art_does_not_render() -> void:
+func test_art_starts_asleep_and_wakes_only_when_seen() -> void:
 	var a := _make("ore")
 	await tree.process_frame
-	a._on_screen_exited()
-	assert_eq(a.viewport.render_target_update_mode, SubViewport.UPDATE_DISABLED, "off screen")
-	assert_true(not a.art.is_processing(), "off-screen art does not animate")
+	# The notifier only reports exits after an entry, so art must not start awake.
+	assert_eq(a.viewport.render_target_update_mode, SubViewport.UPDATE_DISABLED, "spawned asleep")
+	assert_true(not a.art.is_processing(), "not animating")
 	a._on_art_drawn()
 	assert_eq(a.viewport.render_target_update_mode, SubViewport.UPDATE_DISABLED, "a stray redraw does not wake it")
 	a._on_screen_entered()
-	assert_true(a.art.is_processing(), "back on screen it animates again")
+	assert_true(a.art.is_processing(), "seen: animating")
 	a._on_art_drawn()
 	assert_eq(a.viewport.render_target_update_mode, SubViewport.UPDATE_ONCE, "renders once per redraw")
+	a._on_screen_exited()
+	assert_eq(a.viewport.render_target_update_mode, SubViewport.UPDATE_DISABLED, "gone again: asleep")
+	assert_true(not a.art.is_processing(), "and still")
+
+func test_the_visibility_rect_follows_a_mirrored_sprite() -> void:
+	var a := ArtSprite.new()
+	a.kind = "burrower"
+	a.cell = Vector2i(64, 48)
+	a.origin = Vector2i(48, 26)
+	add(a)
+	await tree.process_frame
+	var notifier: VisibleOnScreenNotifier2D = a.get_node("Notifier")
+	assert_eq(notifier.rect, Rect2(a.sprite.position - Vector2(32, 24), Vector2(64, 48)), "unmirrored")
+	a.flip_h = true
+	assert_eq(notifier.rect, Rect2(a.sprite.position - Vector2(32, 24), Vector2(64, 48)), "mirrored")
+	assert_eq(a.sprite.position.x, 16.0, "the sprite sits on the mirrored side")
+	assert_eq(notifier.rect.position.x, -16.0, "and so does its visibility rect")
 
 func test_art_redraws_at_a_fixed_rate_not_every_frame() -> void:
 	var a := _make("stalker")
