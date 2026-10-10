@@ -40,6 +40,8 @@ PALETTE = {
     "C": (143, 191, 213),  # crystal
     "v": (92, 123, 138),   # crystal shade
     "V": (54, 73, 85),     # crystal dark
+    "z": (0, 0, 0, 115),   # shade over rock (translucent)
+    "Z": (255, 255, 255, 60),  # glint on rock (translucent)
 }
 
 LAMP = [
@@ -353,6 +355,95 @@ def gas_cloud():
     return join(grid)
 
 
+# --- the old mine's 16x16 tiles (milestone 52) ---------------------------------
+# Drawn into the sheet and read by MineGrid._build_tileset (ART_* in mine.gd).
+# Shaft frame, gallery post and plank floor are pack-timber style: outlined
+# beams with a highlight and a shadow. The collapse debris is an overlay of
+# tumbled stones and splintered beams, laid over Stone's rock tile in code.
+
+def tile():
+    return blank(16, 16)
+
+
+def trect(g, x0, y0, x1, y1, ch):
+    for y in range(y0, y1 + 1):
+        for x in range(x0, x1 + 1):
+            if 0 <= x < 16 and 0 <= y < 16:
+                g[y][x] = ch
+
+
+def tline(g, x0, y0, x1, y1, ch, thick=1):
+    n = max(abs(x1 - x0), abs(y1 - y0), 1)
+    for i in range(n + 1):
+        x = round(x0 + (x1 - x0) * i / n)
+        y = round(y0 + (y1 - y0) * i / n)
+        trect(g, x, y, x + thick - 1, y + thick - 1, ch)
+
+
+def beam_v(g, x):
+    """A 4px upright: outline, highlight, body, outline."""
+    for dx, ch in enumerate("dWBd"):
+        trect(g, x + dx, 0, x + dx, 15, ch)
+
+
+def beam_h(g, y):
+    """A 4px crossbeam across the whole tile."""
+    for dy, ch in enumerate("dWBd"):
+        trect(g, 0, y + dy, 15, y + dy, ch)
+
+
+def shaft_frame():
+    g = tile()
+    beam_v(g, 0)
+    beam_v(g, 12)
+    for dy, ch in enumerate("dBbd"):
+        trect(g, 4, 6 + dy, 11, 6 + dy, ch)  # the brace across the middle
+    return join(g)
+
+
+def timber_post():
+    g = tile()
+    beam_v(g, 6)
+    beam_h(g, 0)
+    tline(g, 5, 4, 2, 7, "d")  # corbels under the cap beam
+    tline(g, 10, 4, 13, 7, "d")
+    tline(g, 5, 5, 3, 7, "b")
+    tline(g, 10, 5, 12, 7, "b")
+    return join(g)
+
+
+def plank_floor():
+    g = tile()
+    for i, y in enumerate((0, 5, 10)):
+        trect(g, 0, y, 15, y + 3, "B")
+        trect(g, 0, y, 15, y, "W")
+        trect(g, 0, y + 3, 15, y + 3, "b")
+        trect(g, 0, y + 4, 15, y + 4, "d")
+        gap = (5, 11, 3)[i]
+        trect(g, gap, y, gap, y + 3, "d")  # where one board ends
+        g[y + 1][(gap + 3) % 16] = "d"     # nails
+        g[y + 1][(gap + 9) % 16] = "d"
+    trect(g, 0, 15, 15, 15, "d")
+    return join(g)
+
+
+def collapse_debris():
+    g = tile()
+    for cx, cy, r in ((3, 11, 3), (9, 13, 2), (13, 10, 2), (6, 7, 2)):  # tumbled stones
+        for x in range(cx - r, cx + r + 1):
+            for y in range(cy - r, cy + r + 1):
+                if (x - cx) ** 2 + (y - cy) ** 2 <= r * r and (x + y) % 2:
+                    trect(g, x, y, x, y, "z")
+        trect(g, cx - 1, cy - r, cx - 1, cy - r, "Z")
+    tline(g, 0, 1, 11, 9, "d", 3)   # two splintered beams
+    tline(g, 0, 1, 11, 9, "b", 1)
+    tline(g, 15, 2, 4, 12, "d", 3)
+    tline(g, 15, 2, 4, 12, "B", 1)
+    trect(g, 10, 8, 12, 9, "d")
+    trect(g, 11, 8, 11, 8, "W")     # the splintered end
+    return join(g)
+
+
 # name -> (grid, x, y) position on the sheet
 SPRITES = {
     "lamp": (LAMP, 0, 0),
@@ -377,6 +468,10 @@ SPRITES = {
     "scrap": (SCRAP, 64, 100),
     "gas_cloud": (gas_cloud(), 0, 120),
     "heart": (HEART, 66, 120),
+    "tile_shaft_frame": (shaft_frame(), 0, 176),
+    "tile_gallery_post": (timber_post(), 16, 176),
+    "tile_plank_floor": (plank_floor(), 32, 176),
+    "tile_collapse_debris": (collapse_debris(), 48, 176),
 }
 
 

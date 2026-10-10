@@ -795,3 +795,35 @@ func test_the_lift_stands_in_the_shaft_at_the_bottom_of_clay() -> void:
 		for d in mine.drifts:
 			if d.layer == 1:
 				assert_true(absi(d.row - cell.y) > 3, "seed %d: the Clay gallery (row %d) is clear of the lift (row %d)" % [s, d.row, cell.y])
+
+func _pixels_equal(a: Image, a_origin: Vector2i, b: Image, b_origin: Vector2i) -> bool:
+	for x in range(MineGrid.TILE_SIZE):
+		for y in range(MineGrid.TILE_SIZE):
+			if a.get_pixelv(a_origin + Vector2i(x, y)) != b.get_pixelv(b_origin + Vector2i(x, y)):
+				return false
+	return true
+
+func test_the_old_mines_tiles_come_from_the_props_sheet() -> void:
+	var mine := _mine_with_seed(1001)
+	var atlas: Image = (mine.tile_set.get_source(mine.source_id) as TileSetAtlasSource).texture.get_image()
+	var props: Image = MineGrid.OLD_MINE_ART.get_image()
+	props.decompress()
+	var T := MineGrid.TILE_SIZE
+	for pair in [[MineGrid.FRAME_ATLAS_COORDS, MineGrid.ART_FRAME, "frame"], [MineGrid.POST_ATLAS_COORDS, MineGrid.ART_POST, "post"], [MineGrid.PLANK_ATLAS_COORDS, MineGrid.ART_PLANK, "plank"]]:
+		assert_true(_pixels_equal(atlas, Vector2i(pair[0].x * T, 0), props, pair[1]), "the %s tile is the drawn art" % pair[2])
+	# The debris is Stone's rock with the drawn overlay laid over it.
+	var rock_origin := Vector2i(mine.layer_atlas(2).x * T, 0)
+	var debris_origin := Vector2i(MineGrid.DEBRIS_ATLAS_COORDS.x * T, 0)
+	var covered := 0
+	var showing_rock := 0
+	for x in range(T):
+		for y in range(T):
+			var overlay := props.get_pixelv(MineGrid.ART_DEBRIS + Vector2i(x, y))
+			var tile := atlas.get_pixelv(debris_origin + Vector2i(x, y))
+			if overlay.a == 0.0:
+				showing_rock += 1
+				assert_eq(tile, atlas.get_pixelv(rock_origin + Vector2i(x, y)), "debris shows the rock where the art is clear (%d, %d)" % [x, y])
+			elif overlay.a == 1.0:
+				covered += 1
+				assert_eq(tile, overlay, "debris shows the beam where the art is opaque (%d, %d)" % [x, y])
+	assert_true(covered > 20 and showing_rock > 20, "the debris art is beams over open rock (%d opaque, %d clear)" % [covered, showing_rock])
