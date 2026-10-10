@@ -203,3 +203,25 @@ func test_lamp_and_anchor_scenes_draw_their_art() -> void:
 	assert_true(lamp.get_node_or_null("Sprite") == null, "no old lamp sprite")
 	var anchor := await _art_of("res://scenes/Anchor.tscn", "anchor")
 	assert_true(anchor.get_node_or_null("Sprite") == null, "no old anchor sprite")
+
+# --- ladders and ropes -----------------------------------------------------------
+
+func test_ladder_and_rope_draw_their_length() -> void:
+	var ladder := await _art_of("res://scenes/Ladder.tscn", "ladder")
+	assert_eq(ladder.get_node("Art").art.length, 64.0, "ladder length")
+	assert_true(ladder.get_node_or_null("Sprite") == null, "no old ladder sprite")
+	var rope := await _art_of("res://scenes/Rope.tscn", "rope")
+	assert_eq(rope.get_node("Art").art.length, 96.0, "rope length")
+	assert_true(rope.get_node_or_null("Visual") == null, "no old rope polygon")
+
+func test_climbing_tools_wear_with_lifetime() -> void:
+	for path in ["res://scenes/Ladder.tscn", "res://scenes/Rope.tscn"]:
+		var tool: Rope = add(load(path).instantiate())
+		await tree.process_frame
+		tool.life_seconds = 1000.0
+		tool.lifetime = 1.0
+		tool._process(0.0)
+		assert_eq(tool.get_node("Art").art.pose, 0.0, "%s fresh" % path)
+		tool.lifetime = 0.2
+		tool._process(0.0)
+		assert_eq(tool.get_node("Art").art.pose, 0.8, "%s worn" % path)
