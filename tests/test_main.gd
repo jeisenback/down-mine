@@ -301,8 +301,15 @@ func test_run_log_records_runs_and_causes() -> void:
 
 func test_hud_says_too_dark_to_dig() -> void:
 	Progress.path_override = TEST_SAVE_PATH
+	# Seed 48's terrain puts a fuel pickup (25 fuel) where the player lands: on a
+	# random seed this test failed about 1 run in 80 (CI, M51c).
+	MineGrid.next_seed = 48
 	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
 	await physics_frames(5)
+	for child in main.mine.get_children():
+		if child is FuelPickup:
+			child.queue_free() # nothing to refill the lantern, wherever the terrain puts one
+	await physics_frames(2)
 	main.player.global_position = main.mine.cell_to_world(Vector2i(40, main.mine.quiet_floor_row() + 10))
 	main.player.light.burn_rate = 0.0
 	main.player.light.fuel = 0.0
