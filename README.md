@@ -65,7 +65,8 @@ between runs; searching lights its lantern, which you can relight later
 from your own light. An old lift cage hangs in the shaft near the bottom of Clay: repair it
 for 30 ore (quiet - Clay hears nothing), then ride it once straight up to
 the surface, escorts and all. The journal's last page marks the depth where
-the shaft's collapse ends. A survivor outpost, lit by its fire, sits in Stone, Slate or Deep rock:
+the shaft's collapse ends, and once the journal is finished that page stays
+readable at every later camp. A survivor outpost, lit by its fire, sits in Stone, Slate or Deep rock:
 trade 20 ore for a supply pack (1 lamp, 2 ladders, 1 anchor - even before
 you unlock them; 2 packs per outpost) and recruit its survivor for 40
 ore, who then follows you like a rescued miner. The survivors talk, so

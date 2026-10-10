@@ -475,8 +475,10 @@ func test_the_last_journal_page_marks_the_shafts_end() -> void:
 	assert_true(last.contains("Last page"), "that read the last page")
 	assert_true(last.contains("\nIn the margin"), "the note sits on its own line, so the HUD does not clip it")
 	assert_true(last.contains("depth %d" % depth), "and it names the collapse's depth (%d)" % depth)
-	var after: String = main.read_journal_page()
-	assert_true(not after.contains("depth"), "afterwards the journal is unreadable, with no pointer")
+	var again: String = main.read_journal_page()
+	assert_true(again.contains("Last page") and again.contains("depth %d" % depth), "a finished journal keeps its last page, with the depth, readable at every later camp")
+	main.progress.journal_read = 0
+	assert_true(not main.read_journal_page().contains("depth"), "page one carries no pointer")
 	Progress.path_override = ""
 
 func test_the_hud_shows_the_live_depth_the_journal_refers_to() -> void:
@@ -496,4 +498,15 @@ func test_the_lift_prompt_does_not_call_a_quiet_repair_loud() -> void:
 	var lift: Lift = main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Lift)[0]
 	main.player.currency = Lift.REPAIR_ORE
 	assert_true(not lift.prompt(main).contains("loud"), "the prompt (%s) does not say loud" % lift.prompt(main))
+	Progress.path_override = ""
+
+func test_debug_event_teleport_lands_on_open_ground() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	MineGrid.next_seed = 1001 # its first event is a camp at the far end of a gallery that runs left
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	for i in range(main.mine.event_rooms.size()):
+		main.debug_next_event()
+		var cell: Vector2i = main.mine.world_to_cell(main.player.global_position)
+		assert_true(not main.mine.is_solid(cell), "event %d (%s): teleported into rock at %s" % [i, main.mine.event_rooms[i].kind, cell])
 	Progress.path_override = ""

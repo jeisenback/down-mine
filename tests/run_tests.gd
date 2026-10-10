@@ -9,6 +9,8 @@ func _initialize() -> void:
 
 func _run() -> void:
 	HUD.title_seen = true # scene tests must not start paused on the title
+	var errors := ErrorLogger.new()
+	OS.add_logger(errors)
 	var failed := 0
 	var passed := 0
 	for file in DirAccess.get_files_at("res://tests"):
@@ -26,7 +28,10 @@ func _run() -> void:
 			var case: TestCase = script.new()
 			case.tree = self
 			var before := root.get_child_count()
+			errors.script_errors.clear()
 			await case.call(name)
+			for error in errors.script_errors:
+				case.failures.append("script error: " + error)
 			while root.get_child_count() > before:
 				var node := root.get_child(root.get_child_count() - 1)
 				root.remove_child(node)
@@ -39,6 +44,7 @@ func _run() -> void:
 				print("  FAIL  %s.%s" % [file.get_basename(), name])
 				for f in case.failures:
 					print("          " + f)
+	OS.remove_logger(errors)
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TestCase.TEST_SAVE_PATH))
 	# Let the audio thread release stopped sounds before quitting, or Godot
 	# reports their playbacks as leaked at exit.
