@@ -129,7 +129,7 @@ dictates.
   position, the base hears by distance (80 tiles), Stalkers within 30
   tiles hear loud acts, and the mine sends a Burrower at the base every
   90s shrinking to 45s from 240s into the run. Spec: same as M49.
-- **M51 - The old mine**, in three parts (spec: same as M49).
+- ~~**M51 - The old mine**~~ Done, in three parts (spec: same as M49).
   - ~~**M51a - The shaft.**~~ Done: a timbered shaft on the centre column
     ends in a 6-row collapse in upper Stone; an old ladder of 8-row pieces
     (30% missing, never rotting) runs its length.
@@ -140,12 +140,12 @@ dictates.
     shaft near the bottom of Clay (its repair is quiet, Clay being a quiet
     layer); the journal's last page marks the depth where the collapse
     ends. (Camps and the lost miner moved into the galleries in M51b.)
-  - **Known gap (a missing verb, its own milestone if wanted):** from
-    below, dig-up reaches only about two rows (a jump rises 1.8 tiles and
-    nothing digs while on a rope or ladder), so the 6-row collapse cannot
-    be climbed from below with today's verbs. The journal tells you where
-    the shaft ends; getting up into it needs ladders placed through the
-    dug cells, or a new verb.
+  - **Known difficulty:** straight dig-up from below reaches only about
+    two rows (a jump rises 1.8 tiles and nothing digs while on a rope or
+    ladder), so the 6-row collapse is climbed with a stair dug beside it:
+    dig up two cells, jump, dig the notch ahead at the apex, step in,
+    repeat. It works (about 32s for the climb in `shaft_from_below`) but is
+    slow and loud. The journal's last page says so.
 - **Tuning knobs to revisit in M22:** dig noise per tile (6), the
   Stalker's strike threshold (25% light), lantern size (60s - a dive to
   the Heart is now ~55s one way), stranded drift (5 runs to die now,

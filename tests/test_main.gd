@@ -194,7 +194,8 @@ func test_flaring_burns_the_nest_and_calms_the_deep() -> void:
 	assert_true(main.noise_meter.noise >= Nest.BURN_NOISE, "burning is loud") # decay may add a little
 	await tree.create_timer(0.1).timeout
 	assert_true(not is_instance_valid(main.deep_stalker), "deep Stalker gone")
-	assert_eq(main.hud.layer_label.text, "Deep rock: gas pockets, unstable", "hazard line drops the Stalker")
+	assert_true(main.hud.layer_label.text.begins_with("Deep rock: gas pockets, unstable"), "hazard line drops the Stalker")
+	assert_true(not main.hud.layer_label.text.contains("Stalker"), "and says nothing of one")
 	Progress.path_override = ""
 
 func test_heart_wakes_the_mine_and_wins_the_run() -> void:
@@ -465,7 +466,27 @@ func test_the_last_journal_page_marks_the_shafts_end() -> void:
 	assert_true(not earlier.contains("depth"), "an ordinary page carries no pointer")
 	var last: String = main.read_journal_page()
 	assert_true(last.contains("Last page"), "that read the last page")
+	assert_true(last.contains("\nIn the margin"), "the note sits on its own line, so the HUD does not clip it")
 	assert_true(last.contains("depth %d" % depth), "and it names the collapse's depth (%d)" % depth)
 	var after: String = main.read_journal_page()
 	assert_true(not after.contains("depth"), "afterwards the journal is unreadable, with no pointer")
+	Progress.path_override = ""
+
+func test_the_hud_shows_the_live_depth_the_journal_refers_to() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	main.player.set_physics_process(false)
+	main.player.global_position = main.mine.cell_to_world(Vector2i(40, main.mine.quiet_floor_row() + 10))
+	await tree.create_timer(0.2).timeout
+	assert_true(main.hud.layer_label.text.contains("depth %d" % main._current_depth()), "the layer line reads the depth (%s)" % main.hud.layer_label.text)
+	Progress.path_override = ""
+
+func test_the_lift_prompt_does_not_call_a_quiet_repair_loud() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	var lift: Lift = main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Lift)[0]
+	main.player.currency = Lift.REPAIR_ORE
+	assert_true(not lift.prompt(main).contains("loud"), "the prompt (%s) does not say loud" % lift.prompt(main))
 	Progress.path_override = ""

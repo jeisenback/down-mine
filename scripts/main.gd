@@ -342,7 +342,7 @@ func _check_layer() -> void:
 	var nest_calmed := layer == NEST_LAYER and nest_destroyed
 	var hazard: String = mine.hazard_text(layer, not nest_calmed)
 	var line: String = Progress.layer_name(layer) + (": " + hazard if hazard != "" else "")
-	hud.update_layer(line + ("  - CARRYING THE HEART" if carrying_heart else ""))
+	hud.update_layer(line + ("  - CARRYING THE HEART" if carrying_heart else "") + "  (depth %d)" % _current_depth())
 	if mine.LAYERS[layer].stalker and not _stalkers_woken.has(layer) and not nest_calmed:
 		_stalkers_woken[layer] = true
 		_wake_stalker(layer)
@@ -640,7 +640,7 @@ func _record_run(result: String) -> void:
 func read_journal_page() -> String:
 	var text := progress.read_journal_page()
 	if progress.journal_read == Progress.JOURNAL.size() and text.begins_with("Journal "):
-		text += " In the margin: the old shaft ends in a collapse at depth %d. Dig up into it from below." % (mine.shaft_end_row - MineGrid.SURFACE_ROWS)
+		text += "\nIn the margin: the old shaft ends in a collapse at depth %d. Dig a stair up beside it." % (mine.shaft_end_row - MineGrid.SURFACE_ROWS)
 	return text
 
 func _on_tile_dug(noise_amount: float, world_pos: Vector2) -> void:

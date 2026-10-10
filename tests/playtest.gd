@@ -585,22 +585,52 @@ func _shaft_lift_ride() -> void:
 	check(_cell().y < MineGrid.SURFACE_ROWS, "the ride ended at the surface (row %d)" % _cell().y)
 	await shot("at_the_surface")
 
-## Under the collapse from Stone: the journal's depth is what the HUD reads
-## there, and digging up opens the first row. (Dig-up reaches only about two
-## rows - a jump rises 1.8 tiles and nothing digs while on a rope - so a
-## 6-row collapse cannot be climbed from below with today's verbs; that is a
-## missing verb, noted in the ROADMAP, not something this scenario papers over.)
+## One step of a stair climbed beside the collapse: dig two cells overhead,
+## jump, dig the notch ahead at the apex, walk into it. (Straight dig-up
+## reaches only about two rows - a jump rises 1.8 tiles and nothing digs on a
+## rope - so the 6-row collapse is climbed on a stair, as the journal's last
+## page says.)
+func _stair_step(dir: int) -> void:
+	var walk := KEY_D if dir > 0 else KEY_A
+	await hold([KEY_SPACE, KEY_W], 40)
+	await frames(30)
+	await hold([KEY_SPACE, KEY_W], 40)
+	await frames(30)
+	key_event(KEY_W, true)
+	await frames(16)
+	key_event(KEY_W, false)
+	key_event(KEY_SPACE, true)
+	key_event(walk, true)
+	await frames(8)
+	key_event(KEY_SPACE, false)
+	await frames(40)
+	key_event(walk, false)
+	await frames(10)
+
+## Climbs back up past the collapse on a dug stair, from 12 tiles out in
+## solid rock to the open shaft above it: the way home the journal points at.
 func _shaft_from_below() -> void:
 	await _in_shaft()
 	var col: int = main.mine.shaft_column()
 	var end_row: int = main.mine.shaft_end_row
-	_fill(col, end_row + 1, col, end_row + 2, false) # a two-tile pocket under the collapse
-	_fill(col, end_row + 3, col, end_row + 3, true)
-	await _place(Vector2i(col, end_row + 2))
+	var open: Vector2i = main.mine.shaft_open_rows()
+	# Solid rock beside the collapse (no caves), the open shaft above kept open.
+	_fill(col + 2, open.y - 8, col + 16, end_row + 4, true)
+	_fill(col - 1, open.y + 1, col + 1, end_row + 4, true)
+	_fill(col + 12, end_row + 1, col + 12, end_row + 2, false)
+	await _place(Vector2i(col + 12, end_row + 2))
 	await shot("below_the_collapse")
-	var journal_depth: int = end_row - MineGrid.SURFACE_ROWS
-	check(_cell().y == end_row + 2, "standing in the pocket (row %d)" % _cell().y)
-	check(main._current_depth() == journal_depth + 2, "two rows under the collapse the HUD reads %d, two below the journal's %d" % [main._current_depth(), journal_depth])
-	await hold([KEY_SPACE, KEY_W], 300)
-	check(not main.mine.is_solid(Vector2i(col, end_row)), "digging up opened the collapse's bottom row")
-	await shot("dug_up")
+	var steps := 0
+	for i in range(16):
+		await _stair_step(-1)
+		steps += 1
+		if _cell().y <= open.y and _cell().x <= col + 3:
+			break
+	key_event(KEY_SPACE, true)
+	key_event(KEY_A, true)
+	await frames(90)
+	key_event(KEY_SPACE, false)
+	key_event(KEY_A, false)
+	await frames(30)
+	check(_cell().y <= open.y and main.mine.is_in_shaft(_cell()), "climbed the collapse on a dug stair into the open shaft (cell %s, open rows end at %d, %d steps)" % [_cell(), open.y, steps])
+	await shot("in_the_shaft")

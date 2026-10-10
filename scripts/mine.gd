@@ -420,7 +420,8 @@ func _carve_drifts(solid: Array, rng: RandomNumberGenerator) -> void:
 			event_rooms.append({"kind": "camp", "cell": end_cell, "rect": Rect2i(end_cell - Vector2i(0, 1), Vector2i(1, 2)), "drift": true})
 
 ## The old cage: the lift stands in the shaft's edge column near the bottom
-## of Clay, on a plank floor, so the ladder column stays open. It keeps clear
+## of Clay, on a plank floor, so the ladder column stays open (the shaft's cells are
+## already kept clear of pickups and gas). It keeps clear
 ## of the Clay gallery's mouth. (Clay is quiet: repairing it is silent.)
 func _place_lift(solid: Array, rng: RandomNumberGenerator) -> void:
 	var side := rng.randi_range(0, 1) * 2 - 1
@@ -432,8 +433,6 @@ func _place_lift(solid: Array, rng: RandomNumberGenerator) -> void:
 	var floor_cell := cell + Vector2i.DOWN
 	solid[floor_cell.x][floor_cell.y] = true
 	_plank_cells[floor_cell] = true
-	_room_cells[cell] = true
-	_room_cells[floor_cell] = true
 	_reserved_floors[floor_cell] = true
 	event_rooms.append({"kind": "lift", "cell": cell, "rect": Rect2i(cell - Vector2i(0, 1), Vector2i(1, 2)), "shaft": true})
 
