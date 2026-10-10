@@ -2,20 +2,13 @@
 
 [ext_resource type="Script" path="res://scripts/stranded_sign.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/light.gd" id="2"]
-[ext_resource type="Texture2D" path="res://assets/custom/props.png" id="props"]
+[ext_resource type="Script" path="res://scripts/art_sprite.gd" id="art"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_1"]
 radius = 20.0
 
 [node name="StrandedSign" type="Node2D"]
 script = ExtResource("1")
-
-[node name="Scrap" type="Sprite2D" parent="."]
-position = Vector2(-4, 5)
-texture = ExtResource("props")
-centered = false
-region_enabled = true
-region_rect = Rect2(64, 100, 10, 4)
 
 [node name="MineLight" type="Node2D" parent="."]
 position = Vector2(0, 5)
@@ -34,3 +27,10 @@ texture_scale = 1.0
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="MineLight/DetectionArea"]
 shape = SubResource("CircleShape2D_1")
+
+[node name="Art" type="Node2D" parent="."]
+position = Vector2(0, 8)
+script = ExtResource("art")
+kind = "sign"
+cell = Vector2i(32, 32)
+origin = Vector2i(16, 20)

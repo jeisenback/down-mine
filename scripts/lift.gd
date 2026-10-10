@@ -11,7 +11,7 @@ enum State { BROKEN, READY, USED }
 
 var state: State = State.BROKEN
 
-@onready var cage: Sprite2D = $Cage
+@onready var cage: ArtSprite = $Art
 
 func _ready() -> void:
 	add_to_group("mine_events")
@@ -34,6 +34,6 @@ func use(main: Node) -> void:
 		cage.modulate = Color(1, 1, 1) # rust-dark until repaired
 	elif state == State.READY:
 		state = State.USED
-		cage.visible = false
+		cage.art.empty = true # the cage has gone up; the rails stay
 		Sfx.play("place")
 		main.ride_to_surface(global_position.x)

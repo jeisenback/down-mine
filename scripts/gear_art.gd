@@ -11,6 +11,8 @@ class_name GearArt
 @export_enum("idle", "run", "dig", "jump", "fall") var state: String = "idle"
 ## The miner's coat colour (lost miners each wear their own); shades derive from it.
 @export var coat: Color = DEFAULT_COAT
+## Lift: the cage has gone up the shaft, leaving only the rails.
+var empty: bool = false
 
 const DEFAULT_COAT := Color8(138, 52, 44)
 
@@ -366,6 +368,8 @@ func _draw_lift() -> void:
 		draw_rect(Rect2(x - 1.0, top, 0.8, length), m["b"])
 	for i in range(int(length / 16.0)):
 		draw_line(Vector2(-8, -4.0 - i * 16.0), Vector2(7, -12.0 - i * 16.0), m["a"], 1.0)     # lattice
+	if empty:
+		return
 	var cage_y := -4.0 - pose * (length - 24.0)
 	draw_line(Vector2(0, top), Vector2(0, cage_y - 12.0), m["k"], 2.0)
 	for i in range(int((cage_y - 12.0 - top) / 3.0)):
@@ -413,6 +417,12 @@ func _draw_nest() -> void:
 	var bed := PackedVector2Array([Vector2(-15, 0), Vector2(-12, -3), Vector2(-4, -4), Vector2(5, -3.5), Vector2(13, -3), Vector2(16, 0)])
 	draw_colored_polygon(bed, web["a"])
 	draw_polyline(bed, web["k"], 1.0)
+	if pose > 0.5:                                          # burnt out: char and a few dying embers
+		for i in range(7):
+			var ex := -11.0 + i * 3.6
+			var glow_on := sin(t * 3.0 + i * 2.1) > 0.2
+			draw_rect(Rect2(ex, -2.0 - (i % 3), 1.5, 1.0), Color8(240, 120, 40) if glow_on else web["b"])
+		return
 	for x in [-11.0, -6.0, 0.0, 7.0, 12.0]:
 		draw_line(Vector2(x, -3.0), Vector2(x + 1.5, -6.5), web["b"], 1.0)                 # strands
 	var eggs := [Vector2(-8, -5), Vector2(-1, -6), Vector2(6, -5), Vector2(0, -11)]
@@ -505,10 +515,14 @@ func _draw_lost() -> void:
 ## A scrap of a lost miner's shirt with a faint glow; `pose` is the veteran brightness.
 func _draw_sign() -> void:
 	var glow := Color8(120, 230, 160)
+	if coat != DEFAULT_COAT:
+		glow = coat.lightened(0.3)
 	var pulse := 0.6 + 0.4 * sin(t * 2.4)
 	_glow(Vector2(0, -2), 6.0 + pose * 4.0, glow, (0.4 + pose * 0.5) * pulse)
 	var scrap := PackedVector2Array([Vector2(-4, 0), Vector2(-3, -3), Vector2(0, -2.5), Vector2(3, -4), Vector2(4.5, -1), Vector2(2, 0.5), Vector2(-1, 0.2)])
 	var cloth: Dictionary = {"k": Color8(24, 8, 8), "a": Color8(110, 26, 28), "b": Color8(170, 44, 40), "c": Color8(214, 90, 70)}
+	if coat != DEFAULT_COAT:
+		cloth = {"k": coat.darkened(0.8), "a": coat.darkened(0.45), "b": coat, "c": coat.lightened(0.35)}
 	_blob(scrap, cloth)
 	draw_line(Vector2(-4, 0), Vector2(-5, 1), cloth["a"], 1.0)                              # a loose thread
 	draw_line(Vector2(4.5, -1), Vector2(6, -0.5), cloth["a"], 1.0)

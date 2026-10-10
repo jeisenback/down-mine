@@ -16,7 +16,12 @@ const GEAR_KINDS := ["player", "flag", "beacon", "bell", "support", "lamp", "lad
 @export var cell: Vector2i = Vector2i(48, 48)
 @export var origin: Vector2i = Vector2i(24, 24)
 @export var length: float = 64.0
-@export var coat: Color = GearArt.DEFAULT_COAT # the miner's coat (player and lost kinds)
+## The miner's coat, or a sign's cloth, colour. Live: set it any time.
+@export var coat: Color = GearArt.DEFAULT_COAT:
+	set(value):
+		coat = value
+		if art is GearArt:
+			art.coat = value
 
 # Art phases come from their own generator: drawing must never consume the
 # global one, which the mine's seeded generation and spawns share.

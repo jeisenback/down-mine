@@ -8,6 +8,11 @@ const RunBaseScene := preload("res://scenes/RunBase.tscn")
 
 func _art_of(scene_path: String, kind: String) -> Node:
 	var node: Node = load(scene_path).instantiate()
+	if "main" in node:  # events that watch the player through Main
+		var stub: Node = preload("res://tests/art_main_stub.gd").new()
+		stub.player = _still_player(Vector2(5000, 0))
+		stub.noise_meter = NoiseMeter.new()
+		node.main = stub
 	add(node)
 	node.set_physics_process(false) # creatures need a player and target before they tick
 	await tree.process_frame
@@ -225,3 +230,66 @@ func test_climbing_tools_wear_with_lifetime() -> void:
 		tool.lifetime = 0.2
 		tool._process(0.0)
 		assert_eq(tool.get_node("Art").art.pose, 0.8, "%s worn" % path)
+
+# --- event rooms and hazards -----------------------------------------------------
+
+func test_each_event_scene_draws_its_art() -> void:
+	var cases := {
+		"res://scenes/Camp.tscn": "camp", "res://scenes/Outpost.tscn": "outpost", "res://scenes/Lift.tscn": "lift",
+		"res://scenes/Nest.tscn": "nest", "res://scenes/Heart.tscn": "heart", "res://scenes/Relic.tscn": "relic",
+		"res://scenes/VaultDoor.tscn": "vault", "res://scenes/StrandedSign.tscn": "sign",
+	}
+	for path in cases:
+		var node: Node = await _art_of(path, cases[path])
+		for old in ["Tent", "Crate", "TentLeft", "TentRight", "Campfire", "Rails", "Cage", "Eggs", "Scorch", "Sprite", "Scrap"]:
+			assert_true(node.get_node_or_null(old) == null, "%s has no old %s node" % [path, old])
+
+func test_lift_shows_its_cage_dim_until_repaired_and_empty_once_used() -> void:
+	var lift: Lift = add(load("res://scenes/Lift.tscn").instantiate())
+	await tree.process_frame
+	var dim: Color = lift.cage.modulate
+	assert_true(dim.r < 1.0, "rust-dark until repaired")
+	var main := Node.new()
+	var player := _still_player(Vector2.ZERO)
+	player.currency = Lift.REPAIR_ORE
+	main.set_script(preload("res://tests/art_main_stub.gd"))
+	main.player = player
+	lift.use(main)
+	assert_eq(lift.cage.modulate, Color(1, 1, 1), "repaired")
+	lift.use(main)
+	assert_true(lift.cage.art.empty, "the cage has gone up")
+	assert_eq(main.rode_from, lift.global_position.x, "and it carried the rider")
+	main.free()
+
+func test_nest_scorches_when_destroyed() -> void:
+	var nest: Nest = await _art_of("res://scenes/Nest.tscn", "nest")
+	assert_eq(nest.get_node("Art").art.pose, 0.0, "eggs")
+	nest._destroy()
+	assert_eq(nest.get_node("Art").art.pose, 1.0, "scorched")
+
+func test_gas_cloud_thins_with_age() -> void:
+	var cloud: GasCloud = load("res://scenes/GasCloud.tscn").instantiate()
+	cloud.player = _still_player(Vector2(500, 0))
+	add(cloud)
+	await tree.process_frame
+	assert_true(cloud.get_node_or_null("Haze") == null, "no old haze")
+	assert_eq(cloud.get_node("Art").kind, "gas", "kind")
+	cloud._age = 0.0
+	cloud._process(0.0)
+	assert_eq(cloud.get_node("Art").art.pose, 0.0, "thick")
+	cloud._age = GasCloud.LIFE_SECONDS / 2.0
+	cloud._process(0.0)
+	assert_eq(cloud.get_node("Art").art.pose, 0.5, "half gone")
+
+func test_stranded_signs_wear_their_miners_colour_and_veterans_glow_brighter() -> void:
+	var plain: StrandedSign = load("res://scenes/StrandedSign.tscn").instantiate()
+	plain.color = Color(0.2, 0.6, 0.9)
+	add(plain)
+	var vet: StrandedSign = load("res://scenes/StrandedSign.tscn").instantiate()
+	vet.color = Color(0.9, 0.7, 0.1)
+	vet.veteran = true
+	add(vet)
+	await tree.process_frame
+	assert_eq(plain.get_node("Art").art.pose, 0.0, "ordinary")
+	assert_eq(vet.get_node("Art").art.pose, 1.0, "veteran")
+	assert_true(plain.get_node("Art").art.coat != vet.get_node("Art").art.coat, "each in their own colour")
