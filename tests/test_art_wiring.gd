@@ -293,3 +293,22 @@ func test_stranded_signs_wear_their_miners_colour_and_veterans_glow_brighter() -
 	assert_eq(plain.get_node("Art").art.pose, 0.0, "ordinary")
 	assert_eq(vet.get_node("Art").art.pose, 1.0, "veteran")
 	assert_true(plain.get_node("Art").art.coat != vet.get_node("Art").art.coat, "each in their own colour")
+
+# --- seeds and gas (follow-ups to the M53 review) ----------------------------------
+
+func test_a_fuel_pickup_still_consumes_one_global_random_number() -> void:
+	# Mines build pickups during seeded generation; one draw each keeps every
+	# seed building the same mine it did before the art was redrawn.
+	seed(7)
+	randf()
+	var expected := randf()
+	seed(7)
+	var pickup: FuelPickup = load("res://scenes/FuelPickup.tscn").instantiate()
+	assert_eq(randf(), expected, "exactly one draw per pickup")
+	pickup.free()
+
+func test_gas_fades_all_the_way_out() -> void:
+	assert_eq(GearArt.gas_alpha(0.0), 1.0, "thick")
+	assert_eq(GearArt.gas_alpha(0.5), 0.5, "half gone")
+	assert_eq(GearArt.gas_alpha(1.0), 0.0, "gone at the end of its life, not popping out at 20%")
+	assert_eq(GearArt.gas_alpha(1.5), 0.0, "never negative")
