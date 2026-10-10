@@ -11,6 +11,8 @@ extends SceneTree
 const SEED := 1001
 ## A seed whose Topsoil gallery (no collapsed section) crosses caves on planks.
 const PLANK_SEED := 8
+## A seed whose Topsoil gallery mouth has an old ladder piece at its row.
+const LANDING_SEED := 1
 const OUT_DIR := "res://playtest_out"
 const SAVE_PATH := "user://playtest_save.cfg"
 
@@ -45,6 +47,7 @@ func _run() -> void:
 		["drift_to_camp", _drift_to_camp],
 		["drift_collapse", _drift_collapse],
 		["drift_planks", _drift_planks],
+		["drift_from_the_ladder", _drift_from_the_ladder],
 	]
 	var failed := 0
 	for entry in scenarios:
@@ -540,3 +543,22 @@ func _drift_planks() -> void:
 	check(lowest <= d.row, "never fell below the gallery floor (lowest row %d, floor row %d)" % [lowest, d.row + 1])
 	check(absi(_cell().x - d.x1) <= 2, "reached the far end (x %d, end %d)" % [_cell().x, d.x1])
 	await shot("end")
+
+## Steps off the old ladder, sideways, into a gallery's mouth.
+func _drift_from_the_ladder() -> void:
+	await _in_shaft(LANDING_SEED)
+	var d := _drift_of(0)
+	await _place(Vector2i(main.mine.shaft_column(), d.row))
+	check(main.player.is_on_rope(), "seed %d: the player starts on the old ladder at the gallery's row" % LANDING_SEED)
+	await shot("on_the_ladder")
+	var lowest := _cell().y
+	key_event(_walk_key(d), true)
+	for i in range(240):
+		await physics_frame
+		lowest = maxi(lowest, _cell().y)
+		if (_cell().x - (d.x0 + d.side * 4)) * d.side >= 0:
+			break
+	key_event(_walk_key(d), false)
+	check((_cell().x - (d.x0 + d.side * 4)) * d.side >= 0, "walked 4 tiles into the gallery (x %d, mouth %d)" % [_cell().x, d.x0])
+	check(lowest <= d.row, "stepped onto the landing without dropping down the shaft (lowest row %d, floor row %d)" % [lowest, d.row + 1])
+	await shot("in_the_mouth")
