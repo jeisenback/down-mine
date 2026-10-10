@@ -1,7 +1,7 @@
 [gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/vault_door.gd" id="1"]
-[ext_resource type="Texture2D" path="res://assets/custom/props.png" id="props"]
+[ext_resource type="Script" path="res://scripts/art_sprite.gd" id="art"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
 size = Vector2(16, 32)
@@ -12,9 +12,9 @@ script = ExtResource("1")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_1")
 
-[node name="Sprite" type="Sprite2D" parent="."]
-position = Vector2(-8, -16)
-texture = ExtResource("props")
-centered = false
-region_enabled = true
-region_rect = Rect2(98, 0, 16, 32)
+[node name="Art" type="Node2D" parent="."]
+position = Vector2(0, 16)
+script = ExtResource("art")
+kind = "vault"
+cell = Vector2i(32, 48)
+origin = Vector2i(16, 40)

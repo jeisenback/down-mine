@@ -14,7 +14,7 @@ var player: Player
 var _age: float = 0.0
 var _damage_timer: float = 0.0
 
-@onready var haze: Sprite2D = $Haze
+@onready var art: ArtSprite = $Art
 
 func _ready() -> void:
 	add_to_group("gas_clouds")
@@ -25,7 +25,7 @@ func _process(delta: float) -> void:
 	if _age >= LIFE_SECONDS:
 		queue_free()
 		return
-	haze.modulate.a = 1.0 - _age / LIFE_SECONDS
+	art.art.pose = _age / LIFE_SECONDS
 	if contains(player.global_position):
 		_damage_timer += delta
 		if _damage_timer >= DAMAGE_INTERVAL:

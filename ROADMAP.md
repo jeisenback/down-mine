@@ -151,6 +151,15 @@ dictates.
   the props sheet, rows from y=176) in the pack's wood palette: outlined,
   shaded timber, with tumbled stones and splintered beams over the
   collapse. Prototypes and the choice: `docs/m52-prototypes/`.
+- ~~**M53 - Drawn creatures and gear.**~~ Done: the Stalker (a spider),
+  Burrower (a low many-legged crawler with mandibles), Snuffer, fuel and
+  ore pickups, the miner and lost miners, the base flag, beacon and bell,
+  supports, lamps, anchors, ladders, ropes, and the camp, outpost, lift,
+  nest, Heart, relic, vault door, stranded signs and gas are drawn in code
+  (`scripts/creature_art.gd`, `scripts/gear_art.gd`) and shown pixelated
+  through small viewports (`scripts/art_sprite.gd`), redrawing at 20 fps and
+  only while on screen. Ladders, ropes and supports visibly wear out. Plan:
+  `docs/superpowers/plans/2026-10-10-m53-drawn-creatures-and-gear.md`.
 - **Tuning knobs to revisit in M22:** dig noise per tile (6), the
   Stalker's strike threshold (25% light), lantern size (60s - a dive to
   the Heart is now ~55s one way), stranded drift (5 runs to die now,

@@ -1,6 +1,7 @@
 [gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/rope.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/art_sprite.gd" id="art"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
 size = Vector2(6, 96)
@@ -12,6 +13,9 @@ script = ExtResource("1")
 position = Vector2(0, 48)
 shape = SubResource("RectangleShape2D_1")
 
-[node name="Visual" type="Polygon2D" parent="."]
-polygon = PackedVector2Array(-3, 0, 3, 0, 3, 96, -3, 96)
-color = Color(0.6, 0.45, 0.25, 0.85)
+[node name="Art" type="Node2D" parent="."]
+script = ExtResource("art")
+kind = "rope"
+length = 96.0
+cell = Vector2i(32, 112)
+origin = Vector2i(16, 8)

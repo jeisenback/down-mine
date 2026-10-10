@@ -12,8 +12,8 @@ const LIT_SPEED_MULTIPLIER := 0.4
 const MAX_HEALTH := 1.5 # seconds of flare exposure
 const ATTACK_RANGE := 14.0
 const ATTACK_COOLDOWN := 2.0
-const ANIM_FPS := 6.0
-const FRAME_COUNT := 3
+# The drawn mandibles stay wide for this long after a strike (milestone 53).
+const STRIKE_POSE_SECONDS := 0.4
 const WALL_CHEW_TIME := 2.5 # seconds per reinforced tile; plain rock is instant
 
 var mine: MineGrid
@@ -21,19 +21,19 @@ var player: Player
 var target: RunBase
 var health: float = MAX_HEALTH
 var _attack_timer: float = 0.0
-var _anim_time: float = 0.0
+var _strike_timer: float = 0.0
 var _chew_timer: float = 0.0
 
-@onready var sprite: Sprite2D = $Sprite2D
+@onready var art: ArtSprite = $Art
 
 func _ready() -> void:
 	add_to_group("burrowers")
-	sprite.texture = PixelArt.keyed(sprite.texture)
 
 func _physics_process(delta: float) -> void:
 	_attack_timer = max(0.0, _attack_timer - delta)
-	_anim_time += delta
-	sprite.frame = int(_anim_time * ANIM_FPS) % FRAME_COUNT
+	_strike_timer = maxf(0.0, _strike_timer - delta)
+	if _strike_timer <= 0.0:
+		art.art.pose = 0.0
 
 	var in_player_light := global_position.distance_to(player.global_position) < player.light.current_radius()
 	if in_player_light and player.light.is_flaring:
@@ -43,10 +43,12 @@ func _physics_process(delta: float) -> void:
 			return
 
 	var to_target := target.global_position - global_position
-	sprite.flip_h = to_target.x < 0.0
+	art.flip_h = to_target.x < 0.0
 	if to_target.length() <= ATTACK_RANGE:
 		if _attack_timer <= 0.0:
 			_attack_timer = ATTACK_COOLDOWN
+			_strike_timer = STRIKE_POSE_SECONDS
+			art.art.pose = 1.0
 			target.take_hit(1)
 		return
 

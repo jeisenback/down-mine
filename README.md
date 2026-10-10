@@ -215,4 +215,6 @@ every pull request; the screenshots are attached to the run as
 - `scenes/` — Main, Player, Mine, HUD, and one scene per enemy, tool and
   mine event (Stalkers are spawned by Main as you descend)
 - `scripts/` — one script per scene/system (`mine.gd` generates its own
-  placeholder tileset in code, no art assets needed yet)
+  tileset; creatures, pickups, the miner and every placed or event object
+  are drawn in code at runtime: `creature_art.gd`, `gear_art.gd`, shown
+  pixelated by `art_sprite.gd`; contact-sheet previews are `tools/preview_*.gd`)

@@ -14,9 +14,10 @@ var veteran: bool = false
 @onready var light: MineLight = $MineLight
 
 func _ready() -> void:
-	$Scrap.modulate = color
+	$Art.coat = color
 	$MineLight/PointLight2D.color = color.lightened(0.3)
 	if veteran:
+		$Art.art.pose = 1.0
 		light.radius_max = VETERAN_RADIUS
 		light.radius_min = VETERAN_RADIUS
 		light.energy_max = VETERAN_ENERGY

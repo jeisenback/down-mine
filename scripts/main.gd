@@ -532,6 +532,8 @@ func _check_bell() -> void:
 	if loud and not _bell_ringing:
 		Sfx.play("alarm", -4.0)
 	_bell_ringing = loud
+	if run_base.has_bell:
+		run_base.ring_bell(loud)
 	hud.set_noise_warning(loud)
 
 ## L sets a lamp down where the player stands.

@@ -35,8 +35,7 @@ func use(_main: Node) -> void:
 func _destroy() -> void:
 	destroyed = true
 	remove_from_group("mine_events")
-	$Eggs.visible = false
-	$Scorch.visible = true
+	$Art.art.pose = 1.0 # eggs become a scorched patch
 	main.noise_meter.add_noise(BURN_NOISE, global_position)
 	Sfx.play("hiss")
 	main.on_nest_destroyed()
