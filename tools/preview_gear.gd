@@ -14,6 +14,7 @@ const ROWS := [
 	["outpost", "idle", 0.0], ["nest", "idle", 0.0], ["heart", "idle", 0.0], ["heart", "idle", 0.5],
 	["relic", "idle", 0.0], ["vault", "idle", 0.0], ["vault", "idle", 1.0], ["lost", "idle", 0.0],
 	["sign", "idle", 0.0], ["sign", "idle", 1.0], ["gas", "idle", 0.0], ["gas", "idle", 1.0],
+	["bench", "idle", 0.0], ["lantern_post", "idle", 0.0], ["muffling_post", "idle", 0.0], ["rope_rack", "idle", 0.0],
 ]
 const COLS := 8
 const CELL := 48
@@ -36,7 +37,7 @@ func _initialize() -> void:
 		art.t = r[2]
 		art.pose = 1.0 if r[0] == "bell" and r[2] == 1.0 else (r[2] if r[0] in ["support", "lift", "vault"] else (1.0 if r[0] in ["ladder", "rope", "sign", "gas"] and r[2] > 0.5 else 0.0))
 		art.length = 40.0
-		art.position = Vector2(CELL / 2, CELL / 2 + (14 if r[0] in ["player", "flag", "support", "lamp", "anchor", "camp", "outpost", "nest", "heart", "relic", "vault", "lost", "sign"] else (20 if r[0] in ["ladder", "lift"] else (-20 if r[0] == "rope" else 0))))
+		art.position = Vector2(CELL / 2, CELL / 2 + (14 if r[0] in ["player", "flag", "support", "lamp", "anchor", "camp", "outpost", "nest", "heart", "relic", "vault", "lost", "sign", "bench", "lantern_post", "muffling_post", "rope_rack"] else (20 if r[0] in ["ladder", "lift"] else (-20 if r[0] == "rope" else 0))))
 		vp.add_child(art)
 		root.add_child(vp)
 		vps.append(vp)

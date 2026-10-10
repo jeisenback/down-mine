@@ -160,6 +160,15 @@ dictates.
   through small viewports (`scripts/art_sprite.gd`), redrawing at 20 fps and
   only while on screen. Ladders, ropes and supports visibly wear out. Plan:
   `docs/superpowers/plans/2026-10-10-m53-drawn-creatures-and-gear.md`.
+- ~~**M54 - Workers and jobs.**~~ Done: crew types are jobs done at the run
+  base on their own (Mender mends, Lamplighter refines ore into base fuel,
+  Climber makes ladders, anchors and lamps, Whisper hushes the base), paid in
+  carried ore and noise, at drawn stations beside the flag where the miners
+  dig while they work. The old hidden type bonuses are gone. Piece 1 of the
+  Two Crowns inspired design (#35); next are the rhythm of threat (#36), the run
+  base as a settlement (#37) and the hub as a kingdom (#38). Spec:
+  `docs/superpowers/specs/2026-10-10-workers-and-jobs-design.md`; plan:
+  `docs/superpowers/plans/2026-10-10-workers-and-jobs.md`.
 - **Tuning knobs to revisit in M22:** dig noise per tile (6), the
   Stalker's strike threshold (25% light), lantern size (60s - a dive to
   the Heart is now ~55s one way), stranded drift (5 runs to die now,

@@ -52,6 +52,7 @@ func _run() -> void:
 		["shaft_lift_from_the_ladder", _shaft_lift_from_the_ladder],
 		["shaft_from_below", _shaft_from_below],
 		["drawn_art_on_screen", _drawn_art_on_screen],
+		["crew_jobs_at_work", _crew_jobs_at_work],
 	]
 	var failed := 0
 	for entry in scenarios:
@@ -711,3 +712,49 @@ func _drawn_art_on_screen() -> void:
 	check(arts >= scenes.size(), "all %d drawn things found, got %d" % [scenes.size(), arts])
 	await shot("everything")
 	_end_game()
+
+## A full crew (one of each type) at the base for about 75 s of game time
+## (time scaled 6x): the jobs change the base, the ore and the tool stocks,
+## the miners stand at their stations digging while they work, and work done
+## below the quiet layers is heard by the noise meter.
+func _crew_jobs_at_work() -> void:
+	var saved := Progress.new()
+	saved.save_path = SAVE_PATH
+	saved.roster = [
+		{"name": "Ana", "type": "repair", "runs": 0}, {"name": "Bo", "type": "light", "runs": 0},
+		{"name": "Cy", "type": "noise", "runs": 0}, {"name": "Di", "type": "traversal", "runs": 5},
+	]
+	saved.crew_names = ["Ana", "Bo", "Cy", "Di"]
+	saved.levels = {"lamps": 1, "ladders": 1, "anchors": 1, "crew_bunk": 3}
+	saved.save()
+	await _start_game()
+	var base: RunBase = main.run_base
+	base.health = 1
+	base.light.fuel = base.light.max_fuel * 0.5
+	var fuel_before: float = base.light.fuel
+	main.player.currency = 200
+	var tools_before: int = main.player.ladders_left + main.player.anchors_left + main.lamps_left
+	check(main.stations.size() == 4, "a station for each of the four jobs")
+	Engine.time_scale = 6.0
+	await frames(100) # about 10 s: the Mender has not finished its first point yet
+	var ana: LostMiner = main.crew_at_base.filter(func(m): return m.miner_name == "Ana")[0]
+	check(ana.art.art.state == "dig", "the Mender digs while the base needs mending")
+	await shot("crew at work")
+	await frames(650) # about 65 s more
+	Engine.time_scale = 1.0
+	check(base.health >= 2, "the Mender mended the base (health %d)" % base.health)
+	check(base.light.fuel > fuel_before, "the Lamplighter's fuel outran the burn (%.0f > %.0f)" % [base.light.fuel, fuel_before])
+	var tools_after: int = main.player.ladders_left + main.player.anchors_left + main.lamps_left
+	check(tools_after > tools_before, "the Climber made something (%d > %d)" % [tools_after, tools_before])
+	check(main.player.currency < 200, "the jobs spent ore (%d left)" % main.player.currency)
+	# Below the quiet layers the same work is heard.
+	base.global_position = main.mine.cell_to_world(Vector2i(40, MineGrid.GRID_HEIGHT - 2))
+	main._place_crew_at_base()
+	base.health = 1
+	main.player.currency = 200
+	main.noise_meter.decay_rate = 0.0
+	main.noise_meter.noise = 0.0
+	Engine.time_scale = 6.0
+	await frames(160)
+	Engine.time_scale = 1.0
+	check(main.noise_meter.noise > 0.0, "work below the quiet layers makes noise the base hears (%.1f)" % main.noise_meter.noise)

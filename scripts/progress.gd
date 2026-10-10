@@ -38,23 +38,15 @@ const LANTERN_FUEL_PER_LEVEL := 15.0
 const HARD_HAT_HEALTH_PER_LEVEL := 1
 
 # NPC types (PRD: light, repair, noise, traversal). A crew member's type
-# improves its system while on the crew; two of a type stack. Bonuses
-# are fractions at rank strength 1.0; veterans scale them (see RANKS).
-# title: veteran epithet.
+# is their job at the run base (see CrewJobs, milestone 54); two of a type
+# both work. Rates are at rank strength 1.0; veterans scale them (see
+# RANKS). title: veteran epithet.
 const NPC_TYPES := {
 	"light": {"label": "Light", "title": "Lamplighter"},
 	"noise": {"label": "Noise", "title": "Whisper"},
 	"traversal": {"label": "Traversal", "title": "Climber"},
 	"repair": {"label": "Repair", "title": "Mender"},
 }
-const LIGHT_BURN_REDUCTION := 0.2
-const LIGHT_RADIUS_BONUS := 0.15
-const NOISE_REDUCTION := 0.25
-const TRAVERSAL_GRAPPLE_BONUS := 0.5
-const TRAVERSAL_TOOL_LIFE_BONUS := 0.5   # ropes and ladders last longer
-const TRAVERSAL_LADDER_SPEED_BONUS := 0.25
-const REPAIR_COST_REDUCTION := 0.25
-const REPAIR_SPEED_BONUS := 0.25
 
 # Veterans (PRD): crew gain a run of experience each time a run they were
 # on ends in extraction. Rank scales their bonus; Veterans earn a title.
@@ -253,18 +245,20 @@ func effect_text(member: Dictionary) -> String:
 	var strength: float = rank_of(member).strength
 	match member.type:
 		"light":
-			return "lantern burn -%d%%, reach +%d%%" % [
-				roundi(LIGHT_BURN_REDUCTION * strength * 100), roundi(LIGHT_RADIUS_BONUS * strength * 100)]
+			return "refines %d ore into %d base fuel every %d s" % [
+				CrewJobs.LAMPLIGHTER_ORE, roundi(CrewJobs.LAMPLIGHTER_FUEL), roundi(CrewJobs.LAMPLIGHTER_INTERVAL / strength)]
 		"noise":
-			return "noise -%d%%" % roundi(NOISE_REDUCTION * strength * 100)
+			return "noise -%d%%" % roundi(CrewJobs.WHISPER_REDUCTION * strength * 100)
 		"traversal":
-			return "grapple +%d%%, rope life +%d%%, ladders +%d%%" % [
-				roundi(TRAVERSAL_GRAPPLE_BONUS * strength * 100), roundi(TRAVERSAL_TOOL_LIFE_BONUS * strength * 100),
-				roundi(TRAVERSAL_LADDER_SPEED_BONUS * strength * 100)]
+			return "makes a ladder, anchor or lamp every %d s" % roundi(CrewJobs.CLIMBER_INTERVAL / strength)
 		"repair":
-			return "repair cost -%d%%, speed +%d%%" % [
-				roundi(REPAIR_COST_REDUCTION * strength * 100), roundi(REPAIR_SPEED_BONUS * strength * 100)]
+			return "repairs the base 1 health per %d s, %d ore" % [
+				roundi(CrewJobs.MENDER_INTERVAL / strength), CrewJobs.MENDER_ORE]
 	return ""
+
+## The crew as CrewJobs wants them: name, type and the strength of their rank.
+func job_crew() -> Array:
+	return crew().map(func(m): return {"name": m.name, "type": m.type, "strength": rank_of(m).strength})
 
 ## Type for a newly found miner, weighted toward types the roster lacks.
 func pick_new_npc_type() -> String:
@@ -348,20 +342,10 @@ func apply_to(player: Player, noise_meter: NoiseMeter, run_base: RunBase) -> voi
 		player.ladders_left = 0
 	if not has_unlock("anchors"):
 		player.anchors_left = 0
+	var whispers: Array = []
 	for member in crew():
-		var strength: float = rank_of(member).strength
-		if member.type == "light":
-			player.light.burn_rate *= 1.0 - LIGHT_BURN_REDUCTION * strength
-			player.light.radius_max *= 1.0 + LIGHT_RADIUS_BONUS * strength
-		elif member.type == "noise":
-			noise_meter.noise_multiplier *= 1.0 - NOISE_REDUCTION * strength
-		elif member.type == "traversal":
-			player.grapple_range *= 1.0 + TRAVERSAL_GRAPPLE_BONUS * strength
-			player.tool_life_multiplier *= 1.0 + TRAVERSAL_TOOL_LIFE_BONUS * strength
-			player.ladder_speed_multiplier *= 1.0 + TRAVERSAL_LADDER_SPEED_BONUS * strength
-		elif member.type == "repair":
-			run_base.repair_cost_multiplier *= 1.0 - REPAIR_COST_REDUCTION * strength
-			run_base.repair_speed_multiplier *= 1.0 + REPAIR_SPEED_BONUS * strength
+		if member.type == "noise":
+			whispers.append(rank_of(member).strength)
 		match member.get("quirk", ""):
 			"night_eyes":
 				player.light.radius_min += NIGHT_EYES_MIN_RADIUS_BONUS
@@ -375,3 +359,4 @@ func apply_to(player: Player, noise_meter: NoiseMeter, run_base: RunBase) -> voi
 			"hums":
 				noise_meter.noise_multiplier *= HUMS_NOISE
 			# pack_rat: extra_lamps(), read by Main
+	noise_meter.noise_multiplier *= CrewJobs.whisper_factor(whispers)

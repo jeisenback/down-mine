@@ -312,3 +312,18 @@ func test_gas_fades_all_the_way_out() -> void:
 	assert_eq(GearArt.gas_alpha(0.5), 0.5, "half gone")
 	assert_eq(GearArt.gas_alpha(1.0), 0.0, "gone at the end of its life, not popping out at 20%")
 	assert_eq(GearArt.gas_alpha(1.5), 0.0, "never negative")
+
+# --- stations (workers and jobs, milestone 54) -------------------------------------
+
+func test_each_job_has_a_drawn_station() -> void:
+	for kind in ["bench", "lantern_post", "muffling_post", "rope_rack"]:
+		var a := _make(kind)
+		await tree.process_frame
+		assert_true(a.art is GearArt, "%s builds a gear art" % kind)
+		assert_eq(a.art.gear, kind, "%s gear" % kind)
+
+func _make(kind: String) -> ArtSprite:
+	var a := ArtSprite.new()
+	a.kind = kind
+	add(a)
+	return a
