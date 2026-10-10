@@ -50,7 +50,7 @@ All tiers reset every run (nothing persists; that is #38). Replanting the base (
 
 - Short of ore: nothing is taken, nothing changes, the prompt says what is needed.
 - At the Fort: the key does nothing and the prompt is hidden.
-- Away from the base (outside `BASE_RANGE`): the key does nothing.
+- Away from the base (not `_near_base()`, within `BASE_RADIUS` of the base): the key does nothing.
 - The base has fallen: the run is over; growing is refused.
 - Growing while damaged heals to the new max health; growing at full health also raises it.
 - Growing during a wave: allowed, and useful (heal and a fuller light); the noise is the cost.
