@@ -527,9 +527,13 @@ func _draw_sign() -> void:
 	draw_line(Vector2(-4, 0), Vector2(-5, 1), cloth["a"], 1.0)                              # a loose thread
 	draw_line(Vector2(4.5, -1), Vector2(6, -0.5), cloth["a"], 1.0)
 
+## How thick the gas still is: 1 at pose 0, 0 once the cloud's life is over.
+static func gas_alpha(gas_pose: float) -> float:
+	return clampf(1.0 - gas_pose, 0.0, 1.0)
+
 ## Gas: slow, overlapping, translucent puffs that drift and fade with `pose` (0 thick .. 1 thin).
 func _draw_gas() -> void:
-	var fade := 1.0 - pose * 0.8
+	var fade := GearArt.gas_alpha(pose)
 	for i in range(7):
 		var a := t * 0.5 + i * 1.7
 		var c := Vector2(cos(a) * (6.0 + i), sin(a * 0.8) * (4.0 + i * 0.5) - 2.0)
