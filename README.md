@@ -142,10 +142,17 @@ tiles. Hard landings also make noise.
 
 **Lost miners**: each run hides one lost miner (faintly lit, each with their own shirt colour) on a
 cave floor around the bottom of the quiet zone. Touch them and they follow your trail; extract
-with them and they join the roster. Each miner has a type that helps
-while they are on your crew: Light (lantern burns 20% slower, reaches
-15% further), Noise (everything 25% quieter), Traversal (grapple
-reaches 50% further, ropes/ladders last 50% longer, ladders climb 25% faster) or Repair (base repair 25% cheaper and faster). New finds lean toward types you don't have yet.
+with them and they join the roster. Each miner has a type, and on your crew
+that type is their job at the run base, done on their own at a station beside
+the flag for the whole run (rates are Rookie rates; Seasoned is 1.5x, Veteran 2x):
+the Mender (Repair) mends the base 1 health per 12 s for 5 of your ore, the
+Lamplighter (Light) refines 4 ore into 20 base fuel every 15 s while the base light
+is under 90%, the Climber (Traversal) makes a ladder, anchor or lamp every 60 s for
+6, 10 or 8 ore (only unlocked tools, up to 2 above your starting count), and the
+Whisper (Noise) makes everything the base hears 25% quieter, free and silent. Jobs
+spend the ore you carry and pause when you have none; every working miner but the
+Whisper adds a little noise at the base, so a bigger crew is a louder base (a base
+in the quiet layers is not heard). New finds lean toward types you don't have yet.
 You start with one crew slot; pick who fills it at the hub.
 Crew gain a run of experience whenever a run they were on ends in
 extraction: Seasoned at 2 runs (bonus x1.5), Veteran at 5 (bonus x2, plus
