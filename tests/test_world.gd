@@ -317,7 +317,7 @@ func test_mine_carves_event_rooms() -> void:
 	var hearts := mine.event_rooms.filter(func(r): return r.kind == "heart")
 	assert_eq(hearts.size(), 1, "one Heart")
 	assert_true(hearts[0].cell.y >= MineGrid.GRID_HEIGHT - 20, "Heart at the bottom")
-	assert_true(not MineGrid.LAYERS[mine._layer_index_for_row(lifts[0].cell.y)].quiet, "lift below the quiet layers")
+	assert_true(MineGrid.LAYERS[mine._layer_index_for_row(lifts[0].cell.y)].quiet, "the lift is in Clay, a quiet layer")
 	for room in mine.event_rooms:
 		assert_true(not mine.is_solid(room.cell), "room is open")
 		assert_true(mine.is_solid(room.cell + Vector2i.DOWN), "room has a floor")
@@ -601,6 +601,9 @@ func test_shaft_runs_from_below_the_crust_to_a_collapse_in_upper_stone() -> void
 	var open := mine.shaft_open_rows()
 	assert_eq(open.x, MineGrid.SURFACE_ROWS + 1, "opens just under the crust")
 	var landings: Array = mine.drifts.map(func(d): return Vector2i(col + d.side, d.row + 1)) # a drift's step off the shaft
+	for room in mine.event_rooms:
+		if room.has("shaft"):
+			landings.append(room.cell + Vector2i.DOWN) # the lift's cage floor
 	for y in range(open.x, open.y + 1):
 		for dx in range(-1, 2):
 			var cell := Vector2i(col + dx, y)
@@ -628,6 +631,8 @@ func test_event_rooms_and_pickups_keep_out_of_the_shaft() -> void:
 	for s in [3, 8, 11, 13, 22, 33, 44, 51, 55]:
 		var mine := _mine_with_seed(s)
 		for room in mine.event_rooms:
+			if room.has("shaft"):
+				continue # the lift is the shaft's own
 			var rect: Rect2i = room.rect.grow(1)
 			for y in range(rect.position.y, rect.end.y):
 				for x in range(rect.position.x, rect.end.x):
@@ -770,3 +775,21 @@ func test_each_drift_has_a_plank_landing_beside_the_shaft() -> void:
 			assert_true(mine.is_solid(landing), "seed %d layer %d: the shaft's edge has a floor to step onto" % [s, d.layer])
 			assert_eq(mine.get_cell_atlas_coords(0, landing), MineGrid.PLANK_ATLAS_COORDS, "seed %d layer %d: and it is a plank" % [s, d.layer])
 			assert_true(not mine.is_solid(Vector2i(mine.shaft_column(), d.row + 1)), "seed %d layer %d: the ladder column stays open" % [s, d.layer])
+
+func test_the_lift_stands_in_the_shaft_at_the_bottom_of_clay() -> void:
+	for s in [1001, 1, 2, 3, 4, 5, 6, 7, 8, 44, 89]:
+		var mine := _mine_with_seed(s)
+		var lifts: Array = mine.event_rooms.filter(func(r): return r.kind == "lift")
+		assert_eq(lifts.size(), 1, "seed %d: one lift" % s)
+		var cell: Vector2i = lifts[0].cell
+		var col := mine.shaft_column()
+		assert_true(absi(cell.x - col) == 1, "seed %d: on the shaft's edge column, ladder column left open" % s)
+		assert_eq(mine.layer_index_at_world(mine.cell_to_world(cell)), 1, "seed %d: in Clay" % s)
+		assert_true(cell.y >= mine._layer_rows(1).y - 8, "seed %d: near Clay's bottom (row %d)" % [s, cell.y])
+		assert_true(cell.y <= mine.shaft_open_rows().y - 2, "seed %d: inside the open shaft" % s)
+		assert_true(not mine.is_solid(cell) and not mine.is_solid(cell + Vector2i.UP), "seed %d: open cage" % s)
+		assert_eq(mine.get_cell_atlas_coords(0, cell + Vector2i.DOWN), MineGrid.PLANK_ATLAS_COORDS, "seed %d: a plank cage floor" % s)
+		assert_true(not mine.is_solid(Vector2i(col, cell.y + 1)), "seed %d: the centre column stays open under it" % s)
+		for d in mine.drifts:
+			if d.layer == 1:
+				assert_true(absi(d.row - cell.y) > 3, "seed %d: the Clay gallery (row %d) is clear of the lift (row %d)" % [s, d.row, cell.y])

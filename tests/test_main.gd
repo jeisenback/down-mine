@@ -81,12 +81,12 @@ func test_camp_search_and_lift_ride() -> void:
 	assert_eq(main.player.currency, MineGrid.LAYERS[camp.layer].camp_ore, "searched only once")
 
 	main.player.currency = Lift.REPAIR_ORE
-	main.player.global_position = lift.global_position # below the quiet layers, so noise counts
-	# The base hears by distance; put it beside the sound so only the amount is under test.
-	main.run_base.global_position = lift.global_position
+	main.player.global_position = lift.global_position
+	main.noise_meter.decay_rate = 0.0
+	main.noise_meter.noise = 0.0
 	lift.use(main)
 	assert_eq(main.player.currency, 0, "repair paid")
-	assert_true(main.noise_meter.noise > 0.0, "repair is loud")
+	assert_eq(main.noise_meter.noise, 0.0, "Clay is quiet: nothing hears the repair")
 	lift.use(main)
 	assert_true(main._at_surface(), "ride ends at the surface")
 	lift.use(main)

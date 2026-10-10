@@ -72,6 +72,9 @@ const DRIFT_MAX_LENGTH := 40
 const DRIFT_POST_SPACING := 6
 const DRIFT_COLLAPSE_MIN := 4
 const DRIFT_COLLAPSE_MAX := 8
+# The lift (milestone 51c): the old cage in the shaft, this many rows above
+# the bottom of Clay (capped to the shaft's open part).
+const LIFT_ROWS_FROM_CLAY_BOTTOM := 1
 const DRIFT_END_CLEAR := 4 # open tiles kept at each end of a collapsed section
 const DECOR_LAYER := 1
 const TIMBER_COLOR := Color(0.45, 0.3, 0.15)
@@ -144,7 +147,6 @@ const EVENT_ROOMS := [
 	{"kind": "camp", "layers": [3]},
 	{"kind": "camp", "layers": [4]},
 	{"kind": "camp", "layers": [5]},
-	{"kind": "lift", "layers": [2, 3]},
 	{"kind": "outpost", "layers": [2, 3, 4]},
 	{"kind": "vault", "layers": [4, 5]},
 	{"kind": "gallery", "layers": [3, 4]},
@@ -369,6 +371,7 @@ func _carve_old_mine(solid: Array) -> void:
 		if rng.randf() >= OLD_LADDER_MISSING_CHANCE:
 			old_ladder_rows.append(row)
 	_carve_drifts(solid, rng)
+	_place_lift(solid, rng)
 
 ## One gallery per worked layer (Topsoil, Clay, Stone) off the shaft: a
 ## two-tile tunnel on a random side at a random row, posted every
@@ -415,6 +418,24 @@ func _carve_drifts(solid: Array, rng: RandomNumberGenerator) -> void:
 		if drift.features.end == "camp":
 			var end_cell := Vector2i(drift.x1, row)
 			event_rooms.append({"kind": "camp", "cell": end_cell, "rect": Rect2i(end_cell - Vector2i(0, 1), Vector2i(1, 2)), "drift": true})
+
+## The old cage: the lift stands in the shaft's edge column near the bottom
+## of Clay, on a plank floor, so the ladder column stays open. It keeps clear
+## of the Clay gallery's mouth. (Clay is quiet: repairing it is silent.)
+func _place_lift(solid: Array, rng: RandomNumberGenerator) -> void:
+	var side := rng.randi_range(0, 1) * 2 - 1
+	var row := mini(_layer_rows(1).y - LIFT_ROWS_FROM_CLAY_BOTTOM, shaft_open_rows().y - 2)
+	for d in drifts:
+		if d.layer == 1 and absi(d.row - row) <= 3:
+			row = d.row - 4
+	var cell := Vector2i(shaft_column() + side, row)
+	var floor_cell := cell + Vector2i.DOWN
+	solid[floor_cell.x][floor_cell.y] = true
+	_plank_cells[floor_cell] = true
+	_room_cells[cell] = true
+	_room_cells[floor_cell] = true
+	_reserved_floors[floor_cell] = true
+	event_rooms.append({"kind": "lift", "cell": cell, "rect": Rect2i(cell - Vector2i(0, 1), Vector2i(1, 2)), "shaft": true})
 
 ## Fills a DRIFT_COLLAPSE_MIN..MAX long stretch of both rows with rock,
 ## leaving DRIFT_END_CLEAR open tiles at each end so neither the shaft mouth
