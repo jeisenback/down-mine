@@ -49,6 +49,7 @@ func _run() -> void:
 		["drift_planks", _drift_planks],
 		["drift_from_the_ladder", _drift_from_the_ladder],
 		["shaft_lift_ride", _shaft_lift_ride],
+		["shaft_lift_from_the_ladder", _shaft_lift_from_the_ladder],
 		["shaft_from_below", _shaft_from_below],
 	]
 	var failed := 0
@@ -584,6 +585,34 @@ func _shaft_lift_ride() -> void:
 	check(lift.state == Lift.State.USED, "E rode it")
 	check(_cell().y < MineGrid.SURFACE_ROWS, "the ride ended at the surface (row %d)" % _cell().y)
 	await shot("at_the_surface")
+
+## Steps off the old ladder, sideways, into the lift's cage and repairs it.
+func _shaft_lift_from_the_ladder() -> void:
+	await _in_shaft()
+	var lifts := main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Lift)
+	check(lifts.size() == 1, "one lift")
+	if lifts.size() != 1:
+		return
+	var lift: Lift = lifts[0]
+	var lift_cell: Vector2i = main.mine.world_to_cell(lift.global_position)
+	var col: int = main.mine.shaft_column()
+	main.player.currency = 100
+	await _place(Vector2i(col, lift_cell.y))
+	check(main.player.is_on_rope(), "seed %d: the player starts on the old ladder at the lift's row" % SEED)
+	await shot("on_the_ladder")
+	var side: int = signi(lift_cell.x - col)
+	key_event(KEY_D if side > 0 else KEY_A, true)
+	for i in range(120):
+		await physics_frame
+		if absf(main.player.global_position.x - lift.global_position.x) < 4.0:
+			break
+	key_event(KEY_D if side > 0 else KEY_A, false)
+	await frames(10)
+	check(absf(main.player.global_position.x - lift.global_position.x) < 12.0 and _cell().y <= lift_cell.y, "stepped into the cage (x %d, lift %d, row %d)" % [int(main.player.global_position.x), int(lift.global_position.x), _cell().y])
+	check(main._action_prompts().any(func(p): return str(p).contains("repair the lift")), "the lift's repair prompt shows (%s)" % [main._action_prompts()])
+	await tap(KEY_E)
+	check(lift.state == Lift.State.READY, "E repaired it")
+	await shot("repaired")
 
 ## One step of a stair climbed beside the collapse: dig two cells overhead,
 ## jump, dig the notch ahead at the apex, walk into it. (Straight dig-up

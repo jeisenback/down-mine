@@ -392,7 +392,7 @@ func debug_next_event() -> void:
 		return
 	var room: Dictionary = mine.event_rooms[_debug_event_index % mine.event_rooms.size()]
 	_debug_event_index += 1
-	player.global_position = mine.cell_to_world(room.cell + Vector2i(-2, 0))
+	player.global_position = mine.cell_to_world(room.cell) # an event's own cell is open ground: a gallery camp or the lift has rock or air beside it
 	player.velocity = Vector2.ZERO
 	hud.show_message("Teleported to the %s" % room.kind)
 
@@ -637,9 +637,16 @@ func _record_run(result: String) -> void:
 
 ## The next journal page; the last one also marks where the old shaft's
 ## collapse ends (milestone 51), so the way home from below can be found.
+## Once the journal is finished the last page stays readable at every camp,
+## with this run's depth, so the pointer is never lost for good.
 func read_journal_page() -> String:
-	var text := progress.read_journal_page()
-	if progress.journal_read == Progress.JOURNAL.size() and text.begins_with("Journal "):
+	var total := Progress.JOURNAL.size()
+	var text: String
+	if progress.journal_read >= total:
+		text = "Journal %d/%d: %s" % [total, total, Progress.JOURNAL[total - 1]]
+	else:
+		text = progress.read_journal_page()
+	if progress.journal_read == total:
 		text += "\nIn the margin: the old shaft ends in a collapse at depth %d. Dig a stair up beside it." % (mine.shaft_end_row - MineGrid.SURFACE_ROWS)
 	return text
 
