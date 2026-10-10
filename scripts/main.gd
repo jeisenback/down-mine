@@ -125,6 +125,8 @@ var _bell_ringing: bool = false
 var progress: Progress
 var lost_miners: Array[LostMiner] = []
 var crew_at_base: Array[LostMiner] = []
+## What the crew do at the base (milestone 54), bound each run in _ready.
+var crew_jobs: CrewJobs
 
 func _ready() -> void:
 	player.mine = mine
@@ -146,6 +148,12 @@ func _ready() -> void:
 	mine.decay_multiplier = pow(CLAIMED_DECAY_STEP, progress.hearts_claimed)
 	# Lamps need the hub unlock; a Pack rat brings their own either way.
 	lamps_left = (LAMPS_PER_RUN if progress.has_unlock("lamps") else 0) + progress.extra_lamps()
+	crew_jobs = CrewJobs.new()
+	crew_jobs.bind(run_base, player, noise_meter, {
+		"ladders": progress.has_unlock("ladders"),
+		"anchors": progress.has_unlock("anchors"),
+		"lamps": progress.has_unlock("lamps"),
+	}, func(): return lamps_left, func(): lamps_left += 1)
 	hud.update_banked(progress.banked_ore)
 	_configure_camera_limits()
 	_spawn_lost_miners()
@@ -239,6 +247,12 @@ func _spawn_crew() -> void:
 		crew_at_base.append(miner)
 	_place_crew_at_base()
 
+## The crew whose jobs run: those standing at the base. Stranded miners and
+## escorts walking with the player are not there.
+func _working_crew() -> Array:
+	var names: Array = crew_at_base.map(func(m): return m.miner_name)
+	return progress.job_crew().filter(func(m): return m.name in names)
+
 ## Side by side on the base's floor, flanking the flag.
 func _place_crew_at_base() -> void:
 	for i in range(crew_at_base.size()):
@@ -320,6 +334,7 @@ func _process(delta: float) -> void:
 	_check_lamp()
 	_check_builds()
 	_check_bell()
+	crew_jobs.tick(delta, _working_crew())
 	if debug_enabled:
 		_check_debug_keys()
 	_check_snuffer_spawn(delta)

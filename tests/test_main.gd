@@ -510,3 +510,69 @@ func test_debug_event_teleport_lands_on_open_ground() -> void:
 		var cell: Vector2i = main.mine.world_to_cell(main.player.global_position)
 		assert_true(not main.mine.is_solid(cell), "event %d (%s): teleported into rock at %s" % [i, main.mine.event_rooms[i].kind, cell])
 	Progress.path_override = ""
+
+# --- crew jobs (workers and jobs, milestone 54) ---------------------------------------
+
+## A saved roster and crew, then a Main that loads it. Each member is [name, type].
+func _main_with_crew(members: Array, levels: Dictionary = {}) -> Node:
+	var p := Progress.new()
+	p.save_path = TEST_SAVE_PATH
+	for m in members:
+		p.roster.append({"name": m[0], "type": m[1], "runs": 0})
+		p.crew_names.append(m[0])
+	p.levels = levels
+	p.save()
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(3)
+	return main
+
+func test_crew_jobs_tick_in_the_real_scene() -> void:
+	var main: Node = await _main_with_crew([["Ana", "repair"]])
+	main.run_base.health = 1
+	main.player.currency = 20
+	main._process(0.016)
+	assert_true(main.crew_jobs.working.get("Ana", false), "the Mender is working through Main._process")
+	main.crew_jobs.tick(12.5, main._working_crew())
+	assert_eq(main.run_base.health, 2, "the base was mended")
+	assert_eq(main.player.currency, 15, "for 5 ore")
+	Progress.path_override = ""
+
+func test_stranded_or_escorted_crew_do_no_work() -> void:
+	var main: Node = await _main_with_crew([["Ana", "repair"]])
+	main.run_base.health = 1
+	main.player.currency = 20
+	main.crew_at_base.clear() # not at the base: stranded, or walking with the player
+	assert_eq(main._working_crew(), [], "nobody to work")
+	main.crew_jobs.tick(20.0, main._working_crew())
+	assert_eq(main.run_base.health, 1, "no repair")
+	assert_eq(main.player.currency, 20, "no ore spent")
+	Progress.path_override = ""
+
+func test_lamps_made_by_the_climber_land_in_the_hud_stock() -> void:
+	var main: Node = await _main_with_crew([["Cole", "traversal"]], {"lamps": 1, "ladders": 1, "anchors": 1})
+	main.player.currency = 100
+	var lamps: int = main.lamps_left
+	for i in range(3):
+		main.crew_jobs.tick(60.1, main._working_crew())
+	assert_eq(main.lamps_left, lamps + 1, "one rotation ends in a lamp")
+	Progress.path_override = ""
+
+func test_job_work_is_heard_through_the_noise_meter() -> void:
+	var main: Node = await _main_with_crew([["Ana", "repair"]])
+	main.run_base.global_position = main.mine.cell_to_world(Vector2i(40, MineGrid.GRID_HEIGHT - 2)) # the deep rock: not quiet
+	main.run_base.health = 1
+	main.player.currency = 50
+	main.noise_meter.noise = 0.0
+	main.crew_jobs.tick(10.0, main._working_crew())
+	assert_eq(main.noise_meter.noise, CrewJobs.JOB_NOISE, "one noise per ten seconds of work")
+	Progress.path_override = ""
+
+func test_job_work_in_the_quiet_layers_is_not_heard() -> void:
+	var main: Node = await _main_with_crew([["Ana", "repair"]])
+	main.run_base.health = 1 # the base starts at the surface, a quiet layer
+	main.player.currency = 50
+	main.noise_meter.noise = 0.0
+	main.crew_jobs.tick(10.0, main._working_crew())
+	assert_eq(main.noise_meter.noise, 0.0, "nothing hears the surface")
+	Progress.path_override = ""
