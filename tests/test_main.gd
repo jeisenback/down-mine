@@ -81,12 +81,12 @@ func test_camp_search_and_lift_ride() -> void:
 	assert_eq(main.player.currency, MineGrid.LAYERS[camp.layer].camp_ore, "searched only once")
 
 	main.player.currency = Lift.REPAIR_ORE
-	main.player.global_position = lift.global_position # below the quiet layers, so noise counts
-	# The base hears by distance; put it beside the sound so only the amount is under test.
-	main.run_base.global_position = lift.global_position
+	main.player.global_position = lift.global_position
+	main.noise_meter.decay_rate = 0.0
+	main.noise_meter.noise = 0.0
 	lift.use(main)
 	assert_eq(main.player.currency, 0, "repair paid")
-	assert_true(main.noise_meter.noise > 0.0, "repair is loud")
+	assert_eq(main.noise_meter.noise, 0.0, "Clay is quiet: nothing hears the repair")
 	lift.use(main)
 	assert_true(main._at_surface(), "ride ends at the surface")
 	lift.use(main)
@@ -194,7 +194,8 @@ func test_flaring_burns_the_nest_and_calms_the_deep() -> void:
 	assert_true(main.noise_meter.noise >= Nest.BURN_NOISE, "burning is loud") # decay may add a little
 	await tree.create_timer(0.1).timeout
 	assert_true(not is_instance_valid(main.deep_stalker), "deep Stalker gone")
-	assert_eq(main.hud.layer_label.text, "Deep rock: gas pockets, unstable", "hazard line drops the Stalker")
+	assert_true(main.hud.layer_label.text.begins_with("Deep rock: gas pockets, unstable"), "hazard line drops the Stalker")
+	assert_true(not main.hud.layer_label.text.contains("Stalker"), "and says nothing of one")
 	Progress.path_override = ""
 
 func test_heart_wakes_the_mine_and_wins_the_run() -> void:
@@ -300,8 +301,15 @@ func test_run_log_records_runs_and_causes() -> void:
 
 func test_hud_says_too_dark_to_dig() -> void:
 	Progress.path_override = TEST_SAVE_PATH
+	# Seed 48's terrain puts a fuel pickup (25 fuel) where the player lands: on a
+	# random seed this test failed about 1 run in 80 (CI, M51c).
+	MineGrid.next_seed = 48
 	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
 	await physics_frames(5)
+	for child in main.mine.get_children():
+		if child is FuelPickup:
+			child.queue_free() # nothing to refill the lantern, wherever the terrain puts one
+	await physics_frames(2)
 	main.player.global_position = main.mine.cell_to_world(Vector2i(40, main.mine.quiet_floor_row() + 10))
 	main.player.light.burn_rate = 0.0
 	main.player.light.fuel = 0.0
@@ -453,4 +461,39 @@ func test_main_places_a_camp_and_the_miner_inside_the_drifts() -> void:
 	var camps := main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Camp)
 	var topsoil: Array = main.mine.drifts.filter(func(d): return d.layer == 0)
 	assert_true(camps.any(func(c): return main.mine.world_to_cell(c.global_position) == Vector2i(topsoil[0].x1, topsoil[0].row)), "the Topsoil camp stands at its drift's end")
+	Progress.path_override = ""
+
+func test_the_last_journal_page_marks_the_shafts_end() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	var depth: int = main.mine.shaft_end_row - MineGrid.SURFACE_ROWS
+	main.progress.journal_read = Progress.JOURNAL.size() - 2
+	var earlier: String = main.read_journal_page()
+	assert_true(not earlier.contains("depth"), "an ordinary page carries no pointer")
+	var last: String = main.read_journal_page()
+	assert_true(last.contains("Last page"), "that read the last page")
+	assert_true(last.contains("\nIn the margin"), "the note sits on its own line, so the HUD does not clip it")
+	assert_true(last.contains("depth %d" % depth), "and it names the collapse's depth (%d)" % depth)
+	var after: String = main.read_journal_page()
+	assert_true(not after.contains("depth"), "afterwards the journal is unreadable, with no pointer")
+	Progress.path_override = ""
+
+func test_the_hud_shows_the_live_depth_the_journal_refers_to() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	main.player.set_physics_process(false)
+	main.player.global_position = main.mine.cell_to_world(Vector2i(40, main.mine.quiet_floor_row() + 10))
+	await tree.create_timer(0.2).timeout
+	assert_true(main.hud.layer_label.text.contains("depth %d" % main._current_depth()), "the layer line reads the depth (%s)" % main.hud.layer_label.text)
+	Progress.path_override = ""
+
+func test_the_lift_prompt_does_not_call_a_quiet_repair_loud() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	var lift: Lift = main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Lift)[0]
+	main.player.currency = Lift.REPAIR_ORE
+	assert_true(not lift.prompt(main).contains("loud"), "the prompt (%s) does not say loud" % lift.prompt(main))
 	Progress.path_override = ""

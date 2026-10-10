@@ -31,7 +31,7 @@ func use(main: Node) -> void:
 		searched = true
 		main.player.light.add_fuel(SEARCH_FUEL)
 		main.player.currency += MineGrid.LAYERS[layer].camp_ore # deeper camps hold more
-		main.hud.show_message(main.progress.read_journal_page())
+		main.hud.show_message(main.read_journal_page())
 		Sfx.play("ore")
 		_light_lantern()
 	elif not _lantern_lit() and main.player.light.fuel > RELIGHT_FUEL:

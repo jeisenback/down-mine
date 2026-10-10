@@ -48,6 +48,8 @@ func _run() -> void:
 		["drift_collapse", _drift_collapse],
 		["drift_planks", _drift_planks],
 		["drift_from_the_ladder", _drift_from_the_ladder],
+		["shaft_lift_ride", _shaft_lift_ride],
+		["shaft_from_below", _shaft_from_below],
 	]
 	var failed := 0
 	for entry in scenarios:
@@ -562,3 +564,73 @@ func _drift_from_the_ladder() -> void:
 	check((_cell().x - (d.x0 + d.side * 4)) * d.side >= 0, "walked 4 tiles into the gallery (x %d, mouth %d)" % [_cell().x, d.x0])
 	check(lowest <= d.row, "stepped onto the landing without dropping down the shaft (lowest row %d, floor row %d)" % [lowest, d.row + 1])
 	await shot("in_the_mouth")
+
+# --- the works' contents (milestone 51c) -------------------------------------
+
+## Repairs the old cage at the bottom of Clay and rides it to the surface.
+func _shaft_lift_ride() -> void:
+	await _in_shaft()
+	var lifts := main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Lift)
+	check(lifts.size() == 1, "one lift")
+	if lifts.size() != 1:
+		return
+	var lift: Lift = lifts[0]
+	main.player.currency = 100
+	await _place(main.mine.world_to_cell(lift.global_position))
+	await shot("at_the_cage")
+	await tap(KEY_E)
+	check(lift.state == Lift.State.READY and main.player.currency == 100 - Lift.REPAIR_ORE, "E repaired the lift for %d ore" % Lift.REPAIR_ORE)
+	await tap(KEY_E)
+	check(lift.state == Lift.State.USED, "E rode it")
+	check(_cell().y < MineGrid.SURFACE_ROWS, "the ride ended at the surface (row %d)" % _cell().y)
+	await shot("at_the_surface")
+
+## One step of a stair climbed beside the collapse: dig two cells overhead,
+## jump, dig the notch ahead at the apex, walk into it. (Straight dig-up
+## reaches only about two rows - a jump rises 1.8 tiles and nothing digs on a
+## rope - so the 6-row collapse is climbed on a stair, as the journal's last
+## page says.)
+func _stair_step(dir: int) -> void:
+	var walk := KEY_D if dir > 0 else KEY_A
+	await hold([KEY_SPACE, KEY_W], 40)
+	await frames(30)
+	await hold([KEY_SPACE, KEY_W], 40)
+	await frames(30)
+	key_event(KEY_W, true)
+	await frames(16)
+	key_event(KEY_W, false)
+	key_event(KEY_SPACE, true)
+	key_event(walk, true)
+	await frames(8)
+	key_event(KEY_SPACE, false)
+	await frames(40)
+	key_event(walk, false)
+	await frames(10)
+
+## Climbs back up past the collapse on a dug stair, from 12 tiles out in
+## solid rock to the open shaft above it: the way home the journal points at.
+func _shaft_from_below() -> void:
+	await _in_shaft()
+	var col: int = main.mine.shaft_column()
+	var end_row: int = main.mine.shaft_end_row
+	var open: Vector2i = main.mine.shaft_open_rows()
+	# Solid rock beside the collapse (no caves), the open shaft above kept open.
+	_fill(col + 2, open.y - 8, col + 16, end_row + 4, true)
+	_fill(col - 1, open.y + 1, col + 1, end_row + 4, true)
+	_fill(col + 12, end_row + 1, col + 12, end_row + 2, false)
+	await _place(Vector2i(col + 12, end_row + 2))
+	await shot("below_the_collapse")
+	var steps := 0
+	for i in range(16):
+		await _stair_step(-1)
+		steps += 1
+		if _cell().y <= open.y and _cell().x <= col + 3:
+			break
+	key_event(KEY_SPACE, true)
+	key_event(KEY_A, true)
+	await frames(90)
+	key_event(KEY_SPACE, false)
+	key_event(KEY_A, false)
+	await frames(30)
+	check(_cell().y <= open.y and main.mine.is_in_shaft(_cell()), "climbed the collapse on a dug stair into the open shaft (cell %s, open rows end at %d, %d steps)" % [_cell(), open.y, steps])
+	await shot("in_the_shaft")
