@@ -185,21 +185,40 @@ func _draw_bell() -> void:
 
 func _draw_support() -> void:
 	var w: Dictionary = GPAL["wood"]
-	# two posts, a cap beam, and cross braces; knots and splits for grit
-	for x in [-6.0, 5.0]:
-		draw_rect(Rect2(x - 1.5, -9.0, 3.0, 9.0), w["k"])
-		draw_rect(Rect2(x - 1.0, -9.0, 2.0, 9.0), w["b"])
-		draw_rect(Rect2(x - 1.0, -9.0, 0.8, 9.0), w["c"])
-		draw_rect(Rect2(x, -5.0, 1.0, 1.0), w["a"])
-	draw_rect(Rect2(-8.5, -11.0, 17.0, 3.0), w["k"])
-	draw_rect(Rect2(-8.0, -10.5, 16.0, 2.0), w["b"])
-	draw_rect(Rect2(-8.0, -10.5, 16.0, 0.8), w["c"])
-	for sgn in [-1.0, 1.0]:
-		var a := Vector2(sgn * 5.0, -8.0)
-		var b := Vector2(sgn * 2.0, -10.0)
-		draw_line(a, Vector2(sgn * 3.0, -4.0), w["k"], 2.0)
-		draw_line(a, Vector2(sgn * 3.0, -4.0), w["a"], 1.0)
-	draw_line(Vector2(-4.0, -9.0), Vector2(-4.0, -9.0) + Vector2(0.0, 0.0), w["k"], 1.0)
+	var m: Dictionary = GPAL["metal"]
+	var wear := pose                                    # 0 fresh .. 1 worn out
+	var lean := wear * 0.8
+	var top := -16.0
+	# a heavy prop post wedged floor to ceiling: ceiling plank and foot sill
+	draw_rect(Rect2(-6.0, top - 2.0, 12.0, 3.0), w["k"])
+	draw_rect(Rect2(-5.5, top - 1.5, 11.0, 2.0), w["b"])
+	draw_rect(Rect2(-5.5, top - 1.5, 11.0, 0.8), w["c"])
+	draw_rect(Rect2(-5.0, -2.0, 10.0, 2.0), w["k"])
+	draw_rect(Rect2(-4.5, -1.5, 9.0, 1.2), w["a"])
+	# the post: a rough log, lit from the left, with bark seams and a knot
+	var post := PackedVector2Array([Vector2(-3.0 + lean, top + 1.0), Vector2(3.0 + lean, top + 1.0), Vector2(3.4, -2.0), Vector2(-3.4, -2.0)])
+	draw_colored_polygon(post, w["b"])
+	draw_colored_polygon(PackedVector2Array([Vector2(-3.0 + lean, top + 1.0), Vector2(-0.8 + lean, top + 1.0), Vector2(-1.2, -2.0), Vector2(-3.4, -2.0)]), w["c"])
+	draw_colored_polygon(PackedVector2Array([Vector2(1.6 + lean, top + 1.0), Vector2(3.0 + lean, top + 1.0), Vector2(3.4, -2.0), Vector2(2.0, -2.0)]), w["a"])
+	var edge := post.duplicate()
+	edge.append(post[0])
+	draw_polyline(edge, w["k"], 1.0)
+	for y in [-12.0, -7.0]:
+		draw_line(Vector2(-1.5, y), Vector2(1.0, y + 1.0), w["a"], 1.0)
+	draw_rect(Rect2(0.5, -9.5, 1.5, 1.5), w["k"])                                 # a knot
+	# iron straps near each end
+	for y in [-14.0, -4.0]:
+		draw_rect(Rect2(-3.6, y, 7.2, 1.5), m["k"])
+		draw_rect(Rect2(-3.2, y + 0.3, 6.4, 0.7), m["b"])
+	# angled wedges driving the post tight
+	draw_colored_polygon(PackedVector2Array([Vector2(3.6, -2.0), Vector2(6.4, -2.0), Vector2(3.6, -4.2)]), w["c"])
+	draw_colored_polygon(PackedVector2Array([Vector2(-3.6, top + 1.0), Vector2(-6.4, top + 1.0), Vector2(-3.6, top + 3.2)]), w["c"])
+	# wear: cracks and splinters appear as it fails
+	if wear > 0.35:
+		draw_line(Vector2(-0.5, -13.0), Vector2(0.5, -8.0), w["k"], 1.0)
+	if wear > 0.7:
+		draw_line(Vector2(1.0, -9.0), Vector2(-0.5, -4.5), w["k"], 1.0)
+		draw_line(Vector2(3.4, -10.0), Vector2(5.0, -9.0), w["c"], 1.0)
 
 func _draw_lamp() -> void:
 	var m: Dictionary = GPAL["metal"]
