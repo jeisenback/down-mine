@@ -6,7 +6,7 @@ class_name GearArt
 ## for the miner, `state` is idle / run / dig / jump / fall. The origin is the
 ## feet (miner, flag, support, lamp) or the object's centre (beacon, bell).
 
-@export_enum("player", "flag", "beacon", "bell", "support", "lamp", "ladder", "rope", "anchor", "camp", "lift") var gear: String = "player"
+@export_enum("player", "flag", "beacon", "bell", "support", "lamp", "ladder", "rope", "anchor", "camp", "lift", "outpost", "nest", "heart", "relic", "vault", "lost", "sign", "gas") var gear: String = "player"
 @export var length: float = 64.0   # ladder, rope and lift: how tall they stand or hang
 @export_enum("idle", "run", "dig", "jump", "fall") var state: String = "idle"
 
@@ -35,6 +35,14 @@ func _draw() -> void:
 		"anchor": _draw_anchor()
 		"camp": _draw_camp()
 		"lift": _draw_lift()
+		"outpost": _draw_outpost()
+		"nest": _draw_nest()
+		"heart": _draw_heart()
+		"relic": _draw_relic()
+		"vault": _draw_vault()
+		"lost": _draw_lost()
+		"sign": _draw_sign()
+		"gas": _draw_gas()
 
 func _limb(pts: PackedVector2Array, col: Color, hi: Color, w: float = 2.0) -> void:
 	draw_polyline(pts, GPAL["player"]["k"], w + 1.0)
@@ -356,3 +364,148 @@ func _draw_lift() -> void:
 	draw_rect(Rect2(-8.0, cage_y, 16.0, 2.0), w["k"])                                          # the floor planks
 	draw_rect(Rect2(-7.5, cage_y, 15.0, 1.0), w["b"])
 	draw_rect(Rect2(-1.5, cage_y - 14.0, 3.0, 3.0), m["c"])
+
+## A survivors' lean-to: a patched tarp roof on poles, supply crates, a hanging lantern.
+func _draw_outpost() -> void:
+	var w: Dictionary = GPAL["wood"]
+	var f: Dictionary = GPAL["flame"]
+	var tarp: Dictionary = {"k": Color8(18, 22, 20), "a": Color8(50, 66, 56), "b": Color8(82, 104, 86), "c": Color8(122, 148, 120)}
+	for x in [-14.0, 12.0]:
+		draw_line(Vector2(x, 0), Vector2(x, -15), w["k"], 3.0)
+		draw_line(Vector2(x, 0), Vector2(x, -15), w["b"], 1.0)
+	var roof := PackedVector2Array([Vector2(-17, -13), Vector2(15, -16), Vector2(16, -10), Vector2(10, -12), Vector2(3, -9.5), Vector2(-4, -11.5), Vector2(-12, -9), Vector2(-17, -10)])
+	draw_colored_polygon(_shift(roof, Vector2(0, 1.5)), tarp["a"])
+	draw_colored_polygon(roof, tarp["b"])
+	draw_polyline(PackedVector2Array([Vector2(-17, -13), Vector2(15, -16)]), tarp["c"], 1.0)
+	draw_rect(Rect2(-6.0, -14.5, 4.0, 3.0), tarp["a"])                                  # a patch
+	# crates and a sack
+	draw_rect(Rect2(-12.0, -6.0, 8.0, 6.0), w["k"])
+	draw_rect(Rect2(-11.0, -5.0, 6.0, 4.0), w["b"])
+	draw_line(Vector2(-11, -5), Vector2(-5, -1), w["a"], 1.0)
+	draw_rect(Rect2(-3.0, -4.0, 6.0, 4.0), w["k"])
+	draw_rect(Rect2(-2.0, -3.0, 4.0, 2.0), w["c"])
+	draw_colored_polygon(_ellipse(Vector2(6.5, -3.0), 3.2, 3.0, 8), GPAL["metal"]["a"])      # a sack
+	draw_polyline(_ellipse(Vector2(6.5, -3.0), 3.2, 3.0, 8), w["k"], 1.0)
+	# the lantern
+	var flick := 0.88 + 0.12 * sin(t * 10.0)
+	draw_line(Vector2(0, -12), Vector2(0, -9), w["k"], 1.0)
+	_glow(Vector2(0, -7.5), 8.0 * flick, f["b"], 0.75)
+	draw_rect(Rect2(-1.5, -9.0, 3.0, 3.0), f["a"])
+	draw_rect(Rect2(-0.5, -8.0, 1.0, 1.5), f["c"])
+
+## A clutch of leathery eggs in dark webbing; the eggs pulse faintly.
+func _draw_nest() -> void:
+	var web: Dictionary = {"k": Color8(8, 8, 10), "a": Color8(26, 24, 28), "b": Color8(50, 44, 48), "c": Color8(110, 100, 96)}
+	var egg: Dictionary = {"k": Color8(30, 40, 20), "a": Color8(78, 98, 52), "b": Color8(128, 152, 82), "c": Color8(190, 206, 140)}
+	var bed := PackedVector2Array([Vector2(-15, 0), Vector2(-12, -3), Vector2(-4, -4), Vector2(5, -3.5), Vector2(13, -3), Vector2(16, 0)])
+	draw_colored_polygon(bed, web["a"])
+	draw_polyline(bed, web["k"], 1.0)
+	for x in [-11.0, -6.0, 0.0, 7.0, 12.0]:
+		draw_line(Vector2(x, -3.0), Vector2(x + 1.5, -6.5), web["b"], 1.0)                 # strands
+	var eggs := [Vector2(-8, -5), Vector2(-1, -6), Vector2(6, -5), Vector2(0, -11)]
+	for i in range(eggs.size()):
+		var pulse := 1.0 + 0.06 * sin(t * 2.5 + i)
+		var e: Vector2 = eggs[i]
+		var pts := _ellipse(e, 3.2 * pulse, 4.0 * pulse, 12)
+		_blob(pts, egg)
+	draw_line(Vector2(9, -2), Vector2(15, -5), web["c"], 1.0)                                # a bone
+	draw_rect(Rect2(14.5, -6.0, 1.5, 1.5), web["c"])
+
+## The Heart: a dark crystal organ, throbbing, veined with ember light, on a cracked plinth.
+func _draw_heart() -> void:
+	var m: Dictionary = GPAL["metal"]
+	var beat := pow(maxf(0.0, sin(t * 3.0)), 3.0)
+	var rate := 1.0 + beat * 0.12
+	_glow(Vector2(0, -9), 12.0 * rate, Color8(230, 50, 30), 0.7 + beat * 0.3)
+	draw_colored_polygon(PackedVector2Array([Vector2(-6, 0), Vector2(-4, -3), Vector2(4, -3), Vector2(6, 0)]), m["a"])
+	draw_polyline(PackedVector2Array([Vector2(-6, 0), Vector2(-4, -3), Vector2(4, -3), Vector2(6, 0)]), m["k"], 1.0)
+	draw_line(Vector2(2, -3), Vector2(1, 0), m["k"], 1.0)
+	var heart := PackedVector2Array([Vector2(0, -4), Vector2(-3.0 * rate, -6), Vector2(-5.0 * rate, -10), Vector2(-3.0 * rate, -14), Vector2(0, -12.5), Vector2(3.0 * rate, -14), Vector2(5.0 * rate, -10), Vector2(3.0 * rate, -6)])
+	var body: Dictionary = {"k": Color8(30, 6, 8), "a": Color8(98, 14, 20), "b": Color8(170, 28, 30), "c": Color8(246, 110, 80)}
+	_blob(heart, body)
+	draw_line(Vector2(-1, -12), Vector2(-3, -8), body["k"], 1.0)                              # veins
+	draw_line(Vector2(1.5, -12), Vector2(2.5, -7), body["k"], 1.0)
+	if beat > 0.5:
+		draw_rect(Rect2(-2.5, -11.5, 1.0, 1.0), Color.WHITE)
+
+## The relic: a pale crystal floating over an iron stand, bobbing and glinting.
+func _draw_relic() -> void:
+	var m: Dictionary = GPAL["metal"]
+	var bob := sin(t * 2.0) * 1.0
+	var cr: Dictionary = {"k": Color8(16, 36, 54), "a": Color8(52, 100, 150), "b": Color8(120, 184, 232), "c": Color8(226, 246, 255)}
+	_glow(Vector2(0, -10 + bob), 11.0, cr["b"], 0.7)
+	draw_colored_polygon(PackedVector2Array([Vector2(-5, 0), Vector2(-3, -3), Vector2(3, -3), Vector2(5, 0)]), m["a"])
+	draw_polyline(PackedVector2Array([Vector2(-5, 0), Vector2(-3, -3), Vector2(3, -3), Vector2(5, 0)]), m["k"], 1.0)
+	draw_rect(Rect2(-3.0, -4.0, 6.0, 1.0), m["b"])
+	var gem := PackedVector2Array([Vector2(0, -16 + bob), Vector2(-3.5, -10 + bob), Vector2(0, -5 + bob), Vector2(3.5, -10 + bob)])
+	_blob(gem, cr)
+	draw_line(Vector2(0, -16 + bob), Vector2(0, -5 + bob), cr["a"], 1.0)
+	var gl := fmod(t, 2.5)
+	if gl < 0.3:
+		draw_line(Vector2(-1.5, -12 + bob), Vector2(1.5, -12 + bob), Color.WHITE, 1.0)
+		draw_line(Vector2(0, -14 + bob), Vector2(0, -10 + bob), Color.WHITE, 1.0)
+
+## The vault door: riveted iron slab, a gold band and a bolt; `pose` cracks it.
+func _draw_vault() -> void:
+	var m: Dictionary = GPAL["metal"]
+	draw_rect(Rect2(-9.0, -32.0, 18.0, 32.0), m["k"])
+	draw_rect(Rect2(-8.0, -31.0, 16.0, 30.0), m["a"])
+	draw_rect(Rect2(-8.0, -31.0, 6.0, 30.0), m["b"])
+	for y in [-29.0, -3.0]:
+		for x in [-6.0, 5.0]:
+			draw_rect(Rect2(x, y, 1.5, 1.5), m["c"])                                     # rivets
+	draw_line(Vector2(0, -31), Vector2(0, -1), m["k"], 1.0)                              # the seam
+	var gold: Dictionary = {"k": Color8(60, 40, 10), "a": Color8(150, 106, 30), "b": Color8(220, 170, 60), "c": Color8(252, 226, 140)}
+	draw_rect(Rect2(-8.0, -17.0, 16.0, 5.0), gold["k"])
+	draw_rect(Rect2(-8.0, -16.0, 16.0, 3.0), gold["b"])
+	draw_rect(Rect2(-8.0, -16.0, 16.0, 1.0), gold["c"])
+	draw_circle(Vector2(0, -14.5), 2.2, gold["k"])
+	draw_circle(Vector2(0, -14.5), 1.4, gold["a"])
+	if pose > 0.0:
+		draw_line(Vector2(-6, -28), Vector2(-2, -20), m["k"], 1.0)
+		draw_line(Vector2(-2, -20), Vector2(-5, -14), m["k"], 1.0)
+		draw_line(Vector2(4, -8), Vector2(6, -3), m["k"], 1.0)
+
+## A lost miner: slumped against the rock, one arm raised, headlamp guttering.
+func _draw_lost() -> void:
+	var p: Dictionary = GPAL["player"]
+	var flick := 0.5 + 0.5 * sin(t * 9.0) * sin(t * 2.3)
+	var bob := sin(t * 2.0) * 0.4
+	var wave := sin(t * 5.0)
+	# legs bent, sitting
+	for x in [-1.0, 2.0]:
+		_limb(PackedVector2Array([Vector2(0, 2), Vector2(x + 2.5, 3.5), Vector2(x + 3.5, 7)]), p["pants"], p["pants"].lightened(0.2))
+		draw_rect(Rect2(x + 2.5, 6.0, 3.2, 1.6), p["boot"])
+	draw_colored_polygon(PackedVector2Array([Vector2(-3, -3 + bob), Vector2(2.4, -3.4 + bob), Vector2(2.4, 3.0), Vector2(-3.2, 3.0)]), p["coatsh"])
+	draw_colored_polygon(PackedVector2Array([Vector2(-1, -3 + bob), Vector2(2.4, -3.4 + bob), Vector2(2.4, 1.0), Vector2(-1, 1.0)]), p["coat"])
+	draw_polyline(PackedVector2Array([Vector2(-3, -3 + bob), Vector2(2.4, -3.4 + bob), Vector2(2.4, 3.0), Vector2(-3.2, 3.0), Vector2(-3, -3 + bob)]), p["k"], 1.0)
+	_limb(PackedVector2Array([Vector2(1, -2.4 + bob), Vector2(3.5, -5.5 + bob), Vector2(5.0 + wave * 1.2, -9.0 + bob)]), p["coat"], p["coatlt"], 1.6)
+	draw_rect(Rect2(4.2 + wave * 1.2, -10.0 + bob, 1.6, 1.6), p["skin"])
+	var head := Vector2(-0.4, -6.4 + bob)
+	draw_colored_polygon(_ellipse(head, 2.4, 2.5, 10), p["skin"])
+	draw_colored_polygon(_ellipse(head + Vector2(-0.8, 0.8), 1.5, 1.3, 8), p["skinsh"])
+	draw_rect(Rect2(head + Vector2(0.8, -0.2), Vector2(1, 1)), p["k"])
+	draw_colored_polygon(PackedVector2Array([head + Vector2(-3.0, -0.4), head + Vector2(-2.2, -2.7), head + Vector2(0.2, -3.5), head + Vector2(2.4, -2.5), head + Vector2(3.0, -0.4)]), p["hatsh"].lightened(0.1))
+	draw_rect(Rect2(head + Vector2(2.2, -2.0), Vector2(1.4, 1.2)), p["lamp"] * Color(1, 1, 1, 0.4 + 0.5 * flick))
+	_glow(head + Vector2(3.0, -1.4), 3.0, p["lamp"], 0.45 * flick)
+
+## A scrap of a lost miner's shirt with a faint glow; `pose` is the veteran brightness.
+func _draw_sign() -> void:
+	var glow := Color8(120, 230, 160)
+	var pulse := 0.6 + 0.4 * sin(t * 2.4)
+	_glow(Vector2(0, -2), 6.0 + pose * 4.0, glow, (0.4 + pose * 0.5) * pulse)
+	var scrap := PackedVector2Array([Vector2(-4, 0), Vector2(-3, -3), Vector2(0, -2.5), Vector2(3, -4), Vector2(4.5, -1), Vector2(2, 0.5), Vector2(-1, 0.2)])
+	var cloth: Dictionary = {"k": Color8(24, 8, 8), "a": Color8(110, 26, 28), "b": Color8(170, 44, 40), "c": Color8(214, 90, 70)}
+	_blob(scrap, cloth)
+	draw_line(Vector2(-4, 0), Vector2(-5, 1), cloth["a"], 1.0)                              # a loose thread
+	draw_line(Vector2(4.5, -1), Vector2(6, -0.5), cloth["a"], 1.0)
+
+## Gas: slow, overlapping, translucent puffs that drift and fade with `pose` (0 thick .. 1 thin).
+func _draw_gas() -> void:
+	var fade := 1.0 - pose * 0.8
+	for i in range(7):
+		var a := t * 0.5 + i * 1.7
+		var c := Vector2(cos(a) * (6.0 + i), sin(a * 0.8) * (4.0 + i * 0.5) - 2.0)
+		var r := 6.0 + sin(t + i) * 1.5
+		draw_colored_polygon(_ellipse(c, r, r * 0.8, 12), Color(0.42, 0.62, 0.28, 0.22 * fade))
+		draw_colored_polygon(_ellipse(c + Vector2(-1, -1), r * 0.55, r * 0.45, 10), Color(0.62, 0.8, 0.4, 0.16 * fade))
