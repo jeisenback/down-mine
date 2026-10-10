@@ -75,6 +75,7 @@ func test_burrower_must_chew_through_walls() -> void:
 	var mine: MineGrid = add(MineScene.instantiate())
 	var player := _still_player(Vector2(-5000, -5000), 1.0)
 	var base := _base(mine.cell_to_world(Vector2i(40, 100)))
+	base.light.fuel = 0.0 # an unlit approach: a lit base would slow and kill it first
 	var wall_cell := Vector2i(40, 104)
 	for y in range(101, 112): # plain rock path below the base
 		mine.set_cell(0, Vector2i(40, y), mine.source_id, Vector2i(1, 0))
@@ -860,3 +861,107 @@ func test_the_old_mines_tiles_come_from_the_props_sheet() -> void:
 				covered += 1
 				assert_eq(tile, overlay, "debris shows the beam where the art is opaque (%d, %d)" % [x, y])
 	assert_true(covered > 20 and showing_rock > 20, "the debris art is beams over open rock (%d opaque, %d clear)" % [covered, showing_rock])
+
+# --- the base light fights Burrowers (rhythm of threat, milestone 55) ------------------
+
+const FRAME := 1.0 / 60.0
+
+## A Burrower `offset` px below a base whose light is `fuel_fraction` full, with
+## the player far away and nothing ticking by itself: tests step it by hand.
+func _burrower_rig(offset: float, fuel_fraction: float) -> Dictionary:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var player := _still_player(Vector2(-5000, -5000), 1.0)
+	var base := _base(mine.cell_to_world(Vector2i(40, 100)))
+	base.light.burn_rate = 0.0
+	base.light.fuel = base.light.max_fuel * fuel_fraction
+	for y in range(95, 130): # open ground, so only the light matters
+		mine.set_cell(0, Vector2i(40, y), -1)
+	var burrower: Burrower = add(BurrowerScene.instantiate())
+	burrower.mine = mine
+	burrower.player = player
+	burrower.target = base
+	burrower.global_position = base.global_position + Vector2(0, offset)
+	burrower.set_physics_process(false)
+	return {"mine": mine, "player": player, "base": base, "burrower": burrower}
+
+func _step(burrower: Burrower, seconds: float) -> void:
+	for i in range(int(round(seconds / FRAME))):
+		if not is_instance_valid(burrower) or burrower.is_queued_for_deletion():
+			return
+		burrower._physics_process(FRAME)
+
+func _gone(node: Node) -> bool:
+	return not is_instance_valid(node) or node.is_queued_for_deletion()
+
+func test_base_light_damage_rate_scales_with_fuel() -> void:
+	assert_true(is_equal_approx(Burrower.base_light_damage_per_second(1.0, false), 0.15), "full light")
+	assert_true(is_equal_approx(Burrower.base_light_damage_per_second(0.4, false), 0.06), "40% light")
+	assert_eq(Burrower.base_light_damage_per_second(0.0, false), 0.0, "no light")
+	assert_true(is_equal_approx(Burrower.base_light_damage_per_second(1.0, true), 0.45), "tripled with presence")
+
+func test_a_burrower_in_a_full_base_light_dies_in_ten_seconds() -> void:
+	var rig := _burrower_rig(150.0, 1.0)
+	var burrower: Burrower = rig.burrower
+	_step(burrower, 9.5)
+	assert_true(not _gone(burrower), "alive at 9.5 s")
+	assert_eq(rig.base.health, RunBase.MAX_HEALTH, "it has not reached the base")
+	_step(burrower, 1.0)
+	assert_true(_gone(burrower), "dead by 10.5 s")
+	assert_eq(rig.base.health, RunBase.MAX_HEALTH, "and the base is untouched")
+
+func test_a_burrower_in_the_base_light_is_slowed() -> void:
+	var inside := _burrower_rig(100.0, 1.0)
+	var start_in: Vector2 = inside.burrower.global_position
+	_step(inside.burrower, 1.0)
+	var moved_in: float = start_in.distance_to(inside.burrower.global_position)
+	assert_true(absf(moved_in - Burrower.SPEED * Burrower.LIT_SPEED_MULTIPLIER) < 2.0, "slowed inside the light (%f)" % moved_in)
+	var outside := _burrower_rig(150.0, 0.0) # an empty light reaches only 60 px
+	var start_out: Vector2 = outside.burrower.global_position
+	_step(outside.burrower, 1.0)
+	var moved_out: float = start_out.distance_to(outside.burrower.global_position)
+	assert_true(absf(moved_out - Burrower.SPEED) < 3.0, "full speed outside it (%f)" % moved_out)
+
+func test_an_empty_base_light_does_no_damage_but_still_slows_inside_its_minimum_radius() -> void:
+	var rig := _burrower_rig(40.0, 0.0)
+	var burrower: Burrower = rig.burrower
+	var start: Vector2 = burrower.global_position
+	_step(burrower, 0.5)
+	assert_true(start.distance_to(burrower.global_position) < 8.0, "slowed inside the 60 px minimum radius")
+	_step(burrower, 4.5)
+	assert_eq(burrower.health, Burrower.MAX_HEALTH, "no damage from an empty light")
+
+func test_presence_flaring_inside_the_base_light_triples_the_damage() -> void:
+	var quiet := _burrower_rig(170.0, 1.0)
+	_step(quiet.burrower, 2.0)
+	var lost_plain: float = Burrower.MAX_HEALTH - quiet.burrower.health
+	var present := _burrower_rig(170.0, 1.0)
+	present.player.global_position = present.base.global_position + Vector2(-20, -60)
+	present.player.light.is_flaring = true
+	_step(present.burrower, 2.0)
+	var lost_present: float = Burrower.MAX_HEALTH - present.burrower.health
+	assert_true(absf(lost_plain - 0.3) < 0.02, "plain damage over 2 s (%f)" % lost_plain)
+	assert_true(absf(lost_present - 3.0 * lost_plain) < 0.03, "tripled while flaring inside the light (%f)" % lost_present)
+	var away := _burrower_rig(170.0, 1.0)
+	away.player.global_position = away.base.global_position + Vector2(600, 0)
+	away.player.light.is_flaring = true
+	_step(away.burrower, 2.0)
+	assert_true(absf((Burrower.MAX_HEALTH - away.burrower.health) - lost_plain) < 0.02, "a flare outside the base light adds nothing")
+
+func test_the_edge_of_the_base_light_is_exclusive() -> void:
+	var rig := _burrower_rig(0.0, 1.0)
+	var radius: float = rig.base.light.current_radius()
+	rig.burrower.global_position = rig.base.global_position + Vector2(0, radius)
+	rig.burrower._physics_process(FRAME)
+	assert_eq(rig.burrower.health, Burrower.MAX_HEALTH, "exactly at the radius is outside")
+	rig.burrower.global_position = rig.base.global_position + Vector2(0, radius - 1.0)
+	rig.burrower._physics_process(FRAME)
+	assert_true(rig.burrower.health < Burrower.MAX_HEALTH, "one pixel inside is hurt")
+
+func test_the_base_light_hurts_only_burrowers() -> void:
+	var rig := _burrower_rig(150.0, 1.0)
+	rig.player.global_position = rig.base.global_position + Vector2(10, 0)
+	var health: int = rig.player.health
+	var fuel: float = rig.player.light.fuel
+	_step(rig.burrower, 5.0)
+	assert_eq(rig.player.health, health, "the player is unhurt")
+	assert_eq(rig.player.light.fuel, fuel, "and their lantern untouched")

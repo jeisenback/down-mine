@@ -15,6 +15,12 @@ const ATTACK_COOLDOWN := 2.0
 # The drawn mandibles stay wide for this long after a strike (milestone 53).
 const STRIKE_POSE_SECONDS := 0.4
 const WALL_CHEW_TIME := 2.5 # seconds per reinforced tile; plain rock is instant
+# Rhythm of threat (milestone 55): the base light fights back. Inside its
+# radius a Burrower is slowed like it is in the player's light, and loses this
+# much health a second times the light's fuel fraction (tripled while the player
+# flares inside the light). A full light kills one in 10 s.
+const BASE_LIGHT_DAMAGE_RATE := 0.15
+const PRESENCE_FLARE_MULTIPLIER := 3.0
 
 var mine: MineGrid
 var player: Player
@@ -25,6 +31,10 @@ var _strike_timer: float = 0.0
 var _chew_timer: float = 0.0
 
 @onready var art: ArtSprite = $Art
+
+## Health lost per second inside the base light at this fuel fraction.
+static func base_light_damage_per_second(fuel_fraction: float, presence_flaring: bool) -> float:
+	return BASE_LIGHT_DAMAGE_RATE * fuel_fraction * (PRESENCE_FLARE_MULTIPLIER if presence_flaring else 1.0)
 
 func _ready() -> void:
 	add_to_group("burrowers")
@@ -42,6 +52,15 @@ func _physics_process(delta: float) -> void:
 			queue_free()
 			return
 
+	var base_radius: float = target.light.current_radius()
+	var in_base_light := global_position.distance_to(target.global_position) < base_radius
+	if in_base_light:
+		var presence := player.light.is_flaring and player.global_position.distance_to(target.global_position) < base_radius
+		health -= base_light_damage_per_second(target.light.fuel_fraction(), presence) * delta
+		if health <= 0.0:
+			queue_free()
+			return
+
 	var to_target := target.global_position - global_position
 	art.flip_h = to_target.x < 0.0
 	if to_target.length() <= ATTACK_RANGE:
@@ -52,7 +71,7 @@ func _physics_process(delta: float) -> void:
 			target.take_hit(1)
 		return
 
-	var speed := SPEED * (LIT_SPEED_MULTIPLIER if in_player_light else 1.0)
+	var speed := SPEED * (LIT_SPEED_MULTIPLIER if in_player_light or in_base_light else 1.0)
 	var next_position := global_position + to_target.normalized() * speed * delta
 	var next_cell := mine.world_to_cell(next_position)
 	if mine.is_wall(next_cell):
