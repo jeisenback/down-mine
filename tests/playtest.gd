@@ -48,6 +48,8 @@ func _run() -> void:
 		["drift_collapse", _drift_collapse],
 		["drift_planks", _drift_planks],
 		["drift_from_the_ladder", _drift_from_the_ladder],
+		["shaft_lift_ride", _shaft_lift_ride],
+		["shaft_from_below", _shaft_from_below],
 	]
 	var failed := 0
 	for entry in scenarios:
@@ -562,3 +564,43 @@ func _drift_from_the_ladder() -> void:
 	check((_cell().x - (d.x0 + d.side * 4)) * d.side >= 0, "walked 4 tiles into the gallery (x %d, mouth %d)" % [_cell().x, d.x0])
 	check(lowest <= d.row, "stepped onto the landing without dropping down the shaft (lowest row %d, floor row %d)" % [lowest, d.row + 1])
 	await shot("in_the_mouth")
+
+# --- the works' contents (milestone 51c) -------------------------------------
+
+## Repairs the old cage at the bottom of Clay and rides it to the surface.
+func _shaft_lift_ride() -> void:
+	await _in_shaft()
+	var lifts := main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Lift)
+	check(lifts.size() == 1, "one lift")
+	if lifts.size() != 1:
+		return
+	var lift: Lift = lifts[0]
+	main.player.currency = 100
+	await _place(main.mine.world_to_cell(lift.global_position))
+	await shot("at_the_cage")
+	await tap(KEY_E)
+	check(lift.state == Lift.State.READY and main.player.currency == 100 - Lift.REPAIR_ORE, "E repaired the lift for %d ore" % Lift.REPAIR_ORE)
+	await tap(KEY_E)
+	check(lift.state == Lift.State.USED, "E rode it")
+	check(_cell().y < MineGrid.SURFACE_ROWS, "the ride ended at the surface (row %d)" % _cell().y)
+	await shot("at_the_surface")
+
+## Under the collapse from Stone: the journal's depth is what the HUD reads
+## there, and digging up opens the first row. (Dig-up reaches only about two
+## rows - a jump rises 1.8 tiles and nothing digs while on a rope - so a
+## 6-row collapse cannot be climbed from below with today's verbs; that is a
+## missing verb, noted in the ROADMAP, not something this scenario papers over.)
+func _shaft_from_below() -> void:
+	await _in_shaft()
+	var col: int = main.mine.shaft_column()
+	var end_row: int = main.mine.shaft_end_row
+	_fill(col, end_row + 1, col, end_row + 2, false) # a two-tile pocket under the collapse
+	_fill(col, end_row + 3, col, end_row + 3, true)
+	await _place(Vector2i(col, end_row + 2))
+	await shot("below_the_collapse")
+	var journal_depth: int = end_row - MineGrid.SURFACE_ROWS
+	check(_cell().y == end_row + 2, "standing in the pocket (row %d)" % _cell().y)
+	check(main._current_depth() == journal_depth + 2, "two rows under the collapse the HUD reads %d, two below the journal's %d" % [main._current_depth(), journal_depth])
+	await hold([KEY_SPACE, KEY_W], 300)
+	check(not main.mine.is_solid(Vector2i(col, end_row)), "digging up opened the collapse's bottom row")
+	await shot("dug_up")

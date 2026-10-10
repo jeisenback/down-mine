@@ -136,9 +136,16 @@ dictates.
   - ~~**M51b - Galleries.**~~ Done: a gallery per worked layer off the
     shaft (posts, plank floors over caves); Topsoil and Clay end in their
     camp, Stone at the lost miner; Clay and Stone have a collapsed section.
-  - **M51c - The works' contents.** The lift moves into the shaft, the
-    journal marks the shaft's end, camps and the lost miner move into the
-    galleries.
+  - ~~**M51c - The works' contents.**~~ Done: the lift cage hangs in the
+    shaft near the bottom of Clay (its repair is quiet, Clay being a quiet
+    layer); the journal's last page marks the depth where the collapse
+    ends. (Camps and the lost miner moved into the galleries in M51b.)
+  - **Known gap (a missing verb, its own milestone if wanted):** from
+    below, dig-up reaches only about two rows (a jump rises 1.8 tiles and
+    nothing digs while on a rope or ladder), so the 6-row collapse cannot
+    be climbed from below with today's verbs. The journal tells you where
+    the shaft ends; getting up into it needs ladders placed through the
+    dug cells, or a new verb.
 - **Tuning knobs to revisit in M22:** dig noise per tile (6), the
   Stalker's strike threshold (25% light), lantern size (60s - a dive to
   the Heart is now ~55s one way), stranded drift (5 runs to die now,
