@@ -69,3 +69,18 @@ func tick(delta: float, run_seconds: float, carrying_heart: bool) -> String:
 		_warned = true
 		return "warn"
 	return ""
+
+## The HUD's wave line. Before the mine wakes it counts down to the wake; after,
+## to the next wave. A peak is always marked; the size only with `show_size`
+## (the bell). Seconds round up.
+static func hud_text(seconds: float, next_number: int, calm: bool, show_size: bool, run_seconds: float) -> String:
+	if run_seconds < MINE_WAKE_SECONDS:
+		return "Mine wakes in %d s" % ceili(MINE_WAKE_SECONDS - run_seconds)
+	var head: String = ("Calm: next wave in %d s" if calm else "Wave in %d s") % ceili(seconds)
+	var parts: Array = []
+	if show_size:
+		var n := wave_size(next_number)
+		parts.append("%d Burrower%s" % [n, "" if n == 1 else "s"])
+	if is_peak(next_number):
+		parts.append("PEAK")
+	return head if parts.is_empty() else head + ": " + ", ".join(parts)

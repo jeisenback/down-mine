@@ -296,3 +296,13 @@ func test_wave_number_counts_each_wave() -> void:
 	assert_eq(clock.wave_number, 0, "none yet")
 	_wave_times(clock, 3)
 	assert_eq(clock.wave_number, 3, "three waves")
+
+func test_wave_line_wording() -> void:
+	assert_eq(MineClock.hud_text(-1.0, 1, false, false, 100.0), "Mine wakes in 140 s", "before the wake")
+	assert_eq(MineClock.hud_text(41.2, 3, false, false, 300.0), "Wave in 42 s", "rounded up, no size without the bell")
+	assert_eq(MineClock.hud_text(41.2, 5, false, false, 300.0), "Wave in 42 s: PEAK", "a peak is always marked")
+	assert_eq(MineClock.hud_text(30.0, 3, false, true, 300.0), "Wave in 30 s: 2 Burrowers", "the bell adds the size")
+	assert_eq(MineClock.hud_text(30.0, 1, false, true, 300.0), "Wave in 30 s: 1 Burrower", "singular")
+	assert_eq(MineClock.hud_text(30.0, 5, false, true, 300.0), "Wave in 30 s: 4 Burrowers, PEAK", "peak with the bell")
+	assert_eq(MineClock.hud_text(80.0, 6, true, false, 560.0), "Calm: next wave in 80 s", "during a calm")
+	assert_eq(MineClock.hud_text(80.0, 6, true, true, 560.0), "Calm: next wave in 80 s: 2 Burrowers", "calm with the bell")

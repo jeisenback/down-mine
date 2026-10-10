@@ -12,7 +12,7 @@ class_name Sfx
 
 const SAMPLE_RATE := 22050
 const POOL_SIZE := 8
-const SOUNDS := ["dig", "hit", "ore", "fuel", "place", "collapse", "hiss", "alarm"]
+const SOUNDS := ["dig", "hit", "ore", "fuel", "place", "collapse", "hiss", "alarm", "rumble"]
 
 # The pool node also holds the synthesized streams (as metadata), so they
 # are freed with the scene tree at exit - a static cache would still be
@@ -81,6 +81,7 @@ static func _make(sound: String) -> AudioStreamWAV:
 		"place":    return _render(0.10, func(t, n): return (_tone(t, 180.0) * 0.6 + n * 0.3) * _decay(t, 0.025))
 		"collapse": return _render(0.6, func(t, n): return _lowpass_noise(n, 0.08) * 1.6 * _decay(t, 0.2))
 		"hiss":     return _render(1.0, func(t, n): return (n - _lowpass_noise(n, 0.3)) * 0.5 * minf(1.0, t * 20.0) * _decay(t, 0.45))
+		"rumble":   return _render(0.7, func(t, n): return _lowpass_noise(n, 0.07) * 2.4 * minf(1.0, t * 12.0) * _decay(t, 0.28))
 		"alarm":    return _render(0.5, func(t, n): return signf(sin(TAU * 440.0 * t)) * 0.3 * (1.0 if fmod(t, 0.25) < 0.15 else 0.0))
 	return _render(0.05, func(t, n): return 0.0)
 

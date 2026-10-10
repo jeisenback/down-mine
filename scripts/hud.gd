@@ -57,6 +57,7 @@ static var title_seen: bool = false
 @onready var ore_label: Label = $Margin/VBox/OreLabel
 @onready var banked_label: Label = $Margin/VBox/BankedLabel
 @onready var base_label: Label = $Margin/VBox/BaseLabel
+@onready var wave_label: Label = $Margin/VBox/WaveLabel
 @onready var escort_label: Label = $Margin/VBox/EscortLabel
 @onready var lamp_label: Label = $Margin/VBox/LampLabel
 @onready var prompt_label: Label = $PromptLabel
@@ -199,6 +200,12 @@ func update_currency(amount: int) -> void:
 func update_base(run_base: RunBase, under_attack: bool, walls: int) -> void:
 	base_label.text = "Base: %d/%d  walls %d%s" % [run_base.health, run_base.MAX_HEALTH, walls, "  UNDER ATTACK" if under_attack else ""]
 	base_label.modulate = Color(1, 0.4, 0.3) if under_attack else Color(1, 1, 1)
+
+## The wave line under Base (milestone 55): when the next wave comes. Red when
+## it is close.
+func update_wave(text: String, urgent: bool) -> void:
+	wave_label.text = text
+	wave_label.modulate = Color(1, 0.4, 0.3) if urgent else Color(1, 1, 1)
 
 ## Context actions (repair, fortify, plant, extract), one line along the
 ## bottom of the screen, hidden when there is nothing to do. A message
