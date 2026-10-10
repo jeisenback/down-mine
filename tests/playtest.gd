@@ -51,6 +51,7 @@ func _run() -> void:
 		["shaft_lift_ride", _shaft_lift_ride],
 		["shaft_lift_from_the_ladder", _shaft_lift_from_the_ladder],
 		["shaft_from_below", _shaft_from_below],
+		["wave_meets_the_base_light", _wave_meets_the_base_light],
 		["drawn_art_on_screen", _drawn_art_on_screen],
 		["crew_jobs_at_work", _crew_jobs_at_work],
 	]
@@ -758,3 +759,30 @@ func _crew_jobs_at_work() -> void:
 	await frames(160)
 	Engine.time_scale = 1.0
 	check(main.noise_meter.noise > 0.0, "work below the quiet layers makes noise the base hears (%.1f)" % main.noise_meter.noise)
+
+## A base planted deep, a wave of two Burrowers (the third wave) surfacing below
+## it: a full base light slows and kills them before they reach the walls, a
+## nearly empty one does not and the base is hit.
+func _wave_meets_the_base_light() -> void:
+	await _start_game()
+	var base: RunBase = main.run_base
+	base.light.burn_rate = 0.0
+	# Below the quiet floor, where a wave surfaces 10 tiles under the base.
+	base.global_position = main.mine.cell_to_world(Vector2i(40, main.mine.quiet_floor_row() + 8))
+	base.light.fuel = base.light.max_fuel
+	main.mine_clock.wave_number = 3 # a wave of two
+	main._spawn_wave()
+	check(main.get_tree().get_nodes_in_group("burrowers").size() == 2, "two Burrowers surfaced")
+	Engine.time_scale = 6.0
+	await frames(250) # about 25 s
+	Engine.time_scale = 1.0
+	check(main.get_tree().get_nodes_in_group("burrowers").is_empty(), "a full base light killed them both")
+	check(base.health == RunBase.MAX_HEALTH, "and the base kept every point of health (%d)" % base.health)
+	await shot("full light")
+	base.light.fuel = base.light.max_fuel * 0.02
+	main._spawn_wave()
+	Engine.time_scale = 6.0
+	await frames(120) # about 12 s
+	Engine.time_scale = 1.0
+	check(base.health < RunBase.MAX_HEALTH, "a nearly empty light let them through (%d)" % base.health)
+	await shot("thin light")

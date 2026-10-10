@@ -169,6 +169,15 @@ dictates.
   base as a settlement (#37) and the hub as a kingdom (#38). Spec:
   `docs/superpowers/specs/2026-10-10-workers-and-jobs-design.md`; plan:
   `docs/superpowers/plans/2026-10-10-workers-and-jobs.md`.
+- ~~**M55 - Rhythm of threat.**~~ Done: the mine's waves come in cycles of five
+  (1, 1, 2, 2, then a peak of 4, each cycle one bigger) with a calm after each
+  peak and at most 8 Burrowers alive; the HUD always shows the countdown, the
+  bell adds the size; a tremor and a rumble mark each wave; the base light now
+  slows and damages Burrowers, tripled while the player flares inside it. Piece 2
+  of 4 of the Two Crowns inspired design (#36); next are the run base as a
+  settlement (#37) and the hub as a kingdom (#38). Spec:
+  `docs/superpowers/specs/2026-10-10-rhythm-of-threat-design.md`; plan:
+  `docs/superpowers/plans/2026-10-10-rhythm-of-threat.md`.
 - **Tuning knobs to revisit in M22:** dig noise per tile (6), the
   Stalker's strike threshold (25% light), lantern size (60s - a dive to
   the Heart is now ~55s one way), stranded drift (5 runs to die now,
