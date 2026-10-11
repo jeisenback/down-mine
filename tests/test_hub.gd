@@ -111,4 +111,6 @@ func test_crew_toggle_respects_the_slots() -> void:
 	assert_true(ada.toggle_crew(), "leaving always works")
 	assert_true(bram.toggle_crew(), "now Bram joins")
 	assert_true(bram.prompt().ends_with("leave crew"), "Bram is on the crew")
-	assert_true(ada.prompt().ends_with("join crew"), "Ada can join again")
+	assert_true(ada.prompt().ends_with("Crew full"), "Ada sees the crew is full again")
+	assert_true(bram.toggle_crew(), "Bram leaves")
+	assert_true(ada.prompt().ends_with("join crew"), "a free slot reads join crew")

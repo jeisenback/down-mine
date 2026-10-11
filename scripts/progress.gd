@@ -256,6 +256,21 @@ func effect_text(member: Dictionary) -> String:
 				roundi(CrewJobs.MENDER_INTERVAL / strength), CrewJobs.MENDER_ORE]
 	return ""
 
+## What the hub says about a rostered miner: rank, type, what they do and
+## their history, e.g. "Rookie Repair: repairs the base ... (2 runs, from Topsoil; Tinkerer)".
+func member_summary(member: Dictionary) -> String:
+	var runs: int = member.get("runs", 0)
+	var history := "%d run%s, from %s" % [runs, "" if runs == 1 else "s", layer_name(member.get("found_in", 0))]
+	if member.has("quirk"):
+		history += "; " + QUIRKS[member.quirk].name
+	return "%s %s: %s (%s)" % [rank_of(member).name, NPC_TYPES[member.type].label, effect_text(member), history]
+
+## The notice board's line for a stranded miner: where they are and what happens next.
+func stranded_line(npc: Dictionary) -> String:
+	var last_layer: bool = npc.layer == MineGrid.LAYERS.size() - 1
+	var fate := "lost for good if not rescued next run" if last_layer else "drifts to the %s if not rescued" % layer_name(npc.layer + 1)
+	return "Stranded: %s in the %s - %s" % [npc.name, layer_name(npc.layer), fate]
+
 ## The crew as CrewJobs wants them: name, type and the strength of their rank.
 func job_crew() -> Array:
 	return crew().map(func(m): return {"name": m.name, "type": m.type, "strength": rank_of(m).strength})
