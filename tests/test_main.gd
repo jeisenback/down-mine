@@ -284,14 +284,8 @@ func test_run_log_records_runs_and_causes() -> void:
 	var line := Progress.run_log_line(entry)
 	assert_true(line.begins_with("Died (Stalker) ") and line.contains("hits: fall 1, Stalker 2"), "log line: " + line)
 	var hud: HUD = main.hud
-	assert_true(hud.run_summary_label.text.contains("L: recent runs"), "hub offers the run log")
-	var press_l := InputEventKey.new()
-	press_l.physical_keycode = KEY_L
-	press_l.pressed = true
-	hud._unhandled_input(press_l)
-	assert_true(hud.run_summary_label.text.begins_with("RECENT RUNS") and hud.run_summary_label.text.contains("Died (Stalker)"), "L shows the run log")
-	hud._unhandled_input(press_l)
-	assert_true(hud.run_summary_label.text.contains("Banked ore"), "L again: back to the hub")
+	assert_true(hud.run_summary_label.text.contains("Depth reached"), "the summary shows the result")
+	assert_true(hud.run_summary_label.text.contains("Enter: go to the hub"), "Enter leads to the hub")
 	var saved := Progress.load_saved()
 	assert_eq(saved.run_log.size(), 1, "run log saved")
 	for i in range(12):
@@ -874,4 +868,46 @@ func test_base_line_and_prompts() -> void:
 	var prompts: Array = main._action_prompts()
 	assert_true(not prompts.any(func(p): return p.begins_with("U:") or p.ends_with("ore") and p.contains("needs")), "nothing to buy at the Fort")
 	assert_true(not prompts.any(func(p): return p.begins_with("2:") or p.begins_with("3:")), "the old key prompts are gone")
+	Progress.path_override = ""
+
+func test_enter_on_the_summary_leaves_for_the_hub() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	var seen: Array = []
+	main.change_scene = func(path: String): seen.append(path)
+	main.player.take_hit(Player.MAX_HEALTH, "fall")
+	await physics_frames(2)
+	assert_true(main.hud.run_summary.visible, "the run ended")
+	var enter := InputEventKey.new()
+	enter.physical_keycode = KEY_ENTER
+	enter.pressed = true
+	main.hud._unhandled_input(enter)
+	assert_eq(seen, ["res://scenes/Hub.tscn"], "Enter goes to the hub")
+	assert_true(not tree.paused, "unpaused for the next scene")
+	Progress.path_override = ""
+
+func test_main_has_no_hub_purchase_handlers() -> void:
+	var main_script: GDScript = load("res://scripts/main.gd")
+	var names := main_script.get_script_method_list().map(func(m): return m.name)
+	assert_true(not names.has("_on_upgrade_requested"), "purchases moved to the hub")
+	assert_true(not names.has("_on_crew_toggle_requested"), "crew picking moved to the hub")
+
+func test_e_held_from_the_hub_does_not_extract_the_new_run() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var e := InputEventKey.new()
+	e.physical_keycode = KEY_E
+	e.keycode = KEY_E
+	e.pressed = true
+	Input.parse_input_event(e) # the press that went down the mine is still held
+	await physics_frames(3) # it was down for a few frames before the scene changed
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(6)
+	assert_true(not main.run_ended, "the held E was not an extraction")
+	var release := InputEventKey.new()
+	release.physical_keycode = KEY_E
+	release.keycode = KEY_E
+	release.pressed = false
+	Input.parse_input_event(release)
+	tree.paused = false
 	Progress.path_override = ""

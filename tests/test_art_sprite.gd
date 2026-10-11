@@ -107,3 +107,11 @@ func test_unknown_kind_is_a_blank() -> void:
 	assert_true(a.art == null, "no art")
 	a.flip_h = true
 	a.queue_free()
+
+func test_the_hub_gears_build_gear_art() -> void:
+	for name in ["lamp_shop", "smithy", "bunkhouse", "notice_board", "entrance"]:
+		var a := _make(name)
+		await tree.process_frame
+		assert_true(a.art is GearArt, "%s builds a gear art" % name)
+		if a.art is GearArt:
+			assert_eq(a.art.gear, name, "%s gear" % name)

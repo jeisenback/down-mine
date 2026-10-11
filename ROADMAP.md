@@ -89,8 +89,13 @@ dictates.
 - ~~**M45 - Run log.**~~ Done: the last 10 runs (result and cause of
   death, time, depth, ore, Burrowers, hits by source, seed) are saved;
   L at the hub shows them. The data for the M22 tuning pass.
-- **Mobile.** The web build doesn't open on phones. Needs looking into
-  (likely the web export's requirements), then touch controls.
+- ~~**M58 - Touch controls.**~~ Done: on a touch device (or with `?touch`) the game shows a
+  pad (move, jump, dig down, stairs), Dig, Flare, Use and one Tools menu (the tools you own and,
+  at the base, Plant, Repair, Fortify and Grow), with buy buttons in the hub and Continue and
+  Esc while paused; landscape only, same keys as the keyboard. The game now scales to the window.
+  Not done: a real-device test (the first check is opening the deployed build on a phone),
+  drawn icons in place of text labels. Spec: `docs/superpowers/specs/2026-10-11-touch-controls-design.md`;
+  plan: `docs/superpowers/plans/2026-10-11-touch-controls.md`.
 
 ## Quality pass
 
@@ -186,6 +191,15 @@ dictates.
   rampart show the tiers. Piece 3 of 4 of the Two Crowns inspired design (#37); next is the
   hub as a kingdom (#38). Spec: `docs/superpowers/specs/2026-10-10-run-base-settlement-design.md`;
   plan: `docs/superpowers/plans/2026-10-10-run-base-settlement.md`.
+- ~~**M57 - The hub as a kingdom.**~~ Done: the hub is a drawn place you walk as the miner,
+  with a lamp shop, a smithy, a bunkhouse, a notice board and the mine entrance. Buildings
+  sell the same upgrades at the same prices (`1` to `3` beside one), rostered miners stand by
+  the bunkhouse and join or leave the crew with `E`, the board shows the run log, the journal
+  and stranded miners, and the entrance starts a run. A run still ends on the summary; Enter
+  goes to the hub, and the game opens there. Piece 4 of 4 of the Two Crowns inspired design
+  (#38). Not done: touch controls (the Mobile item above), building levels, a second currency.
+  Spec: `docs/superpowers/specs/2026-10-11-hub-as-kingdom-design.md`; plan:
+  `docs/superpowers/plans/2026-10-11-hub-as-kingdom.md`.
 - **Tuning knobs to revisit in M22:** dig noise per tile (6), the
   Stalker's strike threshold (25% light), lantern size (60s - a dive to
   the Heart is now ~55s one way), stranded drift (5 runs to die now,

@@ -55,6 +55,9 @@ func _run() -> void:
 		["wave_meets_the_base_light", _wave_meets_the_base_light],
 		["drawn_art_on_screen", _drawn_art_on_screen],
 		["crew_jobs_at_work", _crew_jobs_at_work],
+		["hub_buy_crew_and_descend", _hub_buy_crew_and_descend],
+		["touch_controls_play", _touch_controls_play],
+		["touch_hub_buy", _touch_hub_buy],
 	]
 	var failed := 0
 	for entry in scenarios:
@@ -139,6 +142,7 @@ func teleport(cell: Vector2i) -> void:
 
 func _title_and_controls() -> void:
 	await _start_game(true)
+	check(not TouchControls.wanted(), "a desktop with a keyboard shows no touch controls")
 	check(paused and main.hud.overlay.visible, "title shows and pauses")
 	await shot("title")
 	await tap(KEY_ENTER)
@@ -228,8 +232,8 @@ func _heart_run() -> void:
 	await tap(KEY_E)
 	check(main.hud.run_summary.visible and main.hud.run_summary_label.text.contains("The Heart is yours!"), "extracting with the Heart wins")
 	await shot("won")
-	await tap(KEY_L)
-	check(main.hud.run_summary_label.text.contains("Heart claimed"), "run log shows the win")
+	check(main.hud.run_summary_label.text.contains("Enter: go to the hub"), "the summary leads to the hub")
+	check(main.progress.run_log[0].result == "Heart claimed", "the win is in the run log")
 	await shot("run_log")
 
 # --- movement courses (movement pass) --------------------------------------
@@ -821,3 +825,155 @@ func _base_grows_in_tiers() -> void:
 	base.global_position += Vector2(200, 0)
 	main._place_crew_at_base()
 	check(base.tier == 2 and base.get_node("Rampart").global_position - base.global_position == rampart_offset, "replanting keeps the tier and the props follow")
+
+## The hub (milestone 57): walk the settlement with real keys, buy a lantern
+## level, put a miner on the crew, read the board, and go down the mine.
+func _hub_buy_crew_and_descend() -> void:
+	var saved := Progress.new()
+	saved.save_path = SAVE_PATH
+	saved.banked_ore = 100
+	saved.roster = [{"name": "Ana", "type": "repair", "runs": 0, "found_in": 0}, {"name": "Bo", "type": "light", "runs": 0, "found_in": 0}]
+	saved.crew_names = []
+	saved.save()
+	HUD.title_seen = true
+	paused = false
+	main = load("res://scenes/Hub.tscn").instantiate() # _end_game frees it like a run
+	root.add_child(main)
+	await frames(10)
+	check(main.get_node_or_null("Mine") == null and main.get_node_or_null("RunBase") == null, "no mine and no run base in the hub")
+	check(main.miners.size() == 2, "a figure for each rostered miner")
+	await _hub_walk_to(Hub.BUILDING_X["lamp_shop"])
+	check(main.hud.prompt_label.text.contains("Lantern tank"), "the lamp shop offers the lantern")
+	await shot("lamp shop")
+	await tap(KEY_1)
+	check(main.progress.level("lantern") == 1 and main.progress.banked_ore == 70, "1 bought a lantern level for 30 ore")
+	check(main.hud.banked_label.text == "Banked: 70", "the banked ore updated")
+	await _hub_walk_to(main.miners[0].global_position.x)
+	check(main.hud.prompt_label.text.contains("Ana"), "the prompt names the miner")
+	await tap(KEY_E)
+	check(main.progress.crew_names.has("Ana"), "E put Ana on the crew")
+	await shot("crew")
+	await _hub_walk_to(Hub.BUILDING_X["notice_board"])
+	await tap(KEY_E)
+	check(main.board_label.visible and main.board_label.text.contains("RECENT RUNS"), "the notice board opens")
+	await shot("board")
+	await tap(KEY_E)
+	check(not main.board_label.visible, "and closes")
+	var seen: Array = []
+	main.change_scene = func(path: String): seen.append(path)
+	await _hub_walk_to(Hub.ENTRANCE_X)
+	await shot("entrance")
+	await tap(KEY_E)
+	check(seen == ["res://scenes/Main.tscn"], "the entrance starts a run")
+
+## Walks the hub's player to x with real keys, then settles it exactly there.
+func _hub_walk_to(x: float) -> void:
+	for i in range(900):
+		var dx: float = x - main.player.global_position.x
+		if absf(dx) < 3.0:
+			break
+		var code := KEY_D if dx > 0.0 else KEY_A
+		key_event(code, true)
+		await frames(1)
+		key_event(code, false)
+	await frames(12)
+	main.player.global_position.x = x
+	main.player.velocity = Vector2.ZERO
+	await frames(3)
+
+## Touch controls (milestone 58): play with fingers only. Dig down with the
+## pad, open the Tools menu and tap Rope, plant the base from the menu, pause
+## with Esc and close it again.
+func _touch_controls_play() -> void:
+	TouchControls.force = true
+	await _start_game()
+	var tc: TouchControls = main.touch_controls
+	tc.layout_size = Vector2(1152, 648)
+	var layout := TouchControls.layout_for(tc.layout_size)
+	var pad: Rect2 = layout["pad"]
+	await shot("controls")
+	# Walk left, away from the old ladder shaft (a rope or ladder is not a floor), then dig down.
+	tc.touch(0, pad.get_center() + Vector2(-pad.size.x * 0.4, 0), true)
+	await frames(60)
+	tc.touch(0, pad.get_center(), false)
+	var start_y: float = main.player.global_position.y
+	tc.touch(0, pad.get_center() + Vector2(0, pad.size.x * 0.4), true)
+	await frames(90)
+	tc.touch(0, pad.get_center(), false)
+	check(main.player.global_position.y > start_y + 2.0 * MineGrid.TILE_SIZE, "the pad's down dug down")
+	await shot("dug_down")
+	await frames(40) # settle on the floor of the shaft
+	tc.touch(1, layout["tools"].get_center(), true)
+	tc.touch(1, layout["tools"].get_center(), false)
+	await frames(3)
+	check(tc.visible_widgets().has("base_plant") and not tc.visible_widgets().has("base_repair"), "deep in the mine the menu lists Plant, not the base's own items")
+	await shot("plant_menu")
+	tc.touch(1, tc._rect("base_plant").get_center(), true)
+	tc.touch(1, tc._rect("base_plant").get_center(), false)
+	await frames(10)
+	check(main.base_planted and main.run_base.global_position.distance_to(main.player.global_position) < 60.0, "Plant moved the base to the player")
+	tc.touch(1, layout["tools"].get_center(), true)
+	tc.touch(1, layout["tools"].get_center(), false)
+	await frames(3)
+	check(tc.visible_widgets().has("tool_rope"), "the Tools menu lists Rope")
+	await shot("tools_menu")
+	tc.touch(1, tc._rect("tool_rope").get_center(), true)
+	tc.touch(1, tc._rect("tool_rope").get_center(), false)
+	await frames(10)
+	check(not tc.visible_widgets().has("tool_rope"), "picking Rope closed the menu")
+	check(main.mine.find_children("*", "Rope", true, false).size() > 0, "Rope was placed")
+	main.player.global_position = main.run_base.global_position + Vector2(0, 15)
+	await frames(10)
+	tc.touch(2, layout["tools"].get_center(), true)
+	tc.touch(2, layout["tools"].get_center(), false)
+	await frames(3)
+	check(tc.visible_widgets().has("base_repair"), "at the base the menu lists Repair")
+	await shot("base_menu")
+	tc.touch(2, layout["tools"].get_center(), true) # close it again
+	tc.touch(2, layout["tools"].get_center(), false)
+	tc.touch(3, layout["esc"].get_center(), true)
+	tc.touch(3, layout["esc"].get_center(), false)
+	await frames(10)
+	check(paused and main.hud.overlay.visible, "Esc paused the game and showed the controls")
+	check(tc.visible_widgets().has("continue") and tc.visible_widgets().size() == 2, "paused: only Continue and Esc")
+	await shot("paused")
+	tc.touch(3, layout["esc"].get_center(), true)
+	tc.touch(3, layout["esc"].get_center(), false)
+	await frames(10)
+	check(not paused, "Esc again closed the overlay")
+	TouchKeys.release_all()
+	TouchControls.force = false
+
+## The hub with touch: buy a lantern level at the lamp shop with the on-screen
+## 1 button, then use the entrance.
+func _touch_hub_buy() -> void:
+	var saved := Progress.new()
+	saved.save_path = SAVE_PATH
+	saved.banked_ore = 100
+	saved.save()
+	TouchControls.force = true
+	HUD.title_seen = true
+	paused = false
+	main = load("res://scenes/Hub.tscn").instantiate()
+	root.add_child(main)
+	await frames(10)
+	var tc: TouchControls = main.touch_controls
+	tc.layout_size = Vector2(1152, 648)
+	var layout := TouchControls.layout_for(tc.layout_size)
+	main.player.global_position = Vector2(Hub.BUILDING_X["lamp_shop"], Hub.PLAYER_Y)
+	await frames(10)
+	await shot("hub")
+	tc.touch(0, layout["buy1"].get_center(), true)
+	tc.touch(0, layout["buy1"].get_center(), false)
+	await frames(10)
+	check(main.progress.level("lantern") == 1 and main.progress.banked_ore == 70, "the on-screen 1 bought a lantern level")
+	var seen: Array = []
+	main.change_scene = func(path: String): seen.append(path)
+	main.player.global_position = Vector2(Hub.ENTRANCE_X, Hub.PLAYER_Y)
+	await frames(5)
+	tc.touch(0, layout["use"].get_center(), true)
+	tc.touch(0, layout["use"].get_center(), false)
+	await frames(10)
+	check(seen == ["res://scenes/Main.tscn"], "Use at the entrance starts a run")
+	TouchKeys.release_all()
+	TouchControls.force = false

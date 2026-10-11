@@ -24,6 +24,7 @@ const MAX_LIVE_BURROWERS := 8
 const WAVE_SHAKE_SECONDS := 0.5 # the camera shakes when a wave surfaces, twice as hard for a peak
 const WAVE_SHAKE_PIXELS := 2.0
 const WAVE_SPREAD_TILES := [0, -3, 3, -6, 6, -9, 9, -12]
+const TouchControlsScene := preload("res://scenes/TouchControls.tscn")
 const BurrowerScene := preload("res://scenes/Burrower.tscn")
 
 # Placed lights (milestone 20): a few per run, noisy to place.
@@ -138,6 +139,10 @@ var _debug_event_index: int = 0
 var _build_keys_down: Dictionary = {}
 var _bell_ringing: bool = false
 var progress: Progress
+## The on-screen controls for phones; hidden unless touch is wanted.
+var touch_controls: TouchControls
+## How a scene is changed; tests swap it so the runner's scene is left alone.
+var change_scene: Callable = func(path: String): Engine.get_main_loop().change_scene_to_file(path)
 var lost_miners: Array[LostMiner] = []
 var crew_at_base: Array[LostMiner] = []
 ## What the crew do at the base (milestone 54), bound each run in _ready.
@@ -146,6 +151,8 @@ var crew_jobs: CrewJobs
 var stations: Dictionary = {}
 
 func _ready() -> void:
+	# The E that went down the mine from the hub is still held: that press is not an extraction.
+	_extract_key_was_pressed = Input.is_physical_key_pressed(KEY_E)
 	player.mine = mine
 	noise_meter.quiet_at = func(pos: Vector2): return mine.is_quiet_at(pos)
 	noise_meter.base_position = func(): return run_base.global_position
@@ -157,9 +164,7 @@ func _ready() -> void:
 	noise_meter.noise_made.connect(_on_noise_made)
 	player.died.connect(_on_player_died)
 	run_base.fell.connect(_on_base_fell)
-	hud.new_run_requested.connect(_start_new_run)
-	hud.upgrade_requested.connect(_on_upgrade_requested)
-	hud.crew_toggle_requested.connect(_on_crew_toggle_requested)
+	hud.new_run_requested.connect(_go_to_hub)
 	progress = Progress.load_saved()
 	progress.apply_to(player, noise_meter, run_base)
 	mine.decay_multiplier = pow(CLAIMED_DECAY_STEP, progress.hearts_claimed)
@@ -179,6 +184,9 @@ func _ready() -> void:
 	_spawn_old_ladder()
 	debug_enabled = LaunchOptions.debug_enabled()
 	hud.show_seed(mine.mine_seed, debug_enabled)
+	touch_controls = TouchControlsScene.instantiate()
+	add_child(touch_controls)
+	touch_controls.set_mode("mine")
 	Sfx.warm_up()
 
 ## The old mine's ladder (milestone 51): each surviving 8-row piece is a run
@@ -385,8 +393,23 @@ func _process(delta: float) -> void:
 		noise_meter.add_noise(MineGrid.DECAY_NOISE, lost_at)
 	hud.update_base(run_base, get_tree().get_nodes_in_group("burrowers").size() > 0, mine.wall_count())
 	hud.update_prompts(_action_prompts())
+	touch_controls.set_base_nearby(_near_base())
+	touch_controls.set_can_plant(_can_plant())
+	touch_controls.set_tools_available(_touch_tools())
 	max_depth_reached = max(max_depth_reached, _current_depth())
 	_check_extraction()
+
+## The tools the touch menu lists: Rope, Grapple and Beam always, and Ladder,
+## Lamp and Anchor once unlocked or still carried (as the HUD's tool line does).
+func _touch_tools() -> Array:
+	var tools := ["tool_rope", "tool_grapple", "tool_beam"]
+	if progress.has_unlock("ladders") or player.ladders_left > 0:
+		tools.append("tool_ladder")
+	if progress.has_unlock("lamps") or lamps_left > 0:
+		tools.append("tool_lamp")
+	if progress.has_unlock("anchors") or player.anchors_left > 0:
+		tools.append("tool_anchor")
+	return tools
 
 ## HUD layer line, and the layer's Stalker on the first descent into it.
 func _check_layer() -> void:
@@ -801,23 +824,11 @@ func _fail_run(title: String) -> void:
 	hud.show_run_summary(title, false, player.currency, max_depth_reached, progress, notes)
 	get_tree().paused = true
 
-## Reloading the scene is the whole reset: the mine regenerates in
-## Mine._ready() and every per-run value (light, noise, run ore) starts
-## fresh. Only Progress (bank, upgrades, roster, stranded) survives, via
-## the save file.
-func _start_new_run() -> void:
+## A run ends on the summary; Enter goes to the hub (milestone 57), where
+## the next run starts. The mine regenerates in Mine._ready() when the hub
+## loads this scene again, so every per-run value (light, noise, run ore)
+## starts fresh. Only Progress (bank, upgrades, roster, stranded) survives,
+## via the save file.
+func _go_to_hub() -> void:
 	get_tree().paused = false
-	get_tree().reload_current_scene()
-
-## Hub purchase from the run summary. Upgrades take effect next run,
-## when Progress.apply_to() runs on the fresh player.
-func _on_upgrade_requested(id: String) -> void:
-	if progress.try_buy(id):
-		hud.update_banked(progress.banked_ore)
-		hud.refresh_hub(progress)
-
-## Hub crew picker, by roster index. Takes effect next run.
-func _on_crew_toggle_requested(roster_index: int) -> void:
-	if roster_index < progress.roster.size():
-		progress.toggle_crew(progress.roster[roster_index].name)
-		hud.refresh_hub(progress)
+	change_scene.call("res://scenes/Hub.tscn")

@@ -1,13 +1,9 @@
 extends CanvasLayer
 class_name HUD
 
-## Emitted when the player asks for another run from the run summary.
+## Emitted when the player presses Enter on the run summary (it leads to the hub).
 ## The HUD runs while the tree is paused (see _ready) so it can hear this.
 signal new_run_requested
-## Hub purchase, by Progress upgrade id (keys 1, 2, ... on the summary).
-signal upgrade_requested(id: String)
-## Crew picker, by roster index (the keys after the upgrade keys).
-signal crew_toggle_requested(roster_index: int)
 
 const COMPASS_MARGIN := 40.0
 # Below this distance, hide the arrow instead of pointing it - arctan2 of
@@ -15,13 +11,10 @@ const COMPASS_MARGIN := 40.0
 # jitter, so without a real "arrived" radius the arrow spins erratically
 # as soon as the player gets close, not just when exactly on top of it.
 const ARRIVAL_RADIUS := 32.0
-# Hub roster keys A-J: one per possible miner (10 names).
-const ROSTER_KEYS := 10
 const MESSAGE_SECONDS := 8.0
 
 # Milestone 41: a title screen on first launch and a controls overlay on
-# Esc, both pausing the game. Hub letters A-J pick crew, so the overlay
-# key can't be a letter.
+# Esc, both pausing the game.
 const TITLE_TEXT := """DOWN MINE
 
 Dig down through six layers to the Heart of the mine and bring it home.
@@ -36,9 +29,14 @@ Shift  flare the light        Q  grapple up, or to an anchor
 R  rope up (S+R: down over an edge)        T  ladder        G  anchor        L  lamp
 E  use a camp, lift, outpost, vault or relic - or extract at the surface
 P  plant the base here        F (hold)  repair base        B  fortify base
-1  support beam        U  grow the base (Outpost: beacon, Fort: alarm bell)
+1  support beam        U  grow the base (Outpost: beacon, Fort: alarm bell)"""
 
-At the hub:  1-6 buy upgrades,  A-J choose crew,  L  recent runs,  Enter  new run"""
+## The controls overlay in the hub (milestone 57).
+const HUB_CONTROLS_TEXT := """CONTROLS  (Esc to close)
+
+A / D  walk        W  jump
+1 2 3  buy at the building you stand beside
+E  join or leave the crew beside a miner, open the notice board, or go down the mine at the entrance"""
 
 const DEBUG_TEXT := """
 
@@ -66,8 +64,6 @@ static var title_seen: bool = false
 @onready var run_summary_label: Label = $RunSummary/SummaryLabel
 
 var _summary_header: String = ""
-var showing_run_log: bool = false
-var _progress: Progress
 var _noise_warning: bool = false
 var _noise_value: float = 0.0
 var _message: String = ""
@@ -108,6 +104,14 @@ func _build_overlay() -> void:
 	seed_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	add_child(seed_label)
 	add_child(overlay)
+
+## The hub shows only the banked ore and the prompt line: the mine's
+## status rows and the compass are hidden, and Esc shows the hub's controls.
+func set_hub_mode() -> void:
+	for row in [fuel_label, health_label, layer_label, noise_label, noise_bar, ore_label, base_label, wave_label, lamp_label, escort_label]:
+		row.visible = false
+	compass.visible = false
+	_controls_text = HUB_CONTROLS_TEXT
 
 ## Seed in the corner (to report or replay a mine); debug adds its keys
 ## to the controls overlay.
@@ -159,17 +163,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if key.physical_keycode in [KEY_ENTER, KEY_KP_ENTER]:
 		new_run_requested.emit()
-	if key.physical_keycode == KEY_L and _progress:
-		showing_run_log = not showing_run_log
-		refresh_hub(_progress)
-		return
-	# Numbers buy upgrades/unlocks; letters A-J toggle roster members.
-	var index := key.physical_keycode - KEY_1
-	if index >= 0 and index < Progress.UPGRADE_ORDER.size():
-		upgrade_requested.emit(Progress.UPGRADE_ORDER[index])
-	var roster_index := key.physical_keycode - KEY_A
-	if roster_index >= 0 and roster_index < ROSTER_KEYS:
-		crew_toggle_requested.emit(roster_index)
 
 func update_fuel(fraction: float) -> void:
 	fuel_label.text = "Light: %d%%" % int(fraction * 100)
@@ -262,61 +255,11 @@ func _point_arrow(arrow: Node2D, to_target: Vector2) -> void:
 
 ## Right now a run only ever ends by dying or reaching this. Without a
 ## visible outcome it just looked like the game froze - this makes an
-## ending actually read as an ending.
-func _show_run_log(progress: Progress) -> void:
-	var lines := ["RECENT RUNS (newest first)", ""]
-	if progress.run_log.is_empty():
-		lines.append("No runs logged yet")
-	for entry in progress.run_log:
-		lines.append(Progress.run_log_line(entry))
-	lines.append("")
-	lines.append("L: back to the hub        Enter: new run")
-	run_summary_label.text = "\n".join(lines)
-
-func show_run_summary(title: String, success: bool, currency: int, depth: int, progress: Progress, notes: Array = []) -> void:
+## ending actually read as an ending. The hub is a place of its own now
+## (milestone 57); Enter goes there.
+func show_run_summary(title: String, success: bool, currency: int, depth: int, _progress: Progress, notes: Array = []) -> void:
 	var currency_line := "Ore banked: %d" % currency if success else "Ore lost: %d" % currency
-	_summary_header = "\n".join([title, currency_line, "Depth reached: %d tiles" % depth] + notes)
-	refresh_hub(progress)
+	var lines := [title, currency_line, "Depth reached: %d tiles" % depth] + notes + ["", "Enter: go to the hub"]
+	run_summary_label.text = "\n".join(lines)
 	run_summary.visible = true
 	prompt_label.visible = false # run is over; no actions to prompt
-
-## The run summary doubles as the hub: spend banked ore, then go back down.
-## L swaps it for the run log page (milestone 45).
-func refresh_hub(progress: Progress) -> void:
-	_progress = progress
-	if showing_run_log:
-		_show_run_log(progress)
-		return
-	var lines := [_summary_header, "", "Banked ore: %d" % progress.banked_ore]
-	if progress.hearts_claimed > 0:
-		lines.append("Hearts claimed: %d - the mine decays faster each time" % progress.hearts_claimed)
-	for i in range(Progress.UPGRADE_ORDER.size()):
-		var id: String = Progress.UPGRADE_ORDER[i]
-		var upgrade: Dictionary = Progress.UPGRADES[id]
-		var cost := progress.next_cost(id)
-		var price := "%d ore" % cost
-		if cost < 0:
-			price = "OWNED" if upgrade.max_level == 1 else "MAX"
-		lines.append("[%d] %s (%s)  Lv %d/%d  - %s" % [
-			i + 1, upgrade.name, upgrade.effect, progress.level(id), upgrade.max_level, price])
-	lines.append("")
-	lines.append("Crew %d/%d" % [progress.crew().size(), progress.crew_slots()])
-	if progress.roster.is_empty():
-		lines.append("No one yet - find lost miners in the mine")
-	for i in range(progress.roster.size()):
-		var member: Dictionary = progress.roster[i]
-		var on_crew := "  [CREW]" if member.name in progress.crew_names else ""
-		var key_label := "[%s] " % char(KEY_A + i) if i < ROSTER_KEYS else ""
-		var runs: int = member.get("runs", 0)
-		var history := "%d run%s, from %s" % [runs, "" if runs == 1 else "s", Progress.layer_name(member.get("found_in", 0))]
-		if member.has("quirk"):
-			history += "; " + Progress.QUIRKS[member.quirk].name
-		lines.append("%s%s - %s %s: %s (%s)%s" % [key_label, progress.display_name(member),
-			progress.rank_of(member).name, Progress.NPC_TYPES[member.type].label, progress.effect_text(member), history, on_crew])
-	for npc in progress.stranded:
-		var last_layer: bool = npc.layer == MineGrid.LAYERS.size() - 1
-		var fate := "lost for good if not rescued next run" if last_layer else "drifts to the %s if not rescued" % Progress.layer_name(npc.layer + 1)
-		lines.append("Stranded: %s in the %s - %s" % [npc.name, Progress.layer_name(npc.layer), fate])
-	lines.append("")
-	lines.append("L: recent runs        Enter: new run")
-	run_summary_label.text = "\n".join(lines)
