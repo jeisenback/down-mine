@@ -6,7 +6,7 @@ class_name GearArt
 ## for the miner, `state` is idle / run / dig / jump / fall. The origin is the
 ## feet (miner, flag, support, lamp) or the object's centre (beacon, bell).
 
-@export_enum("player", "flag", "beacon", "bell", "support", "lamp", "ladder", "rope", "anchor", "camp", "lift", "outpost", "nest", "heart", "relic", "vault", "lost", "sign", "gas", "bench", "lantern_post", "muffling_post", "rope_rack", "palisade", "rampart") var gear: String = "player"
+@export_enum("player", "flag", "beacon", "bell", "support", "lamp", "ladder", "rope", "anchor", "camp", "lift", "outpost", "nest", "heart", "relic", "vault", "lost", "sign", "gas", "bench", "lantern_post", "muffling_post", "rope_rack", "palisade", "rampart", "lamp_shop", "smithy", "bunkhouse", "notice_board", "entrance") var gear: String = "player"
 @export var length: float = 64.0   # ladder, rope and lift: how tall they stand or hang
 @export_enum("idle", "run", "dig", "jump", "fall") var state: String = "idle"
 ## The miner's coat colour (lost miners each wear their own); shades derive from it.
@@ -55,6 +55,11 @@ func _draw() -> void:
 		"rope_rack": _draw_rope_rack()
 		"palisade": _draw_palisade()
 		"rampart": _draw_rampart()
+		"lamp_shop": _draw_lamp_shop()
+		"smithy": _draw_smithy()
+		"bunkhouse": _draw_bunkhouse()
+		"notice_board": _draw_notice_board()
+		"entrance": _draw_entrance()
 
 ## The miner's palette with this miner's coat swapped in.
 func _person_palette() -> Dictionary:
@@ -666,3 +671,111 @@ func _draw_rampart() -> void:
 	draw_line(Vector2(-7.0, -15.0), Vector2(7.0, -15.0), w["k"], 2.0)
 	for x in [-5.0, -2.0, 1.0, 4.0]:
 		draw_line(Vector2(x, -15.0), Vector2(x, 0.0), w["a"], 1.0)           # the portcullis
+
+# --- the hub's buildings (milestone 57) ---------------------------------------
+# Origin at the feet, centred. Lamp shop and smithy read `pose` as lit (1) or cold (0).
+
+## The lamp shop: a small timber shop, its window glowing once the shop has sold you something.
+func _draw_lamp_shop() -> void:
+	var w: Dictionary = GPAL["wood"]
+	var lit := clampf(pose, 0.0, 1.0)
+	draw_rect(Rect2(-15, -19, 30, 19), w["k"])
+	draw_rect(Rect2(-14, -18, 28, 18), w["b"])
+	draw_rect(Rect2(-14, -18, 28, 3), w["c"])
+	for x in [-9.0, -3.0, 3.0, 9.0]:                                          # planks
+		draw_line(Vector2(x, -15), Vector2(x, 0), w["a"], 1.0)
+	var roof := PackedVector2Array([Vector2(-18, -18), Vector2(0, -31), Vector2(18, -18)])
+	_blob(roof, w)
+	draw_rect(Rect2(-11, -14, 9, 8), w["k"])                                   # the window
+	var glow := Color8(255, 220, 130)
+	draw_rect(Rect2(-10, -13, 7, 6), glow.darkened(0.75 - 0.75 * lit))
+	_glow(Vector2(-6.5, -10), 9.0, glow, 0.15 + 0.7 * lit)
+	draw_rect(Rect2(4, -12, 7, 12), w["k"])                                    # the door
+	draw_rect(Rect2(5, -11, 5, 11), w["a"])
+	draw_line(Vector2(15, -20), Vector2(21, -20), w["k"], 1.0)                 # a hanging lamp
+	draw_line(Vector2(21, -20), Vector2(21, -17), w["k"], 1.0)
+	var flick := 0.85 + 0.15 * sin(t * 11.0)
+	_glow(Vector2(21, -15), 6.0 * flick, GPAL["flame"]["b"], 0.5 + 0.4 * lit)
+	draw_rect(Rect2(19.5, -17, 3, 3), GPAL["flame"]["c"])
+
+## The smithy: a stone forge with a chimney; the fire and a thread of smoke come up once it has sold you something.
+func _draw_smithy() -> void:
+	var st: Dictionary = {"k": Color8(18, 18, 20), "a": Color8(58, 58, 64), "b": Color8(94, 94, 102), "c": Color8(138, 138, 148)}
+	var m: Dictionary = GPAL["metal"]
+	var f: Dictionary = GPAL["flame"]
+	var lit := clampf(pose, 0.0, 1.0)
+	draw_rect(Rect2(-17, -17, 34, 17), st["k"])
+	draw_rect(Rect2(-16, -16, 32, 16), st["a"])
+	draw_rect(Rect2(-16, -16, 32, 4), st["b"])
+	for x in [-10.0, -2.0, 7.0, 13.0]:                                         # stone courses
+		draw_line(Vector2(x, -12), Vector2(x, -6), st["k"], 1.0)
+	draw_line(Vector2(-16, -8), Vector2(16, -8), st["k"], 1.0)
+	draw_rect(Rect2(5, -32, 8, 17), st["k"])                                   # the chimney
+	draw_rect(Rect2(6, -31, 6, 16), st["b"])
+	draw_rect(Rect2(6, -31, 2, 16), st["c"])
+	draw_rect(Rect2(4, -34, 10, 3), st["k"])
+	draw_rect(Rect2(-12, -12, 12, 12), m["k"])                                 # the forge mouth
+	var flick := 0.85 + 0.15 * sin(t * 13.0) + 0.07 * sin(t * 29.0)
+	_glow(Vector2(-6, -5), 11.0 * flick, f["b"], 0.1 + 0.8 * lit)
+	if lit > 0.5:
+		var flame := PackedVector2Array([Vector2(-10, 0), Vector2(-9, -4.0 * flick), Vector2(-7.5, -2.5), Vector2(-6, -7.0 * flick), Vector2(-4.5, -3.0), Vector2(-3, -5.0 * flick), Vector2(-2, 0)])
+		draw_colored_polygon(flame, f["a"])
+		draw_colored_polygon(_shrink(flame, 0.6), f["b"])
+		for i in range(3):                                                     # smoke
+			var u := fmod(t * 0.35 + i * 0.33, 1.0)
+			_glow(Vector2(9 + sin(t + i) * 2.0, -35 - u * 10.0), 3.0 + u * 3.0, Color(0.55, 0.55, 0.6), 0.35 * (1.0 - u))
+	draw_rect(Rect2(10, -5, 9, 2), m["k"])                                     # an anvil
+	draw_rect(Rect2(11, -5, 7, 1), m["c"])
+	draw_rect(Rect2(12.5, -3, 4, 3), m["a"])
+
+## The bunkhouse: a long, low timber house with three doors.
+func _draw_bunkhouse() -> void:
+	var w: Dictionary = GPAL["wood"]
+	draw_rect(Rect2(-21, -15, 42, 15), w["k"])
+	draw_rect(Rect2(-20, -14, 40, 14), w["b"])
+	draw_rect(Rect2(-20, -14, 40, 3), w["c"])
+	for x in [-14.0, -7.0, 0.0, 7.0, 14.0]:
+		draw_line(Vector2(x, -11), Vector2(x, 0), w["a"], 1.0)
+	_blob(PackedVector2Array([Vector2(-24, -14), Vector2(-14, -25), Vector2(14, -25), Vector2(24, -14)]), w)
+	for x in [-14.0, -2.5, 9.0]:
+		draw_rect(Rect2(x - 0.5, -10.5, 6, 11), w["k"])
+		draw_rect(Rect2(x + 0.5, -9.5, 4, 10), w["a"])
+	var flick := 0.85 + 0.15 * sin(t * 10.0)
+	_glow(Vector2(17, -9), 5.0 * flick, GPAL["flame"]["b"], 0.55)            # a lantern by the end door
+	draw_rect(Rect2(16, -11, 2, 3), GPAL["flame"]["c"])
+
+## The notice board: a post with a roofed board and pinned papers.
+func _draw_notice_board() -> void:
+	var w: Dictionary = GPAL["wood"]
+	draw_rect(Rect2(-1.5, -26, 3, 26), w["k"])
+	draw_rect(Rect2(-0.5, -26, 1, 26), w["b"])
+	draw_rect(Rect2(-12, -27, 24, 17), w["k"])
+	draw_rect(Rect2(-11, -26, 22, 15), w["a"])
+	_blob(PackedVector2Array([Vector2(-14, -27), Vector2(0, -33), Vector2(14, -27)]), w)
+	var paper := Color8(214, 200, 160)
+	draw_rect(Rect2(-9, -24, 7, 6), paper)
+	draw_rect(Rect2(0, -23, 8, 7), paper.darkened(0.12))
+	draw_rect(Rect2(-7, -16, 9, 4), paper.darkened(0.25))
+	for r in [Rect2(-9, -24, 7, 6), Rect2(0, -23, 8, 7), Rect2(-7, -16, 9, 4)]:
+		draw_rect(Rect2(r.position.x + r.size.x / 2.0 - 0.5, r.position.y, 1, 1), Color8(150, 40, 36))   # a pin
+		draw_line(r.position + Vector2(1, 2.5), r.position + Vector2(r.size.x - 1, 2.5), w["a"], 1.0)    # a line of writing
+
+## The mine entrance: a timber frame over a dark opening, a lantern hanging in it, rubble at its sides.
+func _draw_entrance() -> void:
+	var w: Dictionary = GPAL["wood"]
+	var rock: Dictionary = {"k": Color8(18, 16, 14), "a": Color8(52, 46, 40), "b": Color8(84, 76, 66), "c": Color8(120, 110, 96)}
+	_blob(PackedVector2Array([Vector2(-26, 0), Vector2(-22, -10), Vector2(-15, -22), Vector2(-14, 0)]), rock)
+	_blob(PackedVector2Array([Vector2(14, 0), Vector2(15, -22), Vector2(22, -10), Vector2(26, 0)]), rock)
+	draw_rect(Rect2(-11, -25, 22, 25), Color8(4, 3, 6))                        # the dark
+	for post_x in [-14.0, 10.0]:
+		draw_rect(Rect2(post_x, -28, 4, 28), w["k"])
+		draw_rect(Rect2(post_x + 0.5, -27, 3, 27), w["b"])
+		draw_rect(Rect2(post_x + 0.5, -27, 1, 27), w["c"])
+	draw_rect(Rect2(-16, -31, 32, 5), w["k"])                                  # the lintel
+	draw_rect(Rect2(-15, -30, 30, 3), w["b"])
+	draw_rect(Rect2(-15, -30, 30, 1), w["c"])
+	draw_line(Vector2(0, -26), Vector2(0, -22), w["k"], 1.0)                   # the lantern
+	var flick := 0.85 + 0.15 * sin(t * 12.0) + 0.06 * sin(t * 25.0)
+	_glow(Vector2(0, -19), 9.0 * flick, GPAL["flame"]["b"], 0.7)
+	draw_rect(Rect2(-1.5, -22, 3, 4), GPAL["metal"]["a"])
+	draw_rect(Rect2(-1, -21, 2, 3), GPAL["flame"]["c"])
