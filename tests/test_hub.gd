@@ -114,3 +114,135 @@ func test_crew_toggle_respects_the_slots() -> void:
 	assert_true(ada.prompt().ends_with("Crew full"), "Ada sees the crew is full again")
 	assert_true(bram.toggle_crew(), "Bram leaves")
 	assert_true(ada.prompt().ends_with("join crew"), "a free slot reads join crew")
+
+# --- the Hub scene -----------------------------------------------------------
+
+const HubScene := preload("res://scenes/Hub.tscn")
+
+## A hub over a fresh test save with this ore and roster, ready to walk.
+func _hub(ore: int = 0, roster: Array = []) -> Hub:
+	Progress.path_override = TEST_SAVE_PATH
+	var p := _progress()
+	p.banked_ore = ore
+	p.roster = roster
+	p.crew_names = []
+	p.save()
+	var hub: Hub = add(HubScene.instantiate())
+	await physics_frames(3)
+	return hub
+
+func _stand(hub: Hub, x: float) -> void:
+	hub.player.global_position = Vector2(x, -8.0)
+	hub.player.velocity = Vector2.ZERO
+
+func _key(code: int, down: bool) -> void:
+	var e := InputEventKey.new()
+	e.physical_keycode = code
+	e.keycode = code
+	e.pressed = down
+	Input.parse_input_event(e)
+
+func _press(hub: Hub, code: int) -> void:
+	var e := InputEventKey.new()
+	e.physical_keycode = code
+	e.keycode = code
+	e.pressed = true
+	hub._unhandled_input(e)
+
+func test_the_hub_loads_with_a_new_save() -> void:
+	var hub := await _hub()
+	assert_eq(hub.buildings.size(), 4, "four buildings")
+	assert_eq(hub.miners.size(), 0, "no one in the bunkhouse yet")
+	assert_eq(hub.hud.banked_label.text, "Banked: 0", "banked ore shown")
+	assert_true(hub.get_tree().get_nodes_in_group("mine_events").is_empty(), "no mine")
+	Progress.path_override = ""
+
+func test_one_figure_per_rostered_miner_up_to_ten() -> void:
+	var roster: Array = []
+	for n in ["Ada", "Bram", "Cole", "Dita", "Ezra", "Fenn", "Greta", "Hale", "Ines", "Jory"]:
+		roster.append(_member(n))
+	var hub := await _hub(0, roster)
+	assert_eq(hub.miners.size(), 10, "ten figures")
+	var xs := hub.miners.map(func(m): return m.global_position.x)
+	for i in range(1, xs.size()):
+		assert_true(is_equal_approx(xs[i] - xs[i - 1], Hub.MINER_STEP), "figures stand %s apart" % Hub.MINER_STEP)
+	assert_true(xs[-1] < Hub.BUILDING_X["notice_board"] - HubBuilding.RANGE, "all ten fit before the board")
+	Progress.path_override = ""
+
+func test_pressing_a_number_buys_at_the_nearest_building() -> void:
+	var hub := await _hub(100)
+	_stand(hub, Hub.BUILDING_X["lamp_shop"])
+	assert_true(hub.press_number(1), "the lantern is bought at the lamp shop")
+	assert_eq(hub.progress.level("lantern"), 1, "level raised")
+	assert_eq(hub.progress.banked_ore, 70, "ore taken")
+	_stand(hub, Hub.BUILDING_X["smithy"])
+	assert_true(not hub.press_number(3), "anchors cost 100, only 70 left")
+	_stand(hub, 420.0)
+	assert_true(hub.nearest_building() == null, "between buildings")
+	assert_true(not hub.press_number(1), "nothing to buy away from a building")
+	Progress.path_override = ""
+
+func test_use_toggles_the_nearest_miner_or_the_board() -> void:
+	var hub := await _hub(0, [_member("Ada")])
+	_stand(hub, hub.miners[0].global_position.x)
+	assert_true(hub.press_use(), "E beside a miner")
+	assert_true(hub.progress.crew_names.has("Ada"), "Ada joined the crew")
+	_stand(hub, Hub.BUILDING_X["notice_board"])
+	assert_true(hub.press_use(), "E beside the board")
+	var board: HubBuilding = hub.buildings.filter(func(b): return b.kind == "notice_board")[0]
+	assert_true(board.board_open, "the board is open")
+	await physics_frames(2)
+	assert_true(hub.board_label.visible, "and shown")
+	Progress.path_override = ""
+
+func test_the_entrance_changes_scene() -> void:
+	var hub := await _hub()
+	var seen: Array = []
+	hub.change_scene = func(path: String): seen.append(path)
+	_stand(hub, 10.0)
+	assert_true(not hub.press_use(), "away from the entrance E does nothing")
+	assert_eq(seen, [], "no scene change")
+	_stand(hub, Hub.ENTRANCE_X)
+	assert_true(hub.at_entrance(), "at the entrance")
+	assert_true(hub.press_use(), "E at the entrance")
+	assert_eq(seen, ["res://scenes/Main.tscn"], "starts a run")
+	Progress.path_override = ""
+
+func test_keys_call_the_named_functions() -> void:
+	var hub := await _hub(100, [_member("Ada")])
+	_stand(hub, Hub.BUILDING_X["lamp_shop"])
+	_press(hub, KEY_1)
+	assert_eq(hub.progress.level("lantern"), 1, "1 bought the lantern")
+	_stand(hub, hub.miners[0].global_position.x)
+	_press(hub, KEY_E)
+	assert_true(hub.progress.crew_names.has("Ada"), "E toggled the crew")
+	Progress.path_override = ""
+
+func test_prompts_follow_the_player() -> void:
+	var hub := await _hub(100, [_member("Ada")])
+	_stand(hub, Hub.BUILDING_X["lamp_shop"])
+	await physics_frames(2)
+	assert_true(hub.hud.prompt_label.text.contains("Lantern tank"), "the lamp shop's offers")
+	_stand(hub, Hub.ENTRANCE_X)
+	await physics_frames(2)
+	assert_true(hub.hud.prompt_label.text.contains("mine"), "the entrance's prompt")
+	Progress.path_override = ""
+
+func test_the_lantern_does_not_burn_in_the_hub() -> void:
+	var hub := await _hub()
+	var before: float = hub.player.light.fuel
+	await physics_frames(120)
+	assert_eq(hub.player.light.fuel, before, "no burn")
+	assert_eq(hub.player.health, Player.MAX_HEALTH, "no harm")
+	Progress.path_override = ""
+
+func test_dig_rope_and_grapple_keys_do_nothing_in_the_hub() -> void:
+	var hub := await _hub()
+	for code in [KEY_SPACE, KEY_S, KEY_Q, KEY_R, KEY_T, KEY_G]:
+		_key(code, true)
+	await physics_frames(30)
+	for code in [KEY_SPACE, KEY_S, KEY_Q, KEY_R, KEY_T, KEY_G]:
+		_key(code, false)
+	assert_true(hub.player.mine == null, "still no mine")
+	assert_true(hub.player.global_position.y < 10.0, "still standing on the ground")
+	Progress.path_override = ""

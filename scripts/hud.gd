@@ -40,6 +40,13 @@ P  plant the base here        F (hold)  repair base        B  fortify base
 
 At the hub:  1-6 buy upgrades,  A-J choose crew,  L  recent runs,  Enter  new run"""
 
+## The controls overlay in the hub (milestone 57).
+const HUB_CONTROLS_TEXT := """CONTROLS  (Esc to close)
+
+A / D  walk        W  jump
+1 2 3  buy at the building you stand beside
+E  join or leave the crew beside a miner, open the notice board, or go down the mine at the entrance"""
+
 const DEBUG_TEXT := """
 
 DEBUG:  I god mode    O +100 ore    Y refill light
@@ -108,6 +115,14 @@ func _build_overlay() -> void:
 	seed_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	add_child(seed_label)
 	add_child(overlay)
+
+## The hub shows only the banked ore and the prompt line: the mine's
+## status rows and the compass are hidden, and Esc shows the hub's controls.
+func set_hub_mode() -> void:
+	for row in [fuel_label, health_label, layer_label, noise_label, noise_bar, ore_label, base_label, wave_label, lamp_label, escort_label]:
+		row.visible = false
+	compass.visible = false
+	_controls_text = HUB_CONTROLS_TEXT
 
 ## Seed in the corner (to report or replay a mine); debug adds its keys
 ## to the controls overlay.
