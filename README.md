@@ -57,7 +57,8 @@ the meter) and no Stalker ever rises into them, so climbing back up is a
 real escape - they are lonely by design. Stone holds gas pockets - green-
 tinted rock that releases a lingering gas cloud when you dig it out
 (1 health per 1.5s inside) - and your first step into it wakes the
-Stalker. Slate is unstable: decay runs twice as fast while you're down
+Stalker. Topsoil and Clay are gentle: decay runs at half speed while you're down
+there. Slate is unstable: decay runs twice as fast while you're down
 there. Deep rock has gas and is unstable, and wakes a second Stalker.
 The Hollow, at the bottom, decays three times as fast. The HUD names
 your layer and its hazards; the table in `scripts/mine.gd` (`LAYERS`)

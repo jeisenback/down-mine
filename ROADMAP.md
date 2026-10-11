@@ -103,6 +103,9 @@ dictates.
 - ~~**M60 - Torches.**~~ Done: permanent wall torches light Topsoil and Clay, one every 10 rows down the
   old shaft and 12 on cave floors. They are lights for decay and ropes but not lamps, and Snuffers
   ignore them. Not done: taking, lighting or snuffing torches, torches below Clay.
+- ~~**M61 - Gentler early decay.**~~ Done: mine decay runs at half speed in Topsoil and Clay (the
+  layer's `decay` multiplier is 2.0), so tunnels refill and floors crumble half as often while you are
+  in the quiet layers. Deeper layers are unchanged. The number is a starting value to tune by hand-play.
 
 ## Quality pass
 

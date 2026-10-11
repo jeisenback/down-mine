@@ -254,6 +254,15 @@ func test_unstable_layers_decay_faster() -> void:
 	assert_true(MineGrid.LAYERS[4].decay < 1.0, "Deep rock is unstable")
 	assert_eq(mine.decay_interval(deep), mine.decay_interval(stone) * MineGrid.LAYERS[4].decay, "deep decay interval shortened by the layer's multiplier")
 
+func test_the_quiet_layers_decay_at_half_speed() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var stone := mine.cell_to_world(Vector2i(40, mine._layer_rows(2).x + 10))
+	for layer in [0, 1]:
+		var spot := mine.cell_to_world(Vector2i(40, mine._layer_rows(layer).x + 10))
+		assert_eq(mine.layer_index_at_world(spot), layer, "layer %d spot" % layer)
+		assert_eq(MineGrid.LAYERS[layer].decay, 2.0, "%s is gentle" % MineGrid.LAYERS[layer].name)
+		assert_eq(mine.decay_interval(spot), mine.decay_interval(stone) * 2.0, "%s ticks twice as far apart as Stone" % MineGrid.LAYERS[layer].name)
+
 func _open_box(mine: MineGrid, from: Vector2i, to: Vector2i) -> void:
 	for x in range(from.x, to.x + 1):
 		for y in range(from.y, to.y + 1):
