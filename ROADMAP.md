@@ -96,6 +96,13 @@ dictates.
   Not done: a real-device test (the first check is opening the deployed build on a phone),
   drawn icons in place of text labels. Spec: `docs/superpowers/specs/2026-10-11-touch-controls-design.md`;
   plan: `docs/superpowers/plans/2026-10-11-touch-controls.md`.
+- ~~**M59 - Movement feel.**~~ Done: digging is a third slower (`DIG_COOLDOWN` 0.165), gravity is lighter
+  (490), and a bump is stepped over rather than dug while falling. A jump plus mantle still reaches
+  3-tile ledges, not 4. The balance probe barely moved (a pure dive still reaches depth 444 before the
+  light fails). Not done: a real hand-play tuning pass (issue #26).
+- ~~**M60 - Torches.**~~ Done: permanent wall torches light Topsoil and Clay, one every 10 rows down the
+  old shaft and 12 on cave floors. They are lights for decay and ropes but not lamps, and Snuffers
+  ignore them. Not done: taking, lighting or snuffing torches, torches below Clay.
 
 ## Quality pass
 

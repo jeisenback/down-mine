@@ -1158,3 +1158,81 @@ func test_a_held_dig_does_not_chew_a_bump_the_player_is_falling_toward() -> void
 	player.velocity.y = -40.0 # rising (a jump): the old behaviour stays
 	player._dig_forward(true)
 	assert_true(not mine.is_solid(bump), "rising into it with the dig held still digs it")
+
+# Torches (milestone 60): permanent lights in the first two layers.
+
+const TorchScene := preload("res://scenes/Torch.tscn")
+const TORCH_SEEDS := [1001, 1, 2, 3, 31, 35, 44, 98]
+
+func _torches(mine: MineGrid, where: String) -> Array:
+	return mine.torches.filter(func(t): return t.where == where)
+
+func test_a_torch_never_burns_down_and_is_not_a_lamp() -> void:
+	var torch: Node2D = add(TorchScene.instantiate())
+	var light: MineLight = torch.get_node("MineLight")
+	var radius := light.current_radius()
+	await tree.process_frame
+	await tree.process_frame
+	assert_eq(light.fuel, light.max_fuel, "the fuel does not drop")
+	assert_eq(light.current_radius(), radius, "so the radius holds")
+	assert_true(radius < 140.0, "dimmer than the lantern (%.0f)" % radius)
+	assert_true(light.is_in_group("mine_lights"), "it protects the ground and slows rope decay like any light")
+	assert_true(not light.is_in_group("snuffable"), "Snuffers do not hunt it")
+	assert_true(not torch.is_in_group("lamps"), "and it does not count as a placed lamp")
+	assert_true(MineLight.is_lit(tree, torch.global_position + Vector2(radius - 5.0, 0.0)), "it lights the spot beside it")
+
+func test_shaft_torches_sit_on_the_frame_every_ten_rows_in_topsoil_and_clay() -> void:
+	for s in TORCH_SEEDS:
+		var mine := _mine_with_seed(s)
+		var open := mine.shaft_open_rows()
+		var clay_bottom: int = mine._layer_rows(1).y
+		var shaft := _torches(mine, "shaft")
+		assert_true(shaft.size() >= 8, "seed %d: the shaft is lined (%d torches)" % [s, shaft.size()])
+		var last := -1000
+		var side := 0
+		for t in shaft:
+			var cell: Vector2i = t.cell
+			assert_true(absi(cell.x - mine.shaft_column()) == 1, "seed %d: on a frame column" % s)
+			assert_true(cell.y >= open.x and cell.y <= mini(open.y, clay_bottom), "seed %d: inside the open shaft above Clay's bottom (row %d)" % [s, cell.y])
+			assert_true(not mine.is_solid(cell), "seed %d: not inside rock or a plank" % s)
+			assert_true(cell.y - last >= MineGrid.TORCH_SHAFT_SPACING, "seed %d: ten rows apart" % s)
+			if side != 0:
+				assert_true(cell.x - mine.shaft_column() != side, "seed %d: alternating sides" % s)
+			side = cell.x - mine.shaft_column()
+			last = cell.y
+
+func test_cave_torches_stand_on_free_floor_in_the_first_two_layers() -> void:
+	for s in TORCH_SEEDS:
+		var mine := _mine_with_seed(s)
+		var caves := _torches(mine, "cave")
+		assert_eq(caves.size(), MineGrid.TORCH_CAVE_COUNT, "seed %d: the cave torch count" % s)
+		for i in range(caves.size()):
+			var cell: Vector2i = caves[i].cell
+			assert_true(mine.layer_index_at_world(mine.cell_to_world(cell)) <= 1, "seed %d: in Topsoil or Clay" % s)
+			assert_true(not mine.is_solid(cell) and mine.is_solid(cell + Vector2i.DOWN), "seed %d: standing on a floor" % s)
+			assert_true(not mine._room_cells.has(cell), "seed %d: not in the old mine or an event room" % s)
+			assert_true(mine._reserved_floors.has(cell + Vector2i.DOWN), "seed %d: its floor never crumbles" % s)
+			for j in range(i):
+				var apart := Vector2(cell).distance_to(Vector2(caves[j].cell))
+				assert_true(apart >= MineGrid.TORCH_CAVE_SPACING_TILES, "seed %d: torches %d tiles apart" % [s, apart])
+
+func test_torches_are_nodes_that_share_no_cell_with_a_pickup() -> void:
+	for s in [1001, 2, 98]:
+		var mine := _mine_with_seed(s)
+		var nodes := mine.get_children().filter(func(c): return c.is_in_group("torches"))
+		assert_eq(nodes.size(), mine.torches.size(), "seed %d: one node per torch" % s)
+		for t in mine.torches:
+			var at: Vector2 = mine.map_to_local(t.cell)
+			for c in mine.get_children():
+				if c is Node2D and not c.is_in_group("torches"):
+					assert_true(c.position.distance_to(at) > 1.0, "seed %d: nothing else on the torch at %s" % [s, str(t.cell)])
+			assert_true(not mine._spare_floor_cells.has(t.cell), "seed %d: spawns cannot pick a torch's cell" % s)
+
+func test_the_same_seed_places_the_same_torches() -> void:
+	var a := _mine_with_seed(4242)
+	var b := _mine_with_seed(4242)
+	assert_eq(b.torches.map(func(t): return t.cell), a.torches.map(func(t): return t.cell), "same seed, same torches")
+	var differs := false
+	for s in [1, 2, 3, 4]:
+		differs = differs or _mine_with_seed(s).torches.map(func(t): return t.cell) != a.torches.map(func(t): return t.cell)
+	assert_true(differs, "other seeds put them elsewhere")

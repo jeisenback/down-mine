@@ -6,7 +6,7 @@ class_name GearArt
 ## for the miner, `state` is idle / run / dig / jump / fall. The origin is the
 ## feet (miner, flag, support, lamp) or the object's centre (beacon, bell).
 
-@export_enum("player", "flag", "beacon", "bell", "support", "lamp", "ladder", "rope", "anchor", "camp", "lift", "outpost", "nest", "heart", "relic", "vault", "lost", "sign", "gas", "bench", "lantern_post", "muffling_post", "rope_rack", "palisade", "rampart", "lamp_shop", "smithy", "bunkhouse", "notice_board", "entrance") var gear: String = "player"
+@export_enum("player", "flag", "beacon", "bell", "support", "lamp", "ladder", "rope", "anchor", "camp", "lift", "outpost", "nest", "heart", "relic", "vault", "lost", "sign", "gas", "bench", "lantern_post", "muffling_post", "rope_rack", "palisade", "rampart", "lamp_shop", "smithy", "bunkhouse", "notice_board", "entrance", "torch") var gear: String = "player"
 @export var length: float = 64.0   # ladder, rope and lift: how tall they stand or hang
 @export_enum("idle", "run", "dig", "jump", "fall") var state: String = "idle"
 ## The miner's coat colour (lost miners each wear their own); shades derive from it.
@@ -36,6 +36,7 @@ func _draw() -> void:
 		"bell": _draw_bell()
 		"support": _draw_support()
 		"lamp": _draw_lamp()
+		"torch": _draw_torch()
 		"ladder": _draw_ladder()
 		"rope": _draw_rope()
 		"anchor": _draw_anchor()
@@ -272,6 +273,18 @@ func _draw_lamp() -> void:
 	draw_rect(Rect2(-1.5, -14.0, 3.0, 4.0), f["a"])
 	draw_rect(Rect2(-1.0, -13.0 + (1.0 - flick), 2.0, 2.5), f["c"])
 	draw_colored_polygon(PackedVector2Array([Vector2(-3, -15), Vector2(3, -15), Vector2(0, -17.5)]), m["a"])
+
+## A wall torch (milestone 60): a timber stick with a rag head, standing from its feet.
+func _draw_torch() -> void:
+	var w: Dictionary = GPAL["wood"]
+	var f: Dictionary = GPAL["flame"]
+	var flick := 0.85 + 0.15 * sin(t * 11.0) + 0.06 * sin(t * 23.0)
+	draw_rect(Rect2(-1.5, -9.0, 3.0, 9.0), w["k"])
+	draw_rect(Rect2(-0.5, -9.0, 1.0, 9.0), w["b"])
+	draw_rect(Rect2(-2.0, -11.0, 4.0, 3.0), w["a"])                              # the wrapped head
+	_glow(Vector2(0, -13), 6.0 * flick, f["b"], 0.8)
+	draw_colored_polygon(PackedVector2Array([Vector2(-2, -11), Vector2(2, -11), Vector2(0.5, -15.5 - 1.5 * flick)]), f["a"])
+	draw_colored_polygon(PackedVector2Array([Vector2(-1, -11), Vector2(1, -11), Vector2(0, -13.5 - flick)]), f["c"])
 
 # --- climbing tools -----------------------------------------------------------
 
