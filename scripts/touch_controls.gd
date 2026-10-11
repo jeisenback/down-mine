@@ -316,7 +316,7 @@ static func widget_kind(widget: String) -> String:
 ## The label size at a screen scale u. Menu items share one smaller size so the longest
 ## ("GRAPPLE") fits its button without shrinking and none looks smaller than the rest.
 static func label_size(widget: String, u: float) -> int:
-	var base := 13.0 if widget.begins_with("tool_") or widget.begins_with("base_") else 16.0
+	var base := 12.0 if widget.begins_with("tool_") or widget.begins_with("base_") else 16.0
 	return int(base * u)
 
 ## Flat, semi-transparent pixel-style shapes: a darker outline, a short label,
