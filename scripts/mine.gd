@@ -133,6 +133,17 @@ const CA_ITERATIONS := 3
 const FUEL_DEPOSIT_COUNT := 240
 const FuelPickupScene := preload("res://scenes/FuelPickup.tscn")
 
+# Torches (milestone 60): permanent lights in Topsoil and Clay. One every
+# TORCH_SHAFT_SPACING rows down the old shaft's timber, alternating sides, and
+# TORCH_CAVE_COUNT on free cave floors at least TORCH_CAVE_SPACING_TILES apart.
+# Placed from their own RNG so the rest of a seed's mine keeps its layout.
+const TorchScene := preload("res://scenes/Torch.tscn")
+const TORCH_SHAFT_SPACING := 10
+const TORCH_SHAFT_FIRST_ROW_OFFSET := 3 # rows under the shaft's top
+const TORCH_CAVE_COUNT := 12
+const TORCH_CAVE_SPACING_TILES := 24.0
+const TORCH_CAVE_TRIES := 600
+
 const ORE_DEPOSIT_COUNT := 180
 const OrePickupScene := preload("res://scenes/OrePickup.tscn")
 
@@ -183,6 +194,8 @@ static var _launch_seed_read: bool = false
 var lost_miner_cell := Vector2i(-1, -1)
 ## Floor cells no pickup or NPC has claimed yet (shuffled).
 var _spare_floor_cells: Array = []
+## This mine's torches: {"cell", "where"} with where "shaft" or "cave".
+var torches: Array = []
 var _wall_cells: Array[Vector2i] = []
 var _wall_decay_timer: float = 0.0
 ## Cells the player has dug (tunnels that can collapse).
@@ -343,6 +356,7 @@ func _generate_layout() -> void:
 	_scatter_ore_deposits(floor_cells)
 	_spare_floor_cells = floor_cells.slice(min(FUEL_DEPOSIT_COUNT + ORE_DEPOSIT_COUNT, floor_cells.size()))
 	_pick_lost_miner_cell()
+	_place_torches()
 
 ## Opens the shaft from just below the crust, fills its last
 ## SHAFT_COLLAPSE_ROWS rows with rock, and keeps both clear of pickups, gas
@@ -670,6 +684,40 @@ func _scatter_ore_deposits(floor_cells: Array) -> void:
 		pickup.position = map_to_local(cell)
 		_reserved_floors[cell + Vector2i.DOWN] = true
 		add_child(pickup)
+
+## Lights Topsoil and Clay (see the TORCH_ constants). Cave torches take free
+## cells out of the spare pool, so spawns cannot stand on one, and keep their
+## floors from crumbling like a pickup's.
+func _place_torches() -> void:
+	torches.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = mine_seed + 52
+	var clay_bottom := _layer_rows(1).y
+	var open := shaft_open_rows()
+	var lift_cells: Array = event_rooms.filter(func(r): return r.kind == "lift").map(func(r): return r.cell)
+	var side := -1
+	for y in range(open.x + TORCH_SHAFT_FIRST_ROW_OFFSET, mini(open.y, clay_bottom) + 1, TORCH_SHAFT_SPACING):
+		var cell := Vector2i(shaft_column() + side, y)
+		if is_solid(cell) or lift_cells.has(cell):
+			continue
+		torches.append({"cell": cell, "where": "shaft"})
+		side = -side
+	var candidates: Array = _spare_floor_cells.filter(func(c): return c.y <= clay_bottom)
+	var placed: Array[Vector2i] = []
+	for i in range(TORCH_CAVE_TRIES):
+		if placed.size() >= TORCH_CAVE_COUNT or candidates.is_empty():
+			break
+		var cell: Vector2i = candidates[rng.randi_range(0, candidates.size() - 1)]
+		if placed.any(func(p): return Vector2(p).distance_to(Vector2(cell)) < TORCH_CAVE_SPACING_TILES):
+			continue
+		placed.append(cell)
+		_spare_floor_cells.erase(cell)
+		_reserved_floors[cell + Vector2i.DOWN] = true
+		torches.append({"cell": cell, "where": "cave"})
+	for t in torches:
+		var torch: Torch = TorchScene.instantiate()
+		torch.position = map_to_local(t.cell)
+		add_child(torch)
 
 func _pick_lost_miner_cell() -> void:
 	for d in drifts:
