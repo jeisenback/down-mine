@@ -14,7 +14,7 @@
 
 - Touch sends the same keys the keyboard does; no gameplay change, no new actions.
 - Landscape only. Portrait shows a "rotate your phone" line and hides the controls.
-- Shown on `DisplayServer.is_touchscreen_available()`, on the first finger touch, or with `?touch` / `--touch`; hidden otherwise.
+- Shown on a phone app (`mobile` feature), a browser reporting touch points, the first real finger touch (not one emulated from the mouse), or `?touch` / `--touch`; hidden otherwise.
 - Pad dead zone `TouchPad.DEAD_ZONE := 0.3` of the pad radius; tap buttons hold their key `TouchControls.TAP_HOLD_FRAMES := 3` physics frames after release.
 - Buttons are at least 56 px square at the 648 px reference height.
 - Display: stretch mode `canvas_items`, aspect `expand`, base size 1152 by 648; `input_devices/pointing/emulate_touch_from_mouse=true`.
@@ -108,7 +108,7 @@
   - `func set_tools_available(names: Array) -> void` (which of `TOOL_ROW` the menu lists; default all)
   - `var tools_open: bool`; the menu lists tool items (available ones) in a first column and, only when `base_nearby`, base items in a second column; menu items are packed upward from the Tools button in order.
   - `func visible_widgets() -> Array`: the names currently shown, per the rules below
-  - `static func wanted() -> bool`: `force or seen_touch or DisplayServer.is_touchscreen_available() or LaunchOptions.has("touch")`
+  - `static func wanted() -> bool`: `force or seen_touch or device_has_touch(...) or LaunchOptions.has("touch")`; `static func device_has_touch(web: bool, mobile: bool, max_touch_points: int) -> bool`; `func set_can_plant(allowed: bool)` (Plant is listed in the open menu whenever planting is allowed, not only near the base)
   - The layer's `visible` is `wanted()` and the screen is landscape; a `Label` named `RotateHint` ("Rotate your phone") shows instead when `wanted()` and the viewport is taller than wide.
 - Visibility rules: while `get_tree().paused`, only `continue` and `esc`; otherwise by mode (mine: `pad dig flare use tools esc`, plus, only while the Tools menu is open, the available tool widgets and, when the base is nearby, the four base widgets; hub: `pad use buy1 buy2 buy3 esc`). Pausing, a mode change and the app losing focus (`NOTIFICATION_APPLICATION_FOCUS_OUT`) call `release_all()`. `tools` toggles the menu open; tapping any menu item presses its key and closes the menu (a held Repair keeps its key until the finger lifts). The layer redraws widgets as flat semi-transparent pixel shapes with a short label, brighter while held.
 

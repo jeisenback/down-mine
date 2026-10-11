@@ -394,6 +394,7 @@ func _process(delta: float) -> void:
 	hud.update_base(run_base, get_tree().get_nodes_in_group("burrowers").size() > 0, mine.wall_count())
 	hud.update_prompts(_action_prompts())
 	touch_controls.set_base_nearby(_near_base())
+	touch_controls.set_can_plant(_can_plant())
 	touch_controls.set_tools_available(_touch_tools())
 	max_depth_reached = max(max_depth_reached, _current_depth())
 	_check_extraction()

@@ -189,19 +189,37 @@ func test_tools_menu_lists_only_available_tools() -> void:
 
 func test_base_items_are_in_the_menu_only_near_the_base() -> void:
 	var c := _fresh()
-	assert_true(not c.visible_widgets().has("base_plant"), "not shown with the menu closed")
+	assert_true(not c.visible_widgets().has("base_repair"), "not shown with the menu closed")
 	_open_menu(c)
-	assert_true(not c.visible_widgets().has("base_plant"), "not in the menu away from the base")
+	assert_true(not c.visible_widgets().has("base_repair"), "not in the menu away from the base")
 	c.set_base_nearby(true)
-	for name in ["base_plant", "base_repair", "base_fortify", "base_grow"]:
+	for name in ["base_repair", "base_fortify", "base_grow"]:
 		assert_true(c.visible_widgets().has(name), "%s is in the menu at the base" % name)
-	c.touch(0, TouchControls.layout_for(SIZE)["base_repair"].get_center(), true)
+	c.touch(0, c._rect("base_repair").get_center(), true) # the menu packs up: Plant is not listed here
 	assert_true(TouchKeys.is_down(KEY_F), "Repair is held")
 	assert_true(not c.visible_widgets().has("base_repair"), "the menu closed, the key stays down")
 	assert_true(TouchKeys.is_down(KEY_F), "still held until the finger lifts")
 	c.set_base_nearby(false)
 	assert_true(not TouchKeys.is_down(KEY_F), "leaving the base lets go of Repair")
 	_done()
+
+func test_plant_is_in_the_menu_wherever_planting_is_allowed() -> void:
+	var c := _fresh()
+	_open_menu(c)
+	c.set_base_nearby(true)
+	assert_true(not c.visible_widgets().has("base_plant"), "at the base but planting not allowed (the surface)")
+	c.set_can_plant(true)
+	assert_true(c.visible_widgets().has("base_plant"), "listed when planting is allowed")
+	c.set_base_nearby(false)
+	assert_true(c.visible_widgets().has("base_plant"), "listed far from the base too, as P works anywhere below the crust")
+	assert_true(not c.visible_widgets().has("base_repair"), "the other base items still need the base")
+	_done()
+
+func test_device_has_touch_decision() -> void:
+	assert_true(not TouchControls.device_has_touch(false, false, 0), "a desktop with a keyboard has none")
+	assert_true(TouchControls.device_has_touch(false, true, 0), "a phone app has one")
+	assert_true(TouchControls.device_has_touch(true, false, 2), "a browser reporting touch points has one")
+	assert_true(not TouchControls.device_has_touch(true, false, 0), "a desktop browser has none")
 
 func test_paused_shows_only_continue_and_esc() -> void:
 	var c := _fresh()
@@ -334,10 +352,10 @@ func test_the_menu_lists_only_unlocked_tools_and_base_items_only_at_the_base() -
 		assert_true(shown.has(name), "%s is always there" % name)
 	for name in ["tool_ladder", "tool_lamp", "tool_anchor"]:
 		assert_true(not shown.has(name), "%s is not unlocked on a fresh save" % name)
-	assert_true(not shown.has("base_plant"), "no base items away from the base")
+	assert_true(not shown.has("base_repair"), "no base items away from the base")
 	main.player.global_position = main.run_base.global_position
 	await physics_frames(3)
-	assert_true(main.touch_controls.visible_widgets().has("base_plant"), "base items at the base")
+	assert_true(main.touch_controls.visible_widgets().has("base_repair"), "base items at the base")
 	_done()
 	Progress.path_override = ""
 
@@ -373,5 +391,17 @@ func test_continue_on_the_summary_leaves_for_the_hub() -> void:
 	await tree.process_frame
 	assert_eq(seen, ["res://scenes/Hub.tscn"], "Continue goes to the hub")
 	tree.paused = false
+	_done()
+	Progress.path_override = ""
+
+func test_main_tells_the_controls_when_planting_is_allowed() -> void:
+	var main := await _main()
+	assert_eq(main.touch_controls.can_plant, main._can_plant(), "in step at the start")
+	var pad: Rect2 = TouchControls.layout_for(SIZE)["pad"]
+	main.touch_controls.touch(0, pad.get_center() + Vector2(0, pad.size.x * 0.4), true)
+	await physics_frames(60)
+	main.touch_controls.touch(0, pad.get_center(), false)
+	await physics_frames(40)
+	assert_eq(main.touch_controls.can_plant, main._can_plant(), "in step after digging down")
 	_done()
 	Progress.path_override = ""

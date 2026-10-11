@@ -23,7 +23,7 @@ The game is keyboard only. Every control is a physical key polled with `Input.is
 - **Flare** (held): Shift.
 - **Use** (tap): E (camp, lift, outpost, vault, relic, or extract at the surface).
 - **Tools** (toggle): opens one compact menu above the button and closes when an item is picked. Its tool items are Rope `R`, Grapple `Q` and Beam `1` always, and Ladder `T`, Lamp `L` and Anchor `G` only once the hub has unlocked them. Tapping an item presses its key. Holding the pad down while tapping Rope gives the rope-down-over-an-edge combo.
-- **Base items in the same menu**, only within reach of the run base: Plant `P`, Repair `F` (held: the menu closes but the key stays down until the finger lifts), Fortify `B`, Grow `U`, in a second column beside the tools.
+- **Base items in the same menu**, in a second column beside the tools: Repair `F` (held: the menu closes but the key stays down until the finger lifts), Fortify `B` and Grow `U` only within reach of the run base; Plant `P` wherever the keyboard's `P` works (below the crust, on a floor, once per run), so a forward base can be planted from deep in the mine.
 
 Four buttons stay on screen (Dig, Flare, Use, Tools), plus the pad and a small Esc. Nothing else is permanent, so the prompt line at the bottom centre is not covered in the mine. (The first layout had a permanent tool column and base cluster; it was too busy.)
 
@@ -31,17 +31,16 @@ Buttons are at least 56 px square at the 648 px reference height, semi-transpare
 
 ## Components
 
-- **`TouchControls`** (new, `scripts/touch_controls.gd`, `scenes/TouchControls.tscn`): a `CanvasLayer` above the HUD, running while paused. API: `set_mode(mode: String)` (`"mine"` or `"hub"`), `set_base_nearby(near: bool)`, `set_tools_available(names: Array)` (which of the six tool items the menu lists; default all), `static func wanted() -> bool`, and `static var force: bool` (tests and the playtest set it to show the controls). Owns the layout, what shows in each mode and when paused.
+- **`TouchControls`** (new, `scripts/touch_controls.gd`, `scenes/TouchControls.tscn`): a `CanvasLayer` above the HUD, running while paused. API: `set_mode(mode: String)` (`"mine"` or `"hub"`), `set_base_nearby(near: bool)`, `set_can_plant(allowed: bool)`, `set_tools_available(names: Array)` (which of the six tool items the menu lists; default all), `static func wanted() -> bool`, and `static var force: bool` (tests and the playtest set it to show the controls). Owns the layout, what shows in each mode and when paused.
 - **`TouchPad`** (new, `scripts/touch_pad.gd`): follows one finger by its touch index. `static func keys_for(offset: Vector2, radius: float) -> Array` returns the keys down (A, D, W, S) with a dead zone, so it is testable without a screen.
-- **`TouchButton`** (new, `scripts/touch_button.gd`): follows one finger; `key: int`; holds the key while touched. A tap button keeps its key down for at least `TAP_HOLD_FRAMES` (3) physics frames after the finger lifts, because the game polls at 60 Hz and a shorter press would be missed.
 - **`TouchKeys`** (new, `scripts/touch_keys.gd`, static): `set_key(code: int, down: bool)` sends a synthetic key event (`Input.parse_input_event`) only when the state changes; `release_all()` lets go of every key it holds.
-- **`Main`** and **`Hub`** (modify): each instances `TouchControls` and sets its mode; `Main` also calls `set_base_nearby(_near_base())` and `set_tools_available(...)` each frame (Ladder, Lamp and Anchor when unlocked or still carried).
+- **`Main`** and **`Hub`** (modify): each instances `TouchControls` and sets its mode; `Main` also calls `set_base_nearby(_near_base())`, `set_can_plant(_can_plant())` and `set_tools_available(...)` each frame (Ladder, Lamp and Anchor when unlocked or still carried).
 - **`project.godot`** (modify): stretch mode `canvas_items`, aspect `expand`, base size 1152 by 648; emulate touch from mouse on. The stretch change is needed because with none the game renders at the phone's native pixels and looks tiny, and buttons and text cannot be sized sensibly. On a desktop the default window is unchanged; resizing it now scales the game instead of revealing more of the mine.
 - **`README.md`, `ROADMAP.md`** (modify): the controls section and the Mobile item.
 
 ## Detecting touch
 
-The controls show when `DisplayServer.is_touchscreen_available()` is true, or on the first finger touch (for browsers that do not report it), or with `?touch` in the URL or `--touch` on the command line (the existing `LaunchOptions`). A static flag remembers it, so the controls survive the hub to mine scene changes. Once shown they stay shown for the session; there is no auto-hide when a key is pressed.
+The controls show on a phone app (the `mobile` feature) or a browser reporting touch points (`navigator.maxTouchPoints > 0`), or on the first real finger touch (a touch synthesised from the mouse does not count), or with `?touch` in the URL or `--touch` on the command line (the existing `LaunchOptions`). `DisplayServer.is_touchscreen_available()` and `has_feature(FEATURE_TOUCHSCREEN)` are not used: the first is true whenever mouse-to-touch emulation is on, the second is true on a desktop's display server. A static flag remembers it, so the controls survive the hub to mine scene changes. Once shown they stay shown for the session; there is no auto-hide when a key is pressed.
 
 With "emulate touch from mouse" on, a mouse click acts as a touch on a desktop, so everything can be tested and screenshotted without a phone. Nothing in the game uses the mouse today.
 

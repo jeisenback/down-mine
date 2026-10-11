@@ -142,6 +142,7 @@ func teleport(cell: Vector2i) -> void:
 
 func _title_and_controls() -> void:
 	await _start_game(true)
+	check(not TouchControls.wanted(), "a desktop with a keyboard shows no touch controls")
 	check(paused and main.hud.overlay.visible, "title shows and pauses")
 	await shot("title")
 	await tap(KEY_ENTER)
@@ -891,19 +892,33 @@ func _touch_controls_play() -> void:
 	var layout := TouchControls.layout_for(tc.layout_size)
 	var pad: Rect2 = layout["pad"]
 	await shot("controls")
+	# Walk left, away from the old ladder shaft (a rope or ladder is not a floor), then dig down.
+	tc.touch(0, pad.get_center() + Vector2(-pad.size.x * 0.4, 0), true)
+	await frames(60)
+	tc.touch(0, pad.get_center(), false)
 	var start_y: float = main.player.global_position.y
 	tc.touch(0, pad.get_center() + Vector2(0, pad.size.x * 0.4), true)
 	await frames(90)
 	tc.touch(0, pad.get_center(), false)
 	check(main.player.global_position.y > start_y + 2.0 * MineGrid.TILE_SIZE, "the pad's down dug down")
 	await shot("dug_down")
+	await frames(40) # settle on the floor of the shaft
 	tc.touch(1, layout["tools"].get_center(), true)
 	tc.touch(1, layout["tools"].get_center(), false)
 	await frames(3)
-	check(tc.visible_widgets().has("tool_rope"), "the Tools menu opened")
+	check(tc.visible_widgets().has("base_plant") and not tc.visible_widgets().has("base_repair"), "deep in the mine the menu lists Plant, not the base's own items")
+	await shot("plant_menu")
+	tc.touch(1, tc._rect("base_plant").get_center(), true)
+	tc.touch(1, tc._rect("base_plant").get_center(), false)
+	await frames(10)
+	check(main.base_planted and main.run_base.global_position.distance_to(main.player.global_position) < 60.0, "Plant moved the base to the player")
+	tc.touch(1, layout["tools"].get_center(), true)
+	tc.touch(1, layout["tools"].get_center(), false)
+	await frames(3)
+	check(tc.visible_widgets().has("tool_rope"), "the Tools menu lists Rope")
 	await shot("tools_menu")
-	tc.touch(1, layout["tool_rope"].get_center(), true)
-	tc.touch(1, layout["tool_rope"].get_center(), false)
+	tc.touch(1, tc._rect("tool_rope").get_center(), true)
+	tc.touch(1, tc._rect("tool_rope").get_center(), false)
 	await frames(10)
 	check(not tc.visible_widgets().has("tool_rope"), "picking Rope closed the menu")
 	check(main.mine.find_children("*", "Rope", true, false).size() > 0, "Rope was placed")
@@ -912,7 +927,7 @@ func _touch_controls_play() -> void:
 	tc.touch(2, layout["tools"].get_center(), true)
 	tc.touch(2, layout["tools"].get_center(), false)
 	await frames(3)
-	check(tc.visible_widgets().has("base_plant"), "at the base the menu lists Plant")
+	check(tc.visible_widgets().has("base_repair"), "at the base the menu lists Repair")
 	await shot("base_menu")
 	tc.touch(2, layout["tools"].get_center(), true) # close it again
 	tc.touch(2, layout["tools"].get_center(), false)

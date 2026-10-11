@@ -49,6 +49,8 @@ var mode: String = "mine"
 var layout_size: Vector2 = Vector2(1152, 648)
 var tools_open: bool = false
 var base_nearby: bool = false
+## Whether the keyboard's P would plant the base here (below the crust, on a floor, once per run).
+var can_plant: bool = false
 ## Which tool items the menu lists (the hub unlocks Ladder, Lamp and Anchor).
 var tools_available: Array = TOOL_ROW.duplicate()
 var canvas: Control
@@ -115,13 +117,19 @@ func _rect(widget: String) -> Rect2:
 static func wanted() -> bool:
 	return force or seen_touch or _device_has_touch() or LaunchOptions.has("touch")
 
-## Whether this device has a touch screen. DisplayServer.is_touchscreen_available()
-## is not used: it reports true whenever mouse-to-touch emulation is on, which
-## the project turns on so a desktop can test the controls.
+## Whether this device has a touch screen. Neither DisplayServer.is_touchscreen_available()
+## (true whenever mouse-to-touch emulation is on) nor has_feature(FEATURE_TOUCHSCREEN)
+## (true on a desktop's X11 display server) says anything about the hardware, so
+## only a phone app (the "mobile" feature) or a browser reporting touch points counts.
+## Anything else is revealed by the first real touch or ?touch.
+static func device_has_touch(web: bool, mobile: bool, max_touch_points: int) -> bool:
+	return mobile or (web and max_touch_points > 0)
+
 static func _device_has_touch() -> bool:
+	var points := 0
 	if OS.has_feature("web"):
-		return bool(JavaScriptBridge.eval("navigator.maxTouchPoints > 0"))
-	return DisplayServer.has_feature(DisplayServer.FEATURE_TOUCHSCREEN)
+		points = int(JavaScriptBridge.eval("navigator.maxTouchPoints || 0"))
+	return device_has_touch(OS.has_feature("web"), OS.has_feature("mobile"), points)
 
 static func is_portrait(size: Vector2) -> bool:
 	return size.y > size.x
@@ -139,7 +147,10 @@ func visible_widgets() -> Array:
 			continue
 		if widget.begins_with("tool_") and not (tools_open and tools_available.has(widget)):
 			continue
-		if widget.begins_with("base_") and not (tools_open and base_nearby):
+		if widget == "base_plant":
+			if not (tools_open and can_plant):
+				continue
+		elif widget.begins_with("base_") and not (tools_open and base_nearby):
 			continue
 		out.append(widget)
 	return out
@@ -151,6 +162,9 @@ func set_mode(new_mode: String) -> void:
 
 func set_tools_available(names: Array) -> void:
 	tools_available = names.duplicate()
+
+func set_can_plant(allowed: bool) -> void:
+	can_plant = allowed
 
 func set_base_nearby(near: bool) -> void:
 	if near == base_nearby:
