@@ -138,6 +138,8 @@ var _debug_event_index: int = 0
 var _build_keys_down: Dictionary = {}
 var _bell_ringing: bool = false
 var progress: Progress
+## How a scene is changed; tests swap it so the runner's scene is left alone.
+var change_scene: Callable = func(path: String): Engine.get_main_loop().change_scene_to_file(path)
 var lost_miners: Array[LostMiner] = []
 var crew_at_base: Array[LostMiner] = []
 ## What the crew do at the base (milestone 54), bound each run in _ready.
@@ -157,9 +159,7 @@ func _ready() -> void:
 	noise_meter.noise_made.connect(_on_noise_made)
 	player.died.connect(_on_player_died)
 	run_base.fell.connect(_on_base_fell)
-	hud.new_run_requested.connect(_start_new_run)
-	hud.upgrade_requested.connect(_on_upgrade_requested)
-	hud.crew_toggle_requested.connect(_on_crew_toggle_requested)
+	hud.new_run_requested.connect(_go_to_hub)
 	progress = Progress.load_saved()
 	progress.apply_to(player, noise_meter, run_base)
 	mine.decay_multiplier = pow(CLAIMED_DECAY_STEP, progress.hearts_claimed)
@@ -801,23 +801,11 @@ func _fail_run(title: String) -> void:
 	hud.show_run_summary(title, false, player.currency, max_depth_reached, progress, notes)
 	get_tree().paused = true
 
-## Reloading the scene is the whole reset: the mine regenerates in
-## Mine._ready() and every per-run value (light, noise, run ore) starts
-## fresh. Only Progress (bank, upgrades, roster, stranded) survives, via
-## the save file.
-func _start_new_run() -> void:
+## A run ends on the summary; Enter goes to the hub (milestone 57), where
+## the next run starts. The mine regenerates in Mine._ready() when the hub
+## loads this scene again, so every per-run value (light, noise, run ore)
+## starts fresh. Only Progress (bank, upgrades, roster, stranded) survives,
+## via the save file.
+func _go_to_hub() -> void:
 	get_tree().paused = false
-	get_tree().reload_current_scene()
-
-## Hub purchase from the run summary. Upgrades take effect next run,
-## when Progress.apply_to() runs on the fresh player.
-func _on_upgrade_requested(id: String) -> void:
-	if progress.try_buy(id):
-		hud.update_banked(progress.banked_ore)
-		hud.refresh_hub(progress)
-
-## Hub crew picker, by roster index. Takes effect next run.
-func _on_crew_toggle_requested(roster_index: int) -> void:
-	if roster_index < progress.roster.size():
-		progress.toggle_crew(progress.roster[roster_index].name)
-		hud.refresh_hub(progress)
+	change_scene.call("res://scenes/Hub.tscn")

@@ -228,8 +228,8 @@ func _heart_run() -> void:
 	await tap(KEY_E)
 	check(main.hud.run_summary.visible and main.hud.run_summary_label.text.contains("The Heart is yours!"), "extracting with the Heart wins")
 	await shot("won")
-	await tap(KEY_L)
-	check(main.hud.run_summary_label.text.contains("Heart claimed"), "run log shows the win")
+	check(main.hud.run_summary_label.text.contains("Enter: go to the hub"), "the summary leads to the hub")
+	check(main.progress.run_log[0].result == "Heart claimed", "the win is in the run log")
 	await shot("run_log")
 
 # --- movement courses (movement pass) --------------------------------------
