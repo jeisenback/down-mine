@@ -19,7 +19,7 @@ const PLAYER_Y := -8.0
 const MINER_Y := -7.0 # the drawn miner's feet sit 7 px below its centre
 const MAIN_SCENE := "res://scenes/Main.tscn"
 ## Shown on the first visit (no run logged yet); it names no keys, so it suits touch too.
-const FIRST_VISIT_TEXT := "Walk to a building to see what it sells. The mine entrance is at the far right."
+const FIRST_VISIT_TEXT := "Visit a building to see what it sells. The mine entrance is far right."
 const TouchControlsScene := preload("res://scenes/TouchControls.tscn")
 
 @onready var player: Player = $Player
