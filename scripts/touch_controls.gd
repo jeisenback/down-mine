@@ -300,7 +300,7 @@ func _notification(what: int) -> void:
 		release_all()
 
 const LABELS := {
-	"dig": "DIG", "flare": "FLARE", "use": "USE", "tools": "TOOLS", "esc": "ESC", "continue": "CONTINUE",
+	"dig": "DIG", "flare": "FLARE", "use": "USE", "tools": "TOOLS", "esc": "HELP", "continue": "CONTINUE",
 	"tool_rope": "ROPE", "tool_ladder": "LADDER", "tool_anchor": "ANCHOR", "tool_lamp": "LAMP",
 	"tool_beam": "BEAM", "tool_grapple": "GRAPPLE", "base_plant": "PLANT", "base_repair": "REPAIR",
 	"base_fortify": "FORTIFY", "base_grow": "GROW", "buy1": "1", "buy2": "2", "buy3": "3",

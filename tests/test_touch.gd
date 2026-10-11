@@ -426,3 +426,99 @@ func test_main_turns_assisted_digging_on_only_when_touch_is_shown() -> void:
 	assert_true(not main.player.assist_dig, "no touch controls: the keyboard digs only with Space")
 	_done()
 	Progress.path_override = ""
+
+# Wording that matches the controls on screen (milestone 62).
+
+const HudScene := preload("res://scenes/HUD.tscn")
+
+func _hud(touch: bool) -> HUD:
+	TouchControls.force = touch
+	HUD.title_seen = true
+	return add(HudScene.instantiate())
+
+func test_key_hints_name_the_touch_button() -> void:
+	for key in ["E", "B", "P", "U", "F", "1", "Enter", "Esc", "Z"]:
+		assert_eq(KeyHint.label(key, false), key, "%s on a keyboard is itself" % key)
+	assert_eq(KeyHint.label("E", true), "Use", "E is the Use button")
+	for key in ["B", "P", "U", "F", "1"]:
+		assert_eq(KeyHint.label(key, true), "Tools", "%s is in the Tools menu" % key)
+	assert_eq(KeyHint.label("Enter", true), "Continue", "Enter is Continue")
+	assert_eq(KeyHint.label("Esc", true), "Help", "Esc is Help")
+	assert_eq(KeyHint.label("Z", true), "Z", "an unknown key is left alone")
+
+func test_prompts_name_buttons_only_on_touch() -> void:
+	var hud := _hud(true)
+	hud.update_prompts(["E: extract", "B: fortify, 2 ore/tile", "P: plant base here", "no key here"])
+	assert_eq(hud.prompt_label.text, "Use: extract     Tools: fortify, 2 ore/tile     Tools: plant base here     no key here", "touch prompts")
+	TouchControls.force = false
+	hud.update_prompts(["E: extract", "B: fortify, 2 ore/tile"])
+	assert_eq(hud.prompt_label.text, "E: extract     B: fortify, 2 ore/tile", "keyboard prompts are unchanged")
+
+func test_the_hub_buy_digits_stay_numbers_on_touch() -> void:
+	var hud := _hud(true)
+	hud.set_hub_mode()
+	hud.update_prompts(["1: Lantern tank Lv 0/3, 30 ore     2: Lamps Lv 0/1, 40 ore", "E: go down the mine"])
+	assert_true(hud.prompt_label.text.contains("1: Lantern tank"), "the buy buttons are labelled 1 2 3")
+	assert_true(hud.prompt_label.text.contains("Use: go down the mine"), "but E is still Use")
+
+func test_touch_overlays_describe_the_buttons() -> void:
+	HUD.title_seen = false
+	TouchControls.force = true
+	var hud: HUD = add(HudScene.instantiate())
+	assert_true(hud._overlay_label.text.contains("Continue: start") and not hud._overlay_label.text.contains("Enter"), "title: " + hud._overlay_label.text)
+	hud._overlay_key(KEY_ENTER)
+	hud._overlay_key(KEY_ESCAPE)
+	var text := hud._overlay_label.text
+	assert_true(text.begins_with("CONTROLS") and text.contains("Continue to close"), "closes with Continue")
+	for button in ["Pad", "Dig", "Flare", "Use", "Tools"]:
+		assert_true(text.contains(button), "lists %s" % button)
+	assert_true(not text.contains("A / D") and not text.contains("Shift"), "no keyboard keys")
+	hud._overlay_key(KEY_ESCAPE)
+	hud.set_hub_mode()
+	hud._overlay_key(KEY_ESCAPE)
+	assert_true(hud._overlay_label.text.contains("buy") and hud._overlay_label.text.contains("Use") and not hud._overlay_label.text.contains("A / D"), "hub overlay: " + hud._overlay_label.text)
+	hud._overlay_key(KEY_ESCAPE)
+	TouchControls.force = false
+	tree.paused = false
+
+func test_keyboard_overlays_are_unchanged() -> void:
+	HUD.title_seen = false
+	TouchControls.force = false
+	var hud: HUD = add(HudScene.instantiate())
+	assert_true(hud._overlay_label.text.contains("Enter: start"), "title")
+	hud._overlay_key(KEY_ENTER)
+	hud._overlay_key(KEY_ESCAPE)
+	assert_true(hud._overlay_label.text.contains("A / D  move"), "controls")
+	hud._overlay_key(KEY_ESCAPE)
+	tree.paused = false
+
+func test_the_summary_says_continue_on_touch() -> void:
+	var hud := _hud(true)
+	hud.show_run_summary("The Heart is yours!", true, 10, 20, null)
+	assert_true(hud.run_summary_label.text.contains("Continue: go to the hub") and not hud.run_summary_label.text.contains("Enter"), hud.run_summary_label.text)
+	TouchControls.force = false
+	hud.show_run_summary("The Heart is yours!", true, 10, 20, null)
+	assert_true(hud.run_summary_label.text.contains("Enter: go to the hub"), "keyboard keeps Enter")
+	tree.paused = false
+
+func test_the_esc_hint_hides_on_touch_and_the_button_says_help() -> void:
+	var hud := _hud(true)
+	await tree.process_frame
+	await tree.process_frame
+	assert_true(not hud.esc_hint.visible, "the ESC button is on screen, so no hint")
+	TouchControls.force = false
+	await tree.process_frame
+	await tree.process_frame
+	assert_true(hud.esc_hint.visible, "keyboard players keep the hint")
+	assert_eq(TouchControls.LABELS["esc"], "HELP", "the button says what Esc does")
+
+func test_the_prompt_line_hides_while_paused() -> void:
+	var hud := _hud(false)
+	hud.update_prompts(["E: extract"])
+	await tree.process_frame
+	assert_eq(hud.prompt_label.modulate.a, 1.0, "shown while playing")
+	tree.paused = true
+	await tree.process_frame
+	await tree.process_frame
+	assert_eq(hud.prompt_label.modulate.a, 0.0, "hidden under the Continue button")
+	tree.paused = false
