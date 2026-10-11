@@ -118,6 +118,10 @@ dictates.
   offer with what it gives (the upgrade's effect), level and cost; the notice board prompt reads "read" and then
   "close"; a first visit shows one line saying where to go. Not done: a drawn hub sky, and closing the board when
   you walk away.
+- ~~**M65 - Touch button looks.**~~ Done (issue #64, from the UI/UX audit): the Tools menu items share one label
+  size (so GRAPPLE no longer shrinks), held buttons have a double border, the Tools toggle a small up triangle,
+  and a pressed button's outline turns white. Not done: audio volume, mute and text size settings (YAGNI until
+  hand-play shows a need), and drawn icons.
 
 ## Quality pass
 
