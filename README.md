@@ -33,6 +33,8 @@ darkness.
 
 **Movement feel**: digging takes about a third longer per tile (a dive drops about five tiles a second), and gravity is lighter, so jumps are floatier. A jump plus the automatic mantle still clears a 3-tile ledge but not a 4-tile one, and a bump you are falling toward is stepped on rather than dug.
 
+**The HUD**: Light and Health are drawn larger than the other rows, Light has a bar that turns red under a quarter, and Health shows current over maximum ("Health: 2/4", red at 1; the hard hat raises the maximum). The layer line counts in tiles ("11 tiles deep", as the run summary does), the seed is at the bottom of the controls overlay (a debug tag stays in the corner), a small "Base" label sits by the compass arrow, and every label has a dark outline so it reads over bright ground.
+
 **Torches**: the first two layers (Topsoil and Clay) are lit by wall torches that never burn out. One stands on the old shaft's timber every 10 rows, alternating sides, and 12 more stand on cave floors at least 24 tiles apart. A torch lights a smaller circle than your lantern (90 against 140) and counts as a light, so ground beside it does not crumble and ropes decay slower there. Snuffers ignore torches, and they are not lamps you can pick up or put out.
 
 **Noise and the base**: every sound is made somewhere, and the base hears

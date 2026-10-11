@@ -1245,3 +1245,14 @@ func test_the_same_seed_places_the_same_torches() -> void:
 	for s in [1, 2, 3, 4]:
 		differs = differs or _mine_with_seed(s).torches.map(func(t): return t.cell) != a.torches.map(func(t): return t.cell)
 	assert_true(differs, "other seeds put them elsewhere")
+
+func test_the_hard_hat_raises_the_players_maximum_health() -> void:
+	var player: Player = add(PlayerScene.instantiate()) # not _still_player, which sets health to 999
+	player.set_physics_process(false)
+	assert_eq(player.max_health, Player.MAX_HEALTH, "3 to start")
+	var p := Progress.new()
+	p.save_path = TEST_SAVE_PATH
+	p.levels = {"hard_hat": 2}
+	p.apply_to(player, add(NoiseMeter.new()), _base(Vector2(-500, 0)))
+	assert_eq(player.max_health, Player.MAX_HEALTH + 2 * Progress.HARD_HAT_HEALTH_PER_LEVEL, "the hat adds to the maximum")
+	assert_eq(player.health, player.max_health, "and the player starts full")

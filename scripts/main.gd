@@ -366,7 +366,7 @@ func _process(delta: float) -> void:
 		run_seconds >= MineClock.MINE_WAKE_SECONDS and mine_clock.seconds_to_next() <= MineClock.WAVE_WARNING_SECONDS)
 	_update_shake(delta)
 	hud.update_fuel(player.light.fuel_fraction())
-	hud.update_health(player.health)
+	hud.update_health(player.health, player.max_health)
 	_check_layer()
 	hud.update_compass(run_base.global_position - player.global_position)
 	hud.update_currency(player.currency)
@@ -418,7 +418,7 @@ func _check_layer() -> void:
 	var nest_calmed := layer == NEST_LAYER and nest_destroyed
 	var hazard: String = mine.hazard_text(layer, not nest_calmed)
 	var line: String = Progress.layer_name(layer) + (": " + hazard if hazard != "" else "")
-	hud.update_layer(line + ("  - CARRYING THE HEART" if carrying_heart else "") + "  (depth %d)" % _current_depth())
+	hud.update_layer(line + ("  - CARRYING THE HEART" if carrying_heart else "") + "  (%d tiles deep)" % _current_depth())
 	if mine.LAYERS[layer].stalker and not _stalkers_woken.has(layer) and not nest_calmed:
 		_stalkers_woken[layer] = true
 		_wake_stalker(layer)
@@ -814,7 +814,7 @@ func _fail_run(title: String) -> void:
 	if run_ended:
 		return
 	run_ended = true
-	hud.update_health(player.health)
+	hud.update_health(player.health, player.max_health)
 	var result := "Base fell" if title == "Base Fell" else "Died (%s)" % (player.last_hit_by if player.last_hit_by != "" else "unknown")
 	_record_run(result)
 	# PRD: miners lost during an escort are stranded where they were lost,

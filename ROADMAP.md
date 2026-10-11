@@ -110,6 +110,10 @@ dictates.
   the controls overlay, the title and the run summary name the buttons (Use, Tools, Continue, Help) instead
   of keys; the top-right "Esc: controls" text is hidden, the ESC button is labelled HELP, and the prompt line
   is hidden while paused so it no longer sits under Continue. Keyboard wording is unchanged.
+- ~~**M63 - HUD pass.**~~ Done (issue #62, from the UI/UX audit): Light and Health are larger, Light has a bar
+  (red under 25 percent), Health shows current over maximum (new `Player.max_health`), labels are outlined, the
+  layer line says "N tiles deep", the always-on seed moved into the controls overlay, and the compass arrow
+  has a "Base" label. Not done: icons (they need new art).
 
 ## Quality pass
 
