@@ -202,6 +202,9 @@ func _overlay_key(keycode: int) -> bool:
 func _process(delta: float) -> void:
 	esc_hint.visible = not _touch() # the ESC button is on screen (labelled HELP)
 	prompt_label.modulate.a = 0.0 if get_tree().paused else 1.0 # not under the Continue button
+	var shift := TOUCH_PROMPT_SHIFT if _touch() else 0.0
+	prompt_label.offset_left = -300.0 + shift
+	prompt_label.offset_right = 300.0 + shift
 	_message_time -= delta
 	if _message_time <= 0.0:
 		_message = ""
@@ -217,6 +220,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if key.physical_keycode in [KEY_ENTER, KEY_KP_ENTER]:
 		new_run_requested.emit()
+
+# On touch the buy and Use buttons sit right of centre, so the prompt line moves left of them.
+const TOUCH_PROMPT_SHIFT := -120.0
 
 const LOW_LIGHT_FRACTION := 0.25
 const WARNING_COLOR := Color(1, 0.4, 0.3)

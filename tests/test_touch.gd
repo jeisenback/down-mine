@@ -522,3 +522,14 @@ func test_the_prompt_line_hides_while_paused() -> void:
 	await tree.process_frame
 	assert_eq(hud.prompt_label.modulate.a, 0.0, "hidden under the Continue button")
 	tree.paused = false
+
+func test_the_prompt_line_makes_room_for_the_touch_buttons() -> void:
+	var hud := _hud(true)
+	await tree.process_frame
+	await tree.process_frame
+	assert_eq(hud.prompt_label.offset_left, -300.0 + HUD.TOUCH_PROMPT_SHIFT, "shifted left on touch, clear of the buy and Use buttons")
+	assert_eq(hud.prompt_label.offset_right, 300.0 + HUD.TOUCH_PROMPT_SHIFT, "the whole line moves")
+	TouchControls.force = false
+	await tree.process_frame
+	await tree.process_frame
+	assert_eq(hud.prompt_label.offset_left, -300.0, "centred on a keyboard")
