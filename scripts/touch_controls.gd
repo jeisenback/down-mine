@@ -80,7 +80,7 @@ static func layout_for(size: Vector2) -> Dictionary:
 	for i in range(3):
 		out["buy%d" % (i + 1)] = Rect2(use.position.x - 224.0 * u + i * 72.0 * u, size.y - m - 64.0 * u, 64.0 * u, 64.0 * u)
 	out["esc"] = Rect2(size.x - m - 56.0 * u, 72.0 * u, 56.0 * u, 56.0 * u)
-	out["continue"] = Rect2(size.x / 2.0 - 120.0 * u, size.y * 0.62, 240.0 * u, 72.0 * u)
+	out["continue"] = Rect2(size.x / 2.0 - 120.0 * u, size.y - m - 72.0 * u, 240.0 * u, 72.0 * u)
 	return out
 
 func _rect(widget: String) -> Rect2:
