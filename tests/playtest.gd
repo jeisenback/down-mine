@@ -58,6 +58,7 @@ func _run() -> void:
 		["hub_buy_crew_and_descend", _hub_buy_crew_and_descend],
 		["touch_controls_play", _touch_controls_play],
 		["touch_hub_buy", _touch_hub_buy],
+		["torches_light_the_early_mine", _torches_light_the_early_mine],
 	]
 	var failed := 0
 	for entry in scenarios:
@@ -418,6 +419,24 @@ func _shaft_ladder_climb() -> void:
 	await hold([KEY_W], 120)
 	check(start.y - _cell().y >= 8, "the old ladder climbs at least 8 rows (from row %d to %d)" % [start.y, _cell().y])
 	await shot("top")
+
+## The first shaft torch and one cave torch, with the lantern burnt out so only the torch lights
+## the ground; the torch's light must show the dark shaft around it.
+func _torches_light_the_early_mine() -> void:
+	await _in_shaft()
+	var shaft: Array = main.mine.torches.filter(func(t): return t.where == "shaft")
+	var caves: Array = main.mine.torches.filter(func(t): return t.where == "cave")
+	check(shaft.size() >= 8 and caves.size() == MineGrid.TORCH_CAVE_COUNT, "the mine has its torches (%d shaft, %d cave)" % [shaft.size(), caves.size()])
+	if shaft.is_empty() or caves.is_empty():
+		return
+	main.player.light.fuel = 0.0
+	await _place(shaft[1].cell + Vector2i(0, 1))
+	await frames(10)
+	check(MineLight.is_lit(self, main.player.global_position, main.player.light), "a shaft torch lights the miner beside it")
+	await shot("shaft_torch")
+	await _place(caves[0].cell)
+	await frames(10)
+	await shot("cave_torch")
 
 ## Crosses a missing piece by chaining two thrown ropes onto the next piece.
 func _shaft_ladder_gap() -> void:
