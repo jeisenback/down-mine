@@ -106,6 +106,10 @@ dictates.
 - ~~**M61 - Gentler early decay.**~~ Done: mine decay runs at half speed in Topsoil and Clay (the
   layer's `decay` multiplier is 2.0), so tunnels refill and floors crumble half as often while you are
   in the quiet layers. Deeper layers are unchanged. The number is a starting value to tune by hand-play.
+- ~~**M62 - Touch wording.**~~ Done (issue #61, from the UI/UX audit): with the touch controls showing, prompts,
+  the controls overlay, the title and the run summary name the buttons (Use, Tools, Continue, Help) instead
+  of keys; the top-right "Esc: controls" text is hidden, the ESC button is labelled HELP, and the prompt line
+  is hidden while paused so it no longer sits under Continue. Keyboard wording is unchanged.
 
 ## Quality pass
 

@@ -20,7 +20,7 @@ const TITLE_TEXT := """DOWN MINE
 Dig down through six layers to the Heart of the mine and bring it home.
 Rescue lost miners on the way. Keep your light burning and your noise low.
 
-Enter: start        Esc: controls"""
+%s: start        %s: controls"""
 const CONTROLS_TEXT := """CONTROLS  (Esc to close)
 
 A / D  move        W  jump (tap for a short hop; into a 2-tile ledge to mantle)
@@ -37,6 +37,19 @@ const HUB_CONTROLS_TEXT := """CONTROLS  (Esc to close)
 A / D  walk        W  jump
 1 2 3  buy at the building you stand beside
 E  join or leave the crew beside a miner, open the notice board, or go down the mine at the entrance"""
+
+# The same two overlays for the touch controls (milestone 62): the buttons, not the keys.
+const TOUCH_CONTROLS_TEXT := """CONTROLS  (Continue to close)
+
+Pad  left and right walk, up jumps, down digs down; down and a side digs stairs; push into rock to tunnel
+Dig  hold to dig forward (with the pad up: dig up)        Flare  hold to flare the light
+Use  a camp, lift, outpost, vault or relic - or extract at the surface
+Tools  rope, grapple, beam, ladder, lamp, anchor; at the base: repair, fortify, grow; plant the base"""
+const TOUCH_HUB_CONTROLS_TEXT := """CONTROLS  (Continue to close)
+
+Pad  left and right walk, up jumps
+1 2 3  buy at the building you stand beside
+Use  join or leave the crew beside a miner, open the notice board, or go down the mine at the entrance"""
 
 const DEBUG_TEXT := """
 
@@ -70,7 +83,9 @@ var _message: String = ""
 var _message_time: float = 0.0
 var overlay: ColorRect
 var seed_label: Label
-var _controls_text: String = CONTROLS_TEXT
+var _hub_mode: bool = false
+var _debug: bool = false
+var esc_hint: Label
 var _overlay_label: Label
 var _showing_title: bool = false
 
@@ -78,7 +93,7 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_build_overlay()
 	if not title_seen:
-		_show_overlay(TITLE_TEXT, true)
+		_show_overlay(TITLE_TEXT % [KeyHint.label("Enter", _touch()), KeyHint.label("Esc", _touch())], true)
 
 func _build_overlay() -> void:
 	overlay = ColorRect.new()
@@ -91,12 +106,12 @@ func _build_overlay() -> void:
 	_overlay_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_overlay_label.add_theme_font_size_override("font_size", 16)
 	overlay.add_child(_overlay_label)
-	var hint := Label.new()
-	hint.text = "Esc: controls"
-	hint.modulate = Color(1, 1, 1, 0.6)
-	hint.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 12)
-	hint.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	add_child(hint)
+	esc_hint = Label.new()
+	esc_hint.text = "Esc: controls"
+	esc_hint.modulate = Color(1, 1, 1, 0.6)
+	esc_hint.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 12)
+	esc_hint.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	add_child(esc_hint)
 	seed_label = Label.new()
 	seed_label.modulate = Color(1, 1, 1, 0.6)
 	seed_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 12)
@@ -111,14 +126,25 @@ func set_hub_mode() -> void:
 	for row in [fuel_label, health_label, layer_label, noise_label, noise_bar, ore_label, base_label, wave_label, lamp_label, escort_label]:
 		row.visible = false
 	compass.visible = false
-	_controls_text = HUB_CONTROLS_TEXT
+	_hub_mode = true
 
 ## Seed in the corner (to report or replay a mine); debug adds its keys
 ## to the controls overlay.
 func show_seed(mine_seed: int, debug: bool) -> void:
 	seed_label.text = "Seed %d%s" % [mine_seed, "  DEBUG" if debug else ""]
-	if debug:
-		_controls_text = CONTROLS_TEXT + DEBUG_TEXT
+	_debug = debug
+
+## Whether text should name the touch buttons rather than keys.
+func _touch() -> bool:
+	return TouchControls.wanted()
+
+## The controls overlay for what is on screen now: keyboard or touch, mine or hub.
+func _controls_text() -> String:
+	if _touch():
+		return TOUCH_HUB_CONTROLS_TEXT if _hub_mode else TOUCH_CONTROLS_TEXT
+	if _hub_mode:
+		return HUB_CONTROLS_TEXT
+	return CONTROLS_TEXT + (DEBUG_TEXT if _debug else "")
 
 func _show_overlay(text: String, is_title: bool) -> void:
 	_overlay_label.text = text
@@ -140,7 +166,7 @@ func _overlay_key(keycode: int) -> bool:
 		if overlay.visible and not _showing_title:
 			_hide_overlay()
 		else:
-			_show_overlay(_controls_text, false)
+			_show_overlay(_controls_text(), false)
 		return true
 	if overlay.visible and keycode in [KEY_ENTER, KEY_KP_ENTER]:
 		_hide_overlay()
@@ -148,6 +174,8 @@ func _overlay_key(keycode: int) -> bool:
 	return overlay.visible # swallow other keys while it's up
 
 func _process(delta: float) -> void:
+	esc_hint.visible = not _touch() # the ESC button is on screen (labelled HELP)
+	prompt_label.modulate.a = 0.0 if get_tree().paused else 1.0 # not under the Continue button
 	_message_time -= delta
 	if _message_time <= 0.0:
 		_message = ""
@@ -204,7 +232,8 @@ func update_wave(text: String, urgent: bool) -> void:
 ## bottom of the screen, hidden when there is nothing to do. A message
 ## (show_message) sits on the line above for a few seconds.
 func update_prompts(prompts: Array) -> void:
-	var lines := ([_message] if _message != "" else []) + (["     ".join(prompts)] if not prompts.is_empty() else [])
+	var shown := prompts.map(func(p): return KeyHint.prompt(p, _touch(), _hub_mode))
+	var lines := ([_message] if _message != "" else []) + (["     ".join(shown)] if not shown.is_empty() else [])
 	prompt_label.text = "\n".join(lines)
 	prompt_label.visible = not lines.is_empty()
 
@@ -259,7 +288,7 @@ func _point_arrow(arrow: Node2D, to_target: Vector2) -> void:
 ## (milestone 57); Enter goes there.
 func show_run_summary(title: String, success: bool, currency: int, depth: int, _progress: Progress, notes: Array = []) -> void:
 	var currency_line := "Ore banked: %d" % currency if success else "Ore lost: %d" % currency
-	var lines := [title, currency_line, "Depth reached: %d tiles" % depth] + notes + ["", "Enter: go to the hub"]
+	var lines := [title, currency_line, "Depth reached: %d tiles" % depth] + notes + ["", "%s: go to the hub" % KeyHint.label("Enter", _touch())]
 	run_summary_label.text = "\n".join(lines)
 	run_summary.visible = true
 	prompt_label.visible = false # run is over; no actions to prompt
