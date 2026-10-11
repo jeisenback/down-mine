@@ -23,6 +23,9 @@ const DIG_COOLDOWN := 0.11
 const DIG_DESCENT_SPEED := MineGrid.TILE_SIZE / DIG_COOLDOWN * 0.9 # ~131 px/s, 8 tiles/s
 const DIG_CENTRE_STEP := 2.0 # px per frame toward the dug column's centre
 const MAX_HEALTH := 3
+# Touch (milestone 58): with assist_dig on, pushing sideways into rock for this
+# long digs forward as if Space were held. The keyboard never sets the flag.
+const ASSIST_DIG_DELAY := 0.25
 # Milestone 49: with the lantern at zero and no other light on you, health
 # drains and you can't dig. Any other light suspends it.
 const DARK_DRAIN_SECONDS := 12.0
@@ -103,6 +106,8 @@ var mine: MineGrid
 var dig_timer: float = 0.0
 var facing: int = 1
 var health: int = MAX_HEALTH
+var assist_dig: bool = false
+var _push_time: float = 0.0
 ## Currency found this run, only banked on extraction (milestone 8) - lost
 ## if the run ends in death instead.
 var currency: int = 0
@@ -259,17 +264,28 @@ func _physics_process(delta: float) -> void:
 		stepped = _try_step_up(input_dir) if is_on_floor() else _try_mantle(input_dir)
 
 	var digging_forward := Input.is_physical_key_pressed(KEY_SPACE)
+	var assisted := _assist_push(delta, assist_dig and input_dir != 0.0 and is_on_wall() and not down_held and not stepped)
 	if down_held and input_dir != 0.0:
 		_dig_staircase()
 	elif down_held:
 		_dig_straight_down()
 	elif digging_forward and up_held:
 		_dig_straight_up()
-	elif digging_forward and not stepped:
+	elif (digging_forward or assisted) and not stepped:
 		_dig_forward(input_dir != 0.0)
 
 	light.set_flaring(Input.is_physical_key_pressed(KEY_SHIFT))
 	_move()
+
+## Assisted digging for touch: true once the player has pushed into rock for
+## ASSIST_DIG_DELAY, and false (with the timer reset) the moment they stop or
+## the assist is off. Only ever digs forward, never up.
+func _assist_push(delta: float, pushing: bool) -> bool:
+	if not assist_dig or not pushing:
+		_push_time = 0.0
+		return false
+	_push_time += delta
+	return _push_time >= ASSIST_DIG_DELAY
 
 ## Releasing up while still rising cuts the jump, once per jump.
 func _apply_jump_cut(up_held: bool) -> void:

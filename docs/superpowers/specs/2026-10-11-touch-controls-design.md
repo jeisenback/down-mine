@@ -29,6 +29,13 @@ Four buttons stay on screen (Dig, Flare, Use, Tools), plus the pad and a small E
 
 Buttons are at least 56 px square at the 648 px reference height, semi-transparent so they do not hide the mine, and drawn in the game's pixel style. Each button follows its own finger, so the pad, Dig and a tool can be held at once.
 
+## After the first phone test: assisted digging and firmer stairs
+
+The Dig button and the pad's automatic stairs felt awkward, so two touch-only changes (the keyboard is untouched):
+
+- **Pushing digs.** `Player.assist_dig` (set by `Main` whenever the touch controls are on screen) makes pushing sideways into rock for `Player.ASSIST_DIG_DELAY` (0.25 s) dig forward as if Space were held. It never digs up, leaves 1-tile bumps to the existing step-up, and the short delay keeps a graze against a wall from making dig noise. Dig stays as a button for digging up.
+- **Firmer stairs.** In `TouchPad.keys_for` the stronger axis still presses at `DEAD_ZONE` (0.3 of the radius) but the weaker axis of a diagonal needs `STAIR_ZONE` (0.5), so a drifting thumb does not start a staircase.
+
 ## Components
 
 - **`TouchControls`** (new, `scripts/touch_controls.gd`, `scenes/TouchControls.tscn`): a `CanvasLayer` above the HUD, running while paused. API: `set_mode(mode: String)` (`"mine"` or `"hub"`), `set_base_nearby(near: bool)`, `set_can_plant(allowed: bool)`, `set_tools_available(names: Array)` (which of the six tool items the menu lists; default all), `static func wanted() -> bool`, and `static var force: bool` (tests and the playtest set it to show the controls). Owns the layout, what shows in each mode and when paused.

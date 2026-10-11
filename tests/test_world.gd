@@ -1083,3 +1083,44 @@ func test_a_burrower_chews_for_the_current_tier_time() -> void:
 	assert_true(mid.mine.is_wall(mid.wall), "growing mid-chew: the longer time applies (3.2 s in)")
 	_step(mid.burrower, 0.5)
 	assert_true(not mid.mine.is_wall(mid.wall), "and it falls at 3.5 s")
+
+# --- assisted digging for touch (milestone 58) --------------------------------
+
+func test_a_push_digs_after_the_delay_only_when_assisted() -> void:
+	var player: Player = add(PlayerScene.instantiate())
+	player.set_physics_process(false)
+	assert_true(not player._assist_push(1.0, true), "assist off: never")
+	player.assist_dig = true
+	assert_true(not player._assist_push(Player.ASSIST_DIG_DELAY * 0.5, true), "pushing, but not for long enough")
+	assert_true(player._assist_push(Player.ASSIST_DIG_DELAY * 0.6, true), "pushed long enough")
+	assert_true(not player._assist_push(0.1, false), "not pushing: stops")
+	assert_true(not player._assist_push(Player.ASSIST_DIG_DELAY * 0.5, true), "the push time starts over")
+
+func _tunnel_run(assisted: bool) -> bool:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var start := _step_course(mine)
+	var player: Player = add(PlayerScene.instantiate())
+	player.mine = mine
+	player.assist_dig = assisted
+	player.global_position = mine.cell_to_world(start + Vector2i(6, 0)) # against the 2-tile wall
+	await physics_frames(10)
+	var wall := start + Vector2i(7, 0)
+	var held := InputEventKey.new()
+	held.physical_keycode = KEY_D
+	held.keycode = KEY_D
+	held.pressed = true
+	Input.parse_input_event(held)
+	await physics_frames(70)
+	var released := InputEventKey.new()
+	released.physical_keycode = KEY_D
+	released.keycode = KEY_D
+	released.pressed = false
+	Input.parse_input_event(released)
+	await physics_frames(2)
+	return not mine.is_solid(wall)
+
+func test_pushing_into_rock_digs_it_when_assisted() -> void:
+	assert_true(await _tunnel_run(true), "assisted: the wall was dug by pushing")
+
+func test_pushing_into_rock_does_not_dig_on_the_keyboard() -> void:
+	assert_true(not await _tunnel_run(false), "not assisted: walking into rock digs nothing")
