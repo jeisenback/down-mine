@@ -1247,7 +1247,8 @@ func test_the_same_seed_places_the_same_torches() -> void:
 	assert_true(differs, "other seeds put them elsewhere")
 
 func test_the_hard_hat_raises_the_players_maximum_health() -> void:
-	var player := _still_player(Vector2.ZERO, 1.0)
+	var player: Player = add(PlayerScene.instantiate()) # not _still_player, which sets health to 999
+	player.set_physics_process(false)
 	assert_eq(player.max_health, Player.MAX_HEALTH, "3 to start")
 	var p := Progress.new()
 	p.save_path = TEST_SAVE_PATH

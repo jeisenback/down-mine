@@ -248,7 +248,8 @@ func test_debug_actions_and_seed_display() -> void:
 	Progress.path_override = TEST_SAVE_PATH
 	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
 	await physics_frames(5)
-	assert_true(main.hud.seed_label.text.begins_with("Seed %d" % main.mine.mine_seed), "seed shown")
+	assert_true(main.hud._controls_text().contains("Seed %d" % main.mine.mine_seed), "seed shown in the controls overlay")
+	assert_true(not main.hud.seed_label.visible, "and not in the corner without debug")
 	assert_true(not main.debug_enabled, "debug off without the launch option")
 	main.debug_toggle_god()
 	var health: int = main.player.health
@@ -482,7 +483,7 @@ func test_the_hud_shows_the_live_depth_the_journal_refers_to() -> void:
 	main.player.set_physics_process(false)
 	main.player.global_position = main.mine.cell_to_world(Vector2i(40, main.mine.quiet_floor_row() + 10))
 	await tree.create_timer(0.2).timeout
-	assert_true(main.hud.layer_label.text.contains("depth %d" % main._current_depth()), "the layer line reads the depth (%s)" % main.hud.layer_label.text)
+	assert_true(main.hud.layer_label.text.contains("%d tiles deep" % main._current_depth()), "the layer line reads the depth (%s)" % main.hud.layer_label.text)
 	Progress.path_override = ""
 
 func test_the_lift_prompt_does_not_call_a_quiet_repair_loud() -> void:
