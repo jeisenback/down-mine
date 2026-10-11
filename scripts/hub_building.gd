@@ -13,6 +13,7 @@ const OFFERS := {
 	"bunkhouse": ["crew_bunk"],
 	"notice_board": [],
 }
+const NAMES := {"lamp_shop": "Lamp shop", "smithy": "Smithy", "bunkhouse": "Bunkhouse"}
 ## How close counts as beside it, on x only (the hub is a flat strip).
 const RANGE := 28.0
 
@@ -33,22 +34,28 @@ func buy(slot: int) -> bool:
 		return false
 	return progress.try_buy(list[slot - 1])
 
+## The building's name, then one line per offer: what it gives, its level and
+## cost, and how much ore is missing. Unlocks have one level, so they show none.
 func prompt() -> String:
 	if kind == "notice_board":
-		return "E: notice board"
-	var parts: Array = []
+		return "E: close the board" if board_open else "E: read the notice board"
+	var lines: Array = [NAMES.get(kind, kind)]
 	var list := offers()
 	for i in range(list.size()):
 		var upgrade: Dictionary = Progress.UPGRADES[list[i]]
 		var cost := progress.next_cost(list[i])
 		if cost < 0:
-			parts.append("%d: %s %s" % [i + 1, upgrade.name, "OWNED" if upgrade.max_level == 1 else "MAX"])
+			lines.append("%d: %s %s" % [i + 1, upgrade.name, "OWNED" if upgrade.max_level == 1 else "MAX"])
 			continue
-		var text := "%d: %s Lv %d/%d, %d ore" % [i + 1, upgrade.name, progress.level(list[i]), upgrade.max_level, cost]
+		var text: String
+		if upgrade.max_level == 1:
+			text = "%d: %s (%s), %d ore" % [i + 1, upgrade.name, upgrade.effect, cost]
+		else:
+			text = "%d: %s %s, Lv %d/%d, %d ore" % [i + 1, upgrade.name, upgrade.effect, progress.level(list[i]), upgrade.max_level, cost]
 		if progress.banked_ore < cost:
 			text += " (need %d more)" % (cost - progress.banked_ore)
-		parts.append(text)
-	return "     ".join(parts)
+		lines.append(text)
+	return "\n".join(lines)
 
 ## The notice board opens and closes.
 func toggle() -> void:
