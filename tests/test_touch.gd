@@ -159,30 +159,48 @@ func test_mine_mode_shows_its_widgets_and_hub_mode_its_own() -> void:
 		assert_true(not hub.has(name), "hub hides %s" % name)
 	_done()
 
-func test_tools_row_opens_and_closes() -> void:
+func _open_menu(c: TouchControls) -> void:
+	var tools: Rect2 = TouchControls.layout_for(SIZE)["tools"]
+	c.touch(0, tools.get_center(), true)
+	c.touch(0, tools.get_center(), false)
+
+func test_tools_menu_opens_and_closes() -> void:
 	var c := _fresh()
-	var layout := TouchControls.layout_for(SIZE)
-	c.touch(0, layout["tools"].get_center(), true)
-	c.touch(0, layout["tools"].get_center(), false)
+	_open_menu(c)
 	for name in TouchControls.TOOL_ROW:
-		assert_true(c.visible_widgets().has(name), "%s shows in the open row" % name)
+		assert_true(c.visible_widgets().has(name), "%s is in the open menu" % name)
+	var layout := TouchControls.layout_for(SIZE)
 	c.touch(0, layout["tool_rope"].get_center(), true)
 	assert_true(TouchKeys.is_down(KEY_R), "the rope key is pressed")
-	assert_true(not c.visible_widgets().has("tool_rope"), "the row closed")
+	assert_true(not c.visible_widgets().has("tool_rope"), "the menu closed")
 	c.touch(0, layout["tool_rope"].get_center(), false)
 	_done()
 
-func test_base_cluster_follows_set_base_nearby() -> void:
+func test_tools_menu_lists_only_available_tools() -> void:
 	var c := _fresh()
-	assert_true(not c.visible_widgets().has("base_plant"), "hidden away from the base")
+	c.set_tools_available(["tool_rope", "tool_grapple", "tool_beam"])
+	_open_menu(c)
+	var shown := c.visible_widgets()
+	for name in ["tool_rope", "tool_grapple", "tool_beam"]:
+		assert_true(shown.has(name), "%s is available" % name)
+	for name in ["tool_ladder", "tool_lamp", "tool_anchor"]:
+		assert_true(not shown.has(name), "%s is not unlocked yet" % name)
+	_done()
+
+func test_base_items_are_in_the_menu_only_near_the_base() -> void:
+	var c := _fresh()
+	assert_true(not c.visible_widgets().has("base_plant"), "not shown with the menu closed")
+	_open_menu(c)
+	assert_true(not c.visible_widgets().has("base_plant"), "not in the menu away from the base")
 	c.set_base_nearby(true)
 	for name in ["base_plant", "base_repair", "base_fortify", "base_grow"]:
-		assert_true(c.visible_widgets().has(name), "%s shows at the base" % name)
+		assert_true(c.visible_widgets().has(name), "%s is in the menu at the base" % name)
 	c.touch(0, TouchControls.layout_for(SIZE)["base_repair"].get_center(), true)
 	assert_true(TouchKeys.is_down(KEY_F), "Repair is held")
+	assert_true(not c.visible_widgets().has("base_repair"), "the menu closed, the key stays down")
+	assert_true(TouchKeys.is_down(KEY_F), "still held until the finger lifts")
 	c.set_base_nearby(false)
 	assert_true(not TouchKeys.is_down(KEY_F), "leaving the base lets go of Repair")
-	assert_true(not c.visible_widgets().has("base_plant"), "hidden again")
 	_done()
 
 func test_paused_shows_only_continue_and_esc() -> void:

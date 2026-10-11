@@ -40,6 +40,7 @@ const WIDGETS := {
 	"pad": {"keys": [], "hold": true, "modes": ["mine", "hub"]},
 }
 const TOOL_ROW := ["tool_rope", "tool_ladder", "tool_anchor", "tool_lamp", "tool_beam", "tool_grapple"]
+const BASE_ROW := ["base_plant", "base_repair", "base_fortify", "base_grow"]
 const PAD_KEYS := [KEY_A, KEY_D, KEY_W, KEY_S]
 
 var mode: String = "mine"
@@ -48,6 +49,8 @@ var mode: String = "mine"
 var layout_size: Vector2 = Vector2(1152, 648)
 var tools_open: bool = false
 var base_nearby: bool = false
+## Which tool items the menu lists (the hub unlocks Ladder, Lamp and Anchor).
+var tools_available: Array = TOOL_ROW.duplicate()
 var canvas: Control
 var rotate_hint: Label
 var _was_paused: bool = false
@@ -73,17 +76,38 @@ static func layout_for(size: Vector2) -> Dictionary:
 	var tools := Rect2(use.position.x + 6.0 * u, use.position.y - 76.0 * u, 64.0 * u, 64.0 * u)
 	out["tools"] = tools
 	for i in range(TOOL_ROW.size()):
-		out[TOOL_ROW[i]] = Rect2(tools.position.x + 2.0 * u, tools.position.y - (i + 1) * 68.0 * u, 60.0 * u, 60.0 * u)
-	var base_names := ["base_plant", "base_repair", "base_fortify", "base_grow"]
-	for i in range(4):
-		out[base_names[i]] = Rect2(use.position.x - 152.0 * u + (i % 2) * 72.0 * u, size.y - m - 64.0 * u - (i / 2) * 72.0 * u, 64.0 * u, 64.0 * u)
+		out[TOOL_ROW[i]] = menu_rect(0, i, size)
+	for j in range(BASE_ROW.size()):
+		out[BASE_ROW[j]] = menu_rect(1, j, size)
 	for i in range(3):
 		out["buy%d" % (i + 1)] = Rect2(use.position.x - 224.0 * u + i * 72.0 * u, size.y - m - 64.0 * u, 64.0 * u, 64.0 * u)
 	out["esc"] = Rect2(size.x - m - 56.0 * u, 72.0 * u, 56.0 * u, 56.0 * u)
 	out["continue"] = Rect2(size.x / 2.0 - 120.0 * u, size.y - m - 72.0 * u, 240.0 * u, 72.0 * u)
 	return out
 
+## One slot of the Tools menu, packed upward from the Tools button: column 0
+## holds the tools, column 1 (to its left) the base actions.
+static func menu_rect(column: int, slot: int, size: Vector2) -> Rect2:
+	var u := size.y / 648.0
+	var tools: Rect2 = layout_for_tools_button(size)
+	return Rect2(tools.position.x + 2.0 * u - column * 68.0 * u, tools.position.y - (slot + 1) * 68.0 * u, 60.0 * u, 60.0 * u)
+
+static func layout_for_tools_button(size: Vector2) -> Rect2:
+	var u := size.y / 648.0
+	var m := 24.0 * u
+	var dig_x := size.x - m - 100.0 * u
+	var use_x := dig_x - 88.0 * u
+	return Rect2(use_x + 6.0 * u, size.y - m - 76.0 * u - 76.0 * u, 64.0 * u, 64.0 * u)
+
+## Where a widget is right now. Menu items pack up from the Tools button
+## among the items actually listed, so a missing tool leaves no gap.
 func _rect(widget: String) -> Rect2:
+	if widget.begins_with("tool_") or widget.begins_with("base_"):
+		var column := 0 if widget.begins_with("tool_") else 1
+		var listed := visible_widgets().filter(func(w): return w.begins_with("tool_" if column == 0 else "base_"))
+		var slot := listed.find(widget)
+		if slot >= 0:
+			return menu_rect(column, slot, layout_size)
 	return layout_for(layout_size)[widget]
 
 ## Whether the controls are wanted at all: a touch screen, a first real touch,
@@ -105,9 +129,9 @@ func visible_widgets() -> Array:
 	for widget in WIDGETS:
 		if not WIDGETS[widget].modes.has(mode):
 			continue
-		if widget.begins_with("tool_") and not tools_open:
+		if widget.begins_with("tool_") and not (tools_open and tools_available.has(widget)):
 			continue
-		if widget.begins_with("base_") and not base_nearby:
+		if widget.begins_with("base_") and not (tools_open and base_nearby):
 			continue
 		out.append(widget)
 	return out
@@ -116,6 +140,9 @@ func set_mode(new_mode: String) -> void:
 	mode = new_mode
 	tools_open = false
 	release_all()
+
+func set_tools_available(names: Array) -> void:
+	tools_available = names.duplicate()
 
 func set_base_nearby(near: bool) -> void:
 	if near == base_nearby:
@@ -178,7 +205,7 @@ func _press(widget: String, position: Vector2) -> void:
 		return
 	for key in WIDGETS[widget].keys:
 		TouchKeys.set_key(key, true)
-	if widget.begins_with("tool_"):
+	if widget.begins_with("tool_") or widget.begins_with("base_"):
 		tools_open = false
 
 func _lift(widget: String) -> void:
