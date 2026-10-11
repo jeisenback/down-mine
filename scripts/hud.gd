@@ -36,13 +36,13 @@ Shift  flare the light        Q  grapple up, or to an anchor
 R  rope up (S+R: down over an edge)        T  ladder        G  anchor        L  lamp
 E  use a camp, lift, outpost, vault or relic - or extract at the surface
 P  plant the base here        F (hold)  repair base        B  fortify base
-1  support beam        2  beacon        3  alarm bell
+1  support beam        U  grow the base (Outpost: beacon, Fort: alarm bell)
 
 At the hub:  1-6 buy upgrades,  A-J choose crew,  L  recent runs,  Enter  new run"""
 
 const DEBUG_TEXT := """
 
-DEBUG:  I god mode    O +100 ore    U refill light
+DEBUG:  I god mode    O +100 ore    Y refill light
 N teleport to next event    K drop to next layer    M reveal map"""
 
 ## Session-wide, so the title shows once per launch, not every new run.
@@ -198,7 +198,7 @@ func update_currency(amount: int) -> void:
 
 ## Status only; what the player can do right now goes on the prompt line.
 func update_base(run_base: RunBase, under_attack: bool, walls: int) -> void:
-	base_label.text = "Base: %d/%d  walls %d%s" % [run_base.health, run_base.MAX_HEALTH, walls, "  UNDER ATTACK" if under_attack else ""]
+	base_label.text = "Base: %s %d/%d  walls %d%s" % [run_base.tier_name(), run_base.health, run_base.max_health(), walls, "  UNDER ATTACK" if under_attack else ""]
 	base_label.modulate = Color(1, 0.4, 0.3) if under_attack else Color(1, 1, 1)
 
 ## The wave line under Base (milestone 55): when the next wave comes. Red when

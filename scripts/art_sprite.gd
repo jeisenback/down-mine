@@ -11,7 +11,7 @@ class_name ArtSprite
 const CREATURE_KINDS := ["stalker", "burrower", "snuffer", "fuel", "ore"]
 const GEAR_KINDS := ["player", "flag", "beacon", "bell", "support", "lamp", "ladder", "rope", "anchor",
 	"camp", "lift", "outpost", "nest", "heart", "relic", "vault", "lost", "sign", "gas",
-	"bench", "lantern_post", "muffling_post", "rope_rack"]
+	"bench", "lantern_post", "muffling_post", "rope_rack", "palisade", "rampart"]
 
 @export var kind: String = ""
 @export var cell: Vector2i = Vector2i(48, 48)

@@ -88,7 +88,7 @@ func test_burrower_must_chew_through_walls() -> void:
 	await physics_frames(90) # reaches the wall, then starts chewing
 	assert_true(mine.is_wall(wall_cell), "wall still standing after 1.5s")
 	assert_true(mine.world_to_cell(burrower.global_position).y > wall_cell.y, "held below the wall")
-	await physics_frames(150) # WALL_CHEW_TIME is 2.5s
+	await physics_frames(150) # a Camp wall holds 2.5s
 	assert_true(not mine.is_wall(wall_cell), "chewed through")
 
 func test_quirks_apply_their_effects() -> void:
@@ -965,3 +965,121 @@ func test_the_base_light_hurts_only_burrowers() -> void:
 	_step(rig.burrower, 5.0)
 	assert_eq(rig.player.health, health, "the player is unhurt")
 	assert_eq(rig.player.light.fuel, fuel, "and their lantern untouched")
+
+# --- the base grows in tiers (run base as a settlement, milestone 56) ----------------------
+
+func test_tier_table_values() -> void:
+	var base := _base(Vector2.ZERO)
+	var names := ["Camp", "Outpost", "Fort"]
+	var health := [3, 4, 5]
+	var fuel := [200.0, 260.0, 340.0]
+	var chew := [2.5, 3.5, 5.0]
+	var cost := [70, 120, -1]
+	for i in range(3):
+		assert_eq(base.tier_name(), names[i], "name at tier %d" % i)
+		assert_eq(base.max_health(), health[i], "max health at tier %d" % i)
+		assert_eq(base.light.max_fuel, fuel[i], "light capacity at tier %d" % i)
+		assert_eq(base.wall_chew_time(), chew[i], "wall time at tier %d" % i)
+		assert_eq(base.next_tier_cost(), cost[i], "cost of the next tier from tier %d" % i)
+		if i < 2:
+			assert_true(base.grow(), "grows from tier %d" % i)
+
+func test_growing_heals_refills_and_signals() -> void:
+	var base := _base(Vector2.ZERO)
+	base.health = 1
+	base.light.fuel = 10.0
+	var seen: Array = []
+	base.health_changed.connect(func(h, m): seen.append([h, m]))
+	assert_true(base.grow(), "grew")
+	assert_eq(base.health, 4, "healed to the new max")
+	assert_eq(base.light.fuel, 260.0, "light refilled to the new capacity")
+	assert_eq(seen.back(), [4, 4], "the signal carries the new max")
+
+func test_the_beacon_arrives_with_the_outpost_and_the_bell_with_the_fort() -> void:
+	var base := _base(Vector2.ZERO)
+	var radius_max: float = base.light.radius_max
+	var radius_min: float = base.light.radius_min
+	var burn: float = base.light.burn_rate
+	assert_true(not base.has_beacon and not base.has_bell, "a Camp has neither")
+	base.grow()
+	assert_true(base.has_beacon and not base.has_bell, "the Outpost has the beacon")
+	assert_true(is_equal_approx(base.light.radius_max, radius_max * 1.5), "reach x1.5")
+	assert_true(is_equal_approx(base.light.radius_min, radius_min * 1.5), "minimum reach x1.5")
+	assert_true(is_equal_approx(base.light.burn_rate, burn * 1.5), "burns x1.5")
+	base.grow()
+	assert_true(base.has_bell, "the Fort has the bell")
+	assert_true(is_equal_approx(base.light.radius_max, radius_max * 1.5), "the beacon is not applied twice")
+	assert_true(is_equal_approx(base.light.burn_rate, burn * 1.5), "nor its burn")
+
+func test_grow_is_refused_at_the_top_and_when_fallen() -> void:
+	var base := _base(Vector2.ZERO)
+	base.grow()
+	base.grow()
+	base.health = 2
+	base.light.fuel = 50.0
+	assert_true(not base.grow(), "nothing above the Fort")
+	assert_eq(base.tier, 2, "tier unchanged")
+	assert_eq(base.health, 2, "health unchanged")
+	assert_eq(base.light.fuel, 50.0, "fuel unchanged")
+	var fallen := _base(Vector2.ZERO)
+	fallen.health = 0
+	assert_true(not fallen.grow(), "a fallen base cannot grow")
+	assert_eq(fallen.tier, 0, "still a Camp")
+
+func test_max_health_is_per_tier_everywhere() -> void:
+	var base := _base(Vector2.ZERO)
+	base.grow()
+	base.health = 3
+	assert_true(base.needs_repair(), "3/4 needs repair")
+	var seen: Array = []
+	base.health_changed.connect(func(h, m): seen.append([h, m]))
+	assert_true(base.tick_repair(RunBase.REPAIR_TIME, 100), "repair completes a point")
+	assert_eq(base.health, 4, "up to the new max")
+	assert_true(not base.needs_repair(), "4/4 is whole")
+	assert_true(not base.tick_repair(RunBase.REPAIR_TIME, 100), "no repair past the max")
+	base.heal(5)
+	assert_eq(base.health, 4, "heal stops at the tier's max")
+	base.take_hit(1)
+	assert_eq(seen.back(), [3, 4], "damage reports the tier's max")
+
+## A reinforced wall one tile above a Burrower on its way to a base 5 tiles
+## above it, with the base light dark so only chewing matters.
+func _wall_rig() -> Dictionary:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var player := _still_player(Vector2(-5000, -5000), 1.0)
+	var base := _base(mine.cell_to_world(Vector2i(40, 100)))
+	base.light.fuel = 0.0
+	base.light.burn_rate = 0.0
+	var wall_cell := Vector2i(40, 104)
+	for y in range(101, 112):
+		mine.set_cell(0, Vector2i(40, y), mine.source_id, Vector2i(1, 0))
+	mine.reinforce(wall_cell)
+	var burrower: Burrower = add(BurrowerScene.instantiate())
+	burrower.mine = mine
+	burrower.player = player
+	burrower.target = base
+	burrower.global_position = mine.cell_to_world(Vector2i(40, 105)) + Vector2(0, -7.9) # at the wall
+	burrower.set_physics_process(false)
+	return {"mine": mine, "base": base, "burrower": burrower, "wall": wall_cell}
+
+func test_a_burrower_chews_for_the_current_tier_time() -> void:
+	var camp := _wall_rig()
+	_step(camp.burrower, 2.3)
+	assert_true(camp.mine.is_wall(camp.wall), "still standing at 2.3 s")
+	_step(camp.burrower, 0.5)
+	assert_true(not camp.mine.is_wall(camp.wall), "chewed through by 2.8 s at the Camp")
+	var outpost := _wall_rig()
+	outpost.base.grow()
+	outpost.base.light.fuel = 0.0 # keep the light dark: only the wall time differs
+	_step(outpost.burrower, 3.3)
+	assert_true(outpost.mine.is_wall(outpost.wall), "an Outpost wall still stands at 3.3 s")
+	_step(outpost.burrower, 0.4)
+	assert_true(not outpost.mine.is_wall(outpost.wall), "and falls by 3.7 s")
+	var mid := _wall_rig()
+	_step(mid.burrower, 1.0) # a second into chewing at the Camp
+	mid.base.grow()
+	mid.base.light.fuel = 0.0
+	_step(mid.burrower, 2.2)
+	assert_true(mid.mine.is_wall(mid.wall), "growing mid-chew: the longer time applies (3.2 s in)")
+	_step(mid.burrower, 0.5)
+	assert_true(not mid.mine.is_wall(mid.wall), "and it falls at 3.5 s")

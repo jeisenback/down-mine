@@ -14,7 +14,8 @@ const ATTACK_RANGE := 14.0
 const ATTACK_COOLDOWN := 2.0
 # The drawn mandibles stay wide for this long after a strike (milestone 53).
 const STRIKE_POSE_SECONDS := 0.4
-const WALL_CHEW_TIME := 2.5 # seconds per reinforced tile; plain rock is instant
+# A reinforced tile holds it for the base's wall_chew_time() (tier-dependent);
+# plain rock is instant.
 # Rhythm of threat (milestone 55): the base light fights back. Inside its
 # radius a Burrower is slowed like it is in the player's light, and loses this
 # much health a second times the light's fuel fraction (tripled while the player
@@ -76,7 +77,7 @@ func _physics_process(delta: float) -> void:
 	var next_cell := mine.world_to_cell(next_position)
 	if mine.is_wall(next_cell):
 		_chew_timer += delta
-		if _chew_timer >= WALL_CHEW_TIME:
+		if _chew_timer >= target.wall_chew_time():
 			_chew_timer = 0.0
 			mine.dig_cells([next_cell], false)
 		return

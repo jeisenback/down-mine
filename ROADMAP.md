@@ -178,6 +178,14 @@ dictates.
   settlement (#37) and the hub as a kingdom (#38). Spec:
   `docs/superpowers/specs/2026-10-10-rhythm-of-threat-design.md`; plan:
   `docs/superpowers/plans/2026-10-10-rhythm-of-threat.md`.
+- ~~**M56 - The run base as a settlement.**~~ Done: the base grows in three tiers
+  (Camp, Outpost, Fort) bought with one key (U) and carried ore, raising its max
+  health (3, 4, 5), its light's fuel (200, 260, 340) and how long a reinforced wall holds
+  a Burrower (2.5, 3.5, 5 s); the Outpost brings the beacon and the Fort the bell (so the
+  2 and 3 keys are gone and the wave size on the HUD needs the Fort); a palisade and a stone
+  rampart show the tiers. Piece 3 of 4 of the Two Crowns inspired design (#37); next is the
+  hub as a kingdom (#38). Spec: `docs/superpowers/specs/2026-10-10-run-base-settlement-design.md`;
+  plan: `docs/superpowers/plans/2026-10-10-run-base-settlement.md`.
 - **Tuning knobs to revisit in M22:** dig noise per tile (6), the
   Stalker's strike threshold (25% light), lantern size (60s - a dive to
   the Heart is now ~55s one way), stranded drift (5 runs to die now,

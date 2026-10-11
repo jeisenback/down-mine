@@ -51,6 +51,7 @@ func _run() -> void:
 		["shaft_lift_ride", _shaft_lift_ride],
 		["shaft_lift_from_the_ladder", _shaft_lift_from_the_ladder],
 		["shaft_from_below", _shaft_from_below],
+		["base_grows_in_tiers", _base_grows_in_tiers],
 		["wave_meets_the_base_light", _wave_meets_the_base_light],
 		["drawn_art_on_screen", _drawn_art_on_screen],
 		["crew_jobs_at_work", _crew_jobs_at_work],
@@ -786,3 +787,37 @@ func _wave_meets_the_base_light() -> void:
 	Engine.time_scale = 1.0
 	check(base.health < RunBase.MAX_HEALTH, "a nearly empty light let them through (%d)" % base.health)
 	await shot("thin light")
+
+## U at the base buys the Outpost and then the Fort with the real key: the HUD
+## line, max health, light capacity, props and ore all follow the table, a
+## third press changes nothing, and replanting keeps the tier.
+func _base_grows_in_tiers() -> void:
+	await _start_game()
+	var base: RunBase = main.run_base
+	main.player.currency = 250
+	main.player.global_position = base.global_position + Vector2(0, 15) # a run starts 40 px off: stand at the base
+	main.player.velocity = Vector2.ZERO
+	await frames(5)
+	check(main.hud.base_label.text.begins_with("Base: Camp 3/3"), "starts as a Camp (%s)" % main.hud.base_label.text)
+	await tap(KEY_U)
+	await frames(2)
+	check(base.tier == 1 and base.max_health() == 4 and base.health == 4, "an Outpost at 4/4 (tier %d health %d)" % [base.tier, base.health])
+	check(base.light.max_fuel == 260.0 and base.light.fuel > 255.0, "its light holds 260 and was filled (%.1f)" % base.light.fuel)
+	check(main.player.currency == 180, "70 ore paid (%d left)" % main.player.currency)
+	check(main.hud.base_label.text.begins_with("Base: Outpost 4/4"), "the HUD says so (%s)" % main.hud.base_label.text)
+	check(base.get_node("Palisade").visible and base.get_node("Beacon").visible and not base.get_node("Rampart").visible, "palisade and beacon, no rampart")
+	await shot("outpost")
+	await tap(KEY_U)
+	await frames(2)
+	check(base.tier == 2 and base.health == 5 and base.light.max_fuel == 340.0, "a Fort at 5/5 with a 340 light")
+	check(main.player.currency == 60, "120 more ore paid (%d left)" % main.player.currency)
+	check(main.hud.base_label.text.begins_with("Base: Fort 5/5"), "the HUD says so (%s)" % main.hud.base_label.text)
+	check(base.get_node("Rampart").visible and not base.get_node("Palisade").visible and base.get_node("Bell").visible, "rampart and bell, the palisade is gone")
+	await shot("fort")
+	main.player.currency = 500
+	await tap(KEY_U)
+	check(base.tier == 2 and main.player.currency == 500, "a third press changes nothing")
+	var rampart_offset: Vector2 = base.get_node("Rampart").global_position - base.global_position
+	base.global_position += Vector2(200, 0)
+	main._place_crew_at_base()
+	check(base.tier == 2 and base.get_node("Rampart").global_position - base.global_position == rampart_offset, "replanting keeps the tier and the props follow")
