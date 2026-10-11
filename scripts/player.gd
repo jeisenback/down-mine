@@ -109,6 +109,8 @@ var mine: MineGrid
 var dig_timer: float = 0.0
 var facing: int = 1
 var health: int = MAX_HEALTH
+## Starting health, hard hat included (set by Progress.apply_to); the HUD shows it.
+var max_health: int = MAX_HEALTH
 var assist_dig: bool = false
 var _push_time: float = 0.0
 ## Currency found this run, only banked on extraction (milestone 8) - lost

@@ -61,6 +61,7 @@ N teleport to next event    K drop to next layer    M reveal map"""
 static var title_seen: bool = false
 
 @onready var fuel_label: Label = $Margin/VBox/FuelLabel
+@onready var fuel_bar: ProgressBar = $Margin/VBox/FuelBar
 @onready var health_label: Label = $Margin/VBox/HealthLabel
 @onready var layer_label: Label = $Margin/VBox/LayerLabel
 @onready var noise_label: Label = $Margin/VBox/NoiseLabel
@@ -86,14 +87,28 @@ var seed_label: Label
 var _hub_mode: bool = false
 var _debug: bool = false
 var esc_hint: Label
+var compass_label: Label
+var _seed: int = 0
 var _overlay_label: Label
 var _showing_title: bool = false
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_build_overlay()
+	_style_labels()
 	if not title_seen:
 		_show_overlay(TITLE_TEXT % [KeyHint.label("Enter", _touch()), KeyHint.label("Esc", _touch())], true)
+
+## Light and Health are the survival stats, so they are larger; every label gets
+## a dark outline so it reads over bright ground as well as in the dark.
+func _style_labels() -> void:
+	var labels: Array = $Margin/VBox.get_children().filter(func(c): return c is Label)
+	labels += [prompt_label, esc_hint, seed_label, compass_label]
+	for label in labels:
+		label.add_theme_constant_override("outline_size", 3)
+		label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	for label in [fuel_label, health_label]:
+		label.add_theme_font_size_override("font_size", 22)
 
 func _build_overlay() -> void:
 	overlay = ColorRect.new()
@@ -117,21 +132,31 @@ func _build_overlay() -> void:
 	seed_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 12)
 	seed_label.position.y += 24
 	seed_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	seed_label.visible = false # the seed lives in the controls overlay; only the debug tag shows
 	add_child(seed_label)
+	compass_label = Label.new()
+	compass_label.text = "Base"
+	compass_label.modulate = Color(1, 0.85, 0.3, 0.9)
+	compass_label.add_theme_font_size_override("font_size", 12)
+	compass_label.visible = false
+	add_child(compass_label)
 	add_child(overlay)
 
 ## The hub shows only the banked ore and the prompt line: the mine's
 ## status rows and the compass are hidden, and Esc shows the hub's controls.
 func set_hub_mode() -> void:
-	for row in [fuel_label, health_label, layer_label, noise_label, noise_bar, ore_label, base_label, wave_label, lamp_label, escort_label]:
+	for row in [fuel_label, fuel_bar, health_label, layer_label, noise_label, noise_bar, ore_label, base_label, wave_label, lamp_label, escort_label]:
 		row.visible = false
 	compass.visible = false
+	compass_label.visible = false
 	_hub_mode = true
 
 ## Seed in the corner (to report or replay a mine); debug adds its keys
 ## to the controls overlay.
 func show_seed(mine_seed: int, debug: bool) -> void:
-	seed_label.text = "Seed %d%s" % [mine_seed, "  DEBUG" if debug else ""]
+	_seed = mine_seed
+	seed_label.text = "DEBUG"
+	seed_label.visible = debug
 	_debug = debug
 
 ## Whether text should name the touch buttons rather than keys.
@@ -140,11 +165,12 @@ func _touch() -> bool:
 
 ## The controls overlay for what is on screen now: keyboard or touch, mine or hub.
 func _controls_text() -> String:
+	var text := CONTROLS_TEXT + (DEBUG_TEXT if _debug else "")
 	if _touch():
-		return TOUCH_HUB_CONTROLS_TEXT if _hub_mode else TOUCH_CONTROLS_TEXT
-	if _hub_mode:
-		return HUB_CONTROLS_TEXT
-	return CONTROLS_TEXT + (DEBUG_TEXT if _debug else "")
+		text = TOUCH_HUB_CONTROLS_TEXT if _hub_mode else TOUCH_CONTROLS_TEXT
+	elif _hub_mode:
+		text = HUB_CONTROLS_TEXT
+	return text + ("\n\nSeed %d" % _seed if _seed != 0 else "")
 
 func _show_overlay(text: String, is_title: bool) -> void:
 	_overlay_label.text = text
@@ -192,11 +218,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	if key.physical_keycode in [KEY_ENTER, KEY_KP_ENTER]:
 		new_run_requested.emit()
 
+const LOW_LIGHT_FRACTION := 0.25
+const WARNING_COLOR := Color(1, 0.4, 0.3)
+
 func update_fuel(fraction: float) -> void:
 	fuel_label.text = "Light: %d%%" % int(fraction * 100)
+	fuel_bar.value = fraction * 100.0
+	fuel_bar.modulate = WARNING_COLOR if fraction < LOW_LIGHT_FRACTION else Color(1, 1, 1)
 
-func update_health(health: int) -> void:
-	health_label.text = "Health: %d" % max(0, health)
+func update_health(health: int, max_health: int) -> void:
+	health_label.text = "Health: %d/%d" % [max(0, health), max_health]
+	health_label.modulate = WARNING_COLOR if health <= 1 else Color(1, 1, 1)
 
 func update_layer(text: String) -> void:
 	layer_label.text = text
@@ -273,14 +305,17 @@ func update_compass(to_target: Vector2) -> void:
 func _point_arrow(arrow: Node2D, to_target: Vector2) -> void:
 	if to_target.length_squared() < ARRIVAL_RADIUS * ARRIVAL_RADIUS:
 		arrow.visible = false
+		compass_label.visible = false
 		return
 	arrow.visible = true
+	compass_label.visible = true
 	var direction := to_target.normalized()
 	var viewport_size := get_viewport().get_visible_rect().size
 	var center := viewport_size / 2.0
 	var radius: float = max(0.0, min(center.x, center.y) - COMPASS_MARGIN)
 	arrow.position = center + direction * radius
 	arrow.rotation = direction.angle()
+	compass_label.position = arrow.position - direction * 30.0 - compass_label.get_minimum_size() / 2.0
 
 ## Right now a run only ever ends by dying or reaching this. Without a
 ## visible outcome it just looked like the game froze - this makes an

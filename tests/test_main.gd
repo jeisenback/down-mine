@@ -911,3 +911,64 @@ func test_e_held_from_the_hub_does_not_extract_the_new_run() -> void:
 	Input.parse_input_event(release)
 	tree.paused = false
 	Progress.path_override = ""
+
+# HUD hierarchy and clarity (milestone 63).
+
+func _plain_hud() -> HUD:
+	HUD.title_seen = true
+	TouchControls.force = false
+	return add(load("res://scenes/HUD.tscn").instantiate())
+
+func test_health_shows_its_maximum_and_warns_at_one() -> void:
+	var hud := _plain_hud()
+	hud.update_health(2, 4)
+	assert_eq(hud.health_label.text, "Health: 2/4", "current over maximum")
+	assert_eq(hud.health_label.modulate, Color(1, 1, 1), "no warning at 2")
+	hud.update_health(1, 4)
+	assert_true(hud.health_label.modulate.g < 0.6, "red at 1")
+	hud.update_health(0, 4)
+	assert_eq(hud.health_label.text, "Health: 0/4", "never negative")
+
+func test_the_light_has_a_bar_that_turns_red_when_low() -> void:
+	var hud := _plain_hud()
+	hud.update_fuel(0.8)
+	assert_eq(hud.fuel_label.text, "Light: 80%", "the label is unchanged")
+	assert_eq(hud.fuel_bar.value, 80.0, "the bar follows the light")
+	assert_eq(hud.fuel_bar.modulate, Color(1, 1, 1), "not red while healthy")
+	hud.update_fuel(0.2)
+	assert_true(hud.fuel_bar.modulate.g < 0.6, "red under a quarter")
+
+func test_light_and_health_are_larger_and_every_label_is_outlined() -> void:
+	var hud := _plain_hud()
+	var big := hud.fuel_label.get_theme_font_size("font_size")
+	assert_true(big > hud.ore_label.get_theme_font_size("font_size"), "Light is larger than Ore")
+	assert_eq(hud.health_label.get_theme_font_size("font_size"), big, "Health matches Light")
+	for label in [hud.fuel_label, hud.health_label, hud.layer_label, hud.ore_label, hud.banked_label, hud.base_label, hud.prompt_label, hud.esc_hint]:
+		assert_true(label.get_theme_constant("outline_size") >= 3, "%s is outlined" % label.name)
+
+func test_the_seed_is_in_the_controls_overlay_not_the_corner() -> void:
+	var hud := _plain_hud()
+	hud.show_seed(1001, false)
+	assert_true(not hud.seed_label.visible, "no seed in the corner")
+	hud._overlay_key(KEY_ESCAPE)
+	assert_true(hud._overlay_label.text.contains("Seed 1001"), "the overlay carries it")
+	hud._overlay_key(KEY_ESCAPE)
+	hud.show_seed(1001, true)
+	assert_true(hud.seed_label.visible and hud.seed_label.text.contains("DEBUG"), "debug mode keeps its tag")
+	tree.paused = false
+
+func test_the_compass_label_follows_the_arrow() -> void:
+	var hud := _plain_hud()
+	hud.update_compass(Vector2(500, 0))
+	assert_true(hud.compass_label.visible and hud.compass.visible, "shown with the arrow")
+	assert_eq(hud.compass_label.text, "Base", "it says what the arrow points to")
+	assert_true(hud.compass_label.position.distance_to(hud.compass.position) < 60.0, "next to the arrow")
+	hud.update_compass(Vector2.ZERO)
+	assert_true(not hud.compass_label.visible, "hidden when the arrow is")
+
+func test_the_layer_line_counts_in_tiles() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	assert_true(main.hud.layer_label.text.contains("tiles deep") and not main.hud.layer_label.text.contains("depth"), main.hud.layer_label.text)
+	Progress.path_override = ""

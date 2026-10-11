@@ -353,6 +353,7 @@ func apply_to(player: Player, noise_meter: NoiseMeter, run_base: RunBase) -> voi
 	player.light.max_fuel += level("lantern") * LANTERN_FUEL_PER_LEVEL
 	player.light.fuel = player.light.max_fuel
 	player.health += level("hard_hat") * HARD_HAT_HEALTH_PER_LEVEL
+	player.max_health = player.health
 	if not has_unlock("ladders"):
 		player.ladders_left = 0
 	if not has_unlock("anchors"):
