@@ -51,15 +51,28 @@ func test_prompt_wording() -> void:
 	var p := _progress()
 	p.banked_ore = 100
 	var shop := _building("lamp_shop", p)
-	assert_true(shop.prompt().begins_with("1: Lantern tank Lv 0/3, 30 ore"), "lantern offer: " + shop.prompt())
-	assert_true(shop.prompt().contains("2: Lamps Lv 0/1, 40 ore"), "lamps offer")
+	var lines := shop.prompt().split("\n")
+	assert_eq(lines[0], "Lamp shop", "the building is named: " + shop.prompt())
+	assert_eq(lines[1], "1: Lantern tank +15s light, Lv 0/3, 30 ore", "a levelled offer says what it gives")
+	assert_eq(lines[2], "2: Lamps (unlock, 3 per run), 40 ore", "an unlock says what it unlocks and has no level")
 	p.banked_ore = 10
 	assert_true(shop.prompt().contains("30 ore (need 20 more)"), "short of ore says what is needed: " + shop.prompt())
 	p.levels["lamps"] = 1
 	assert_true(shop.prompt().contains("2: Lamps OWNED"), "an unlock already bought")
 	p.levels["hard_hat"] = 2
-	assert_true(_building("smithy", p).prompt().contains("1: Hard hat MAX"), "a maxed upgrade")
-	assert_eq(_building("notice_board", p).prompt(), "E: notice board", "the board")
+	var smithy := _building("smithy", p)
+	assert_true(smithy.prompt().begins_with("Smithy\n"), "the smithy is named")
+	assert_true(smithy.prompt().contains("1: Hard hat MAX"), "a maxed upgrade")
+	assert_true(smithy.prompt().contains("3: Anchors (unlock, 2 per run), 100 ore (need 90 more)"), "the third offer: " + smithy.prompt())
+	assert_true(_building("bunkhouse", p).prompt().begins_with("Bunkhouse\n1: Crew bunk +1 crew slot, Lv 0/3, 80 ore"), "the bunkhouse")
+
+func test_the_board_prompt_follows_the_panel() -> void:
+	var board := _building("notice_board", _progress())
+	assert_eq(board.prompt(), "E: read the notice board", "closed")
+	board.toggle()
+	assert_eq(board.prompt(), "E: close the board", "open")
+	board.toggle()
+	assert_eq(board.prompt(), "E: read the notice board", "closed again")
 
 func test_the_owned_cue_follows_the_first_offer() -> void:
 	var p := _progress()
@@ -120,10 +133,11 @@ func test_crew_toggle_respects_the_slots() -> void:
 const HubScene := preload("res://scenes/Hub.tscn")
 
 ## A hub over a fresh test save with this ore and roster, ready to walk.
-func _hub(ore: int = 0, roster: Array = []) -> Hub:
+func _hub(ore: int = 0, roster: Array = [], log: Array = []) -> Hub:
 	Progress.path_override = TEST_SAVE_PATH
 	var p := _progress()
 	p.banked_ore = ore
+	p.run_log = log
 	p.roster = roster
 	p.crew_names = []
 	p.save()
@@ -293,4 +307,13 @@ func test_a_saved_roster_and_crew_show_in_the_hub() -> void:
 	_stand(hub, hub.miners[1].global_position.x)
 	await physics_frames(2)
 	assert_true(hub.hud.prompt_label.text.contains("leave crew"), "his prompt offers to take him off")
+	Progress.path_override = ""
+
+func test_a_first_visit_says_where_to_go_and_later_visits_stay_quiet() -> void:
+	var first := await _hub()
+	assert_eq(first.hud._message, Hub.FIRST_VISIT_TEXT, "no runs yet: the nudge")
+	assert_true(not Hub.FIRST_VISIT_TEXT.contains("A / D") and not Hub.FIRST_VISIT_TEXT.contains("Esc"), "no key names, so it fits touch too")
+	first.queue_free()
+	var later := await _hub(0, [], [{"result": "Extracted", "seconds": 90, "depth": 40, "ore": 12, "seed": 7}])
+	assert_eq(later.hud._message, "", "a returning player is not told again")
 	Progress.path_override = ""

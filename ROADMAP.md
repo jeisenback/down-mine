@@ -114,6 +114,10 @@ dictates.
   (red under 25 percent), Health shows current over maximum (new `Player.max_health`), labels are outlined, the
   layer line says "N tiles deep", the always-on seed moved into the controls overlay, and the compass arrow
   has a "Base" label. Not done: icons (they need new art).
+- ~~**M64 - Hub clarity.**~~ Done (issue #63, from the UI/UX audit): a building's prompt names it and lists each
+  offer with what it gives (the upgrade's effect), level and cost; the notice board prompt reads "read" and then
+  "close"; a first visit shows one line saying where to go. Not done: a drawn hub sky, and closing the board when
+  you walk away.
 
 ## Quality pass
 

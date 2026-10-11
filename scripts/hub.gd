@@ -18,6 +18,8 @@ const MINER_STEP := 14.0
 const PLAYER_Y := -8.0
 const MINER_Y := -7.0 # the drawn miner's feet sit 7 px below its centre
 const MAIN_SCENE := "res://scenes/Main.tscn"
+## Shown on the first visit (no run logged yet); it names no keys, so it suits touch too.
+const FIRST_VISIT_TEXT := "Visit a building to see what it sells. The mine entrance is far right."
 const TouchControlsScene := preload("res://scenes/TouchControls.tscn")
 
 @onready var player: Player = $Player
@@ -51,6 +53,8 @@ func _ready() -> void:
 	camera.limit_bottom = 46
 	hud.set_hub_mode()
 	hud.update_banked(progress.banked_ore)
+	if progress.run_log.is_empty():
+		hud.show_message(FIRST_VISIT_TEXT)
 	touch_controls = TouchControlsScene.instantiate()
 	add_child(touch_controls)
 	touch_controls.set_mode("hub")
