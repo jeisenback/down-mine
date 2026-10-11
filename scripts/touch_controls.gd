@@ -155,6 +155,10 @@ func visible_widgets() -> Array:
 		out.append(widget)
 	return out
 
+## Whether the controls are on screen right now (the player digs by pushing while they are).
+func is_active() -> bool:
+	return canvas != null and canvas.visible
+
 func set_mode(new_mode: String) -> void:
 	mode = new_mode
 	tools_open = false

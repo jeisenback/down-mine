@@ -902,6 +902,13 @@ func _touch_controls_play() -> void:
 	tc.touch(0, pad.get_center(), false)
 	check(main.player.global_position.y > start_y + 2.0 * MineGrid.TILE_SIZE, "the pad's down dug down")
 	await shot("dug_down")
+	# No Dig button: pushing the pad into rock tunnels sideways by itself.
+	var tunnel_x: float = main.player.global_position.x
+	tc.touch(0, pad.get_center() + Vector2(pad.size.x * 0.4, 0), true)
+	await frames(150)
+	tc.touch(0, pad.get_center(), false)
+	check(main.player.global_position.x > tunnel_x + 3.0 * MineGrid.TILE_SIZE, "pushing the pad into rock tunnelled sideways without Dig (%.0f px)" % (main.player.global_position.x - tunnel_x))
+	await shot("tunnelled")
 	await frames(40) # settle on the floor of the shaft
 	tc.touch(1, layout["tools"].get_center(), true)
 	tc.touch(1, layout["tools"].get_center(), false)

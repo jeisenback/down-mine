@@ -15,6 +15,15 @@ func test_pad_diagonals_return_two_keys() -> void:
 	assert_eq(keys.size(), 2, "two keys")
 	assert_true(keys.has(KEY_D) and keys.has(KEY_S), "down and right: the stair dig")
 
+func test_a_drift_does_not_start_a_stair() -> void:
+	var r := 60.0
+	assert_eq(TouchPad.keys_for(Vector2(0.8 * r, 0.35 * r), r), [KEY_D], "walking right with the thumb drifting down is just right")
+	assert_eq(TouchPad.keys_for(Vector2(0.35 * r, 0.8 * r), r), [KEY_S], "digging down with a sideways drift is just down")
+	assert_eq(TouchPad.keys_for(Vector2(-0.8 * r, -0.35 * r), r), [KEY_A], "left with an upward drift is just left")
+	var stair := TouchPad.keys_for(Vector2(0.6 * r, 0.6 * r), r)
+	assert_true(stair.has(KEY_D) and stair.has(KEY_S) and stair.size() == 2, "a deliberate diagonal still digs a stair")
+	assert_true(TouchPad.STAIR_ZONE > TouchPad.DEAD_ZONE, "the second axis needs more than the first")
+
 func test_pad_dead_zone_returns_nothing() -> void:
 	var r := 60.0
 	for offset in [Vector2(0.2 * r, 0), Vector2(0, 0.2 * r), Vector2(-0.2 * r, -0.2 * r), Vector2.ZERO]:
@@ -403,5 +412,17 @@ func test_main_tells_the_controls_when_planting_is_allowed() -> void:
 	main.touch_controls.touch(0, pad.get_center(), false)
 	await physics_frames(40)
 	assert_eq(main.touch_controls.can_plant, main._can_plant(), "in step after digging down")
+	_done()
+	Progress.path_override = ""
+
+func test_main_turns_assisted_digging_on_only_when_touch_is_shown() -> void:
+	var main := await _main()
+	await physics_frames(3)
+	assert_true(main.player.assist_dig, "touch shown: pushing into rock digs")
+	TouchControls.force = false
+	await tree.process_frame
+	await tree.process_frame
+	await physics_frames(3)
+	assert_true(not main.player.assist_dig, "no touch controls: the keyboard digs only with Space")
 	_done()
 	Progress.path_override = ""

@@ -92,7 +92,7 @@ dictates.
 - ~~**M58 - Touch controls.**~~ Done: on a touch device (or with `?touch`) the game shows a
   pad (move, jump, dig down, stairs), Dig, Flare, Use and one Tools menu (the tools you own and,
   at the base, Plant, Repair, Fortify and Grow), with buy buttons in the hub and Continue and
-  Esc while paused; landscape only, same keys as the keyboard. The game now scales to the window.
+  Esc while paused; landscape only, same keys as the keyboard. After the first phone test, pushing the pad into rock digs forward by itself (touch only) and stairs need a firmer diagonal. The game now scales to the window.
   Not done: a real-device test (the first check is opening the deployed build on a phone),
   drawn icons in place of text labels. Spec: `docs/superpowers/specs/2026-10-11-touch-controls-design.md`;
   plan: `docs/superpowers/plans/2026-10-11-touch-controls.md`.
