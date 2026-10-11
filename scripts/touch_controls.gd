@@ -306,6 +306,19 @@ const LABELS := {
 	"base_fortify": "FORTIFY", "base_grow": "GROW", "buy1": "1", "buy2": "2", "buy3": "3",
 }
 
+## How a button behaves, so it can look it: "hold" stays down while pressed, "toggle" opens
+## a menu, "tap" is a single press.
+static func widget_kind(widget: String) -> String:
+	if widget == "tools":
+		return "toggle"
+	return "hold" if WIDGETS[widget].hold and widget != "pad" else "tap"
+
+## The label size at a screen scale u. Menu items share one smaller size so the longest
+## ("GRAPPLE") fits its button without shrinking and none looks smaller than the rest.
+static func label_size(widget: String, u: float) -> int:
+	var base := 13.0 if widget.begins_with("tool_") or widget.begins_with("base_") else 16.0
+	return int(base * u)
+
 ## Flat, semi-transparent pixel-style shapes: a darker outline, a short label,
 ## brighter while held. The pad is a ring with four ticks and a thumb dot.
 func _draw_widgets() -> void:
@@ -326,15 +339,22 @@ func _draw_widgets() -> void:
 			thumb = centre + (thumb - centre).limit_length(radius)
 			canvas.draw_circle(thumb, radius * 0.3, Color(0.95, 0.85, 0.5, 0.55 if held else 0.35))
 			continue
+		var kind := widget_kind(widget)
 		canvas.draw_rect(rect, fill)
-		canvas.draw_rect(rect, Color(0.1, 0.08, 0.05, 0.75), false, 2.0 * u)
+		var outline := Color(1, 1, 1, 0.9) if held else Color(0.1, 0.08, 0.05, 0.75)
+		canvas.draw_rect(rect, outline, false, 2.0 * u)
+		if kind == "hold": # a second border: press and keep it down
+			canvas.draw_rect(rect.grow(-5.0 * u), outline, false, 1.5 * u)
 		var text: String = LABELS.get(widget, "")
-		var size := int(16.0 * u)
+		var size := label_size(widget, u)
 		var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 		while width > rect.size.x - 6.0 * u and size > 8:
 			size -= 1 # a long label shrinks to fit its button
 			width = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 		canvas.draw_string(font, rect.get_center() + Vector2(-width / 2.0, size * 0.35), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(1, 1, 1, 0.9))
+		if kind == "toggle": # a small up triangle: this opens a menu
+			var tip := Vector2(rect.get_center().x, rect.position.y + 7.0 * u)
+			canvas.draw_colored_polygon(PackedVector2Array([tip, tip + Vector2(-5.0 * u, 7.0 * u), tip + Vector2(5.0 * u, 7.0 * u)]), Color(1, 1, 1, 0.8))
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
