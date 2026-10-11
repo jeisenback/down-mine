@@ -89,8 +89,13 @@ dictates.
 - ~~**M45 - Run log.**~~ Done: the last 10 runs (result and cause of
   death, time, depth, ore, Burrowers, hits by source, seed) are saved;
   L at the hub shows them. The data for the M22 tuning pass.
-- **Mobile.** The web build doesn't open on phones. Needs looking into
-  (likely the web export's requirements), then touch controls.
+- ~~**M58 - Touch controls.**~~ Done: on a touch device (or with `?touch`) the game shows a
+  pad (move, jump, dig down, stairs), Dig, Flare, Use and one Tools menu (the tools you own and,
+  at the base, Plant, Repair, Fortify and Grow), with buy buttons in the hub and Continue and
+  Esc while paused; landscape only, same keys as the keyboard. The game now scales to the window.
+  Not done: a real-device test (the first check is opening the deployed build on a phone),
+  drawn icons in place of text labels. Spec: `docs/superpowers/specs/2026-10-11-touch-controls-design.md`;
+  plan: `docs/superpowers/plans/2026-10-11-touch-controls.md`.
 
 ## Quality pass
 

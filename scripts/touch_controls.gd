@@ -313,6 +313,9 @@ func _draw_widgets() -> void:
 		var text: String = LABELS.get(widget, "")
 		var size := int(16.0 * u)
 		var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		while width > rect.size.x - 6.0 * u and size > 8:
+			size -= 1 # a long label shrinks to fit its button
+			width = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 		canvas.draw_string(font, rect.get_center() + Vector2(-width / 2.0, size * 0.35), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(1, 1, 1, 0.9))
 
 func _input(event: InputEvent) -> void:

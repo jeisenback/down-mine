@@ -56,6 +56,8 @@ func _run() -> void:
 		["drawn_art_on_screen", _drawn_art_on_screen],
 		["crew_jobs_at_work", _crew_jobs_at_work],
 		["hub_buy_crew_and_descend", _hub_buy_crew_and_descend],
+		["touch_controls_play", _touch_controls_play],
+		["touch_hub_buy", _touch_hub_buy],
 	]
 	var failed := 0
 	for entry in scenarios:
@@ -877,3 +879,86 @@ func _hub_walk_to(x: float) -> void:
 	main.player.global_position.x = x
 	main.player.velocity = Vector2.ZERO
 	await frames(3)
+
+## Touch controls (milestone 58): play with fingers only. Dig down with the
+## pad, open the Tools menu and tap Rope, plant the base from the menu, pause
+## with Esc and close it again.
+func _touch_controls_play() -> void:
+	TouchControls.force = true
+	await _start_game()
+	var tc: TouchControls = main.touch_controls
+	tc.layout_size = Vector2(1152, 648)
+	var layout := TouchControls.layout_for(tc.layout_size)
+	var pad: Rect2 = layout["pad"]
+	await shot("controls")
+	var start_y: float = main.player.global_position.y
+	tc.touch(0, pad.get_center() + Vector2(0, pad.size.x * 0.4), true)
+	await frames(90)
+	tc.touch(0, pad.get_center(), false)
+	check(main.player.global_position.y > start_y + 2.0 * MineGrid.TILE_SIZE, "the pad's down dug down")
+	await shot("dug_down")
+	tc.touch(1, layout["tools"].get_center(), true)
+	tc.touch(1, layout["tools"].get_center(), false)
+	await frames(3)
+	check(tc.visible_widgets().has("tool_rope"), "the Tools menu opened")
+	await shot("tools_menu")
+	tc.touch(1, layout["tool_rope"].get_center(), true)
+	tc.touch(1, layout["tool_rope"].get_center(), false)
+	await frames(10)
+	check(not tc.visible_widgets().has("tool_rope"), "picking Rope closed the menu")
+	check(main.mine.find_children("*", "Rope", true, false).size() > 0, "Rope was placed")
+	main.player.global_position = main.run_base.global_position + Vector2(0, 15)
+	await frames(10)
+	tc.touch(2, layout["tools"].get_center(), true)
+	tc.touch(2, layout["tools"].get_center(), false)
+	await frames(3)
+	check(tc.visible_widgets().has("base_plant"), "at the base the menu lists Plant")
+	await shot("base_menu")
+	tc.touch(2, layout["tools"].get_center(), true) # close it again
+	tc.touch(2, layout["tools"].get_center(), false)
+	tc.touch(3, layout["esc"].get_center(), true)
+	tc.touch(3, layout["esc"].get_center(), false)
+	await frames(10)
+	check(paused and main.hud.overlay.visible, "Esc paused the game and showed the controls")
+	check(tc.visible_widgets().has("continue") and tc.visible_widgets().size() == 2, "paused: only Continue and Esc")
+	await shot("paused")
+	tc.touch(3, layout["esc"].get_center(), true)
+	tc.touch(3, layout["esc"].get_center(), false)
+	await frames(10)
+	check(not paused, "Esc again closed the overlay")
+	TouchKeys.release_all()
+	TouchControls.force = false
+
+## The hub with touch: buy a lantern level at the lamp shop with the on-screen
+## 1 button, then use the entrance.
+func _touch_hub_buy() -> void:
+	var saved := Progress.new()
+	saved.save_path = SAVE_PATH
+	saved.banked_ore = 100
+	saved.save()
+	TouchControls.force = true
+	HUD.title_seen = true
+	paused = false
+	main = load("res://scenes/Hub.tscn").instantiate()
+	root.add_child(main)
+	await frames(10)
+	var tc: TouchControls = main.touch_controls
+	tc.layout_size = Vector2(1152, 648)
+	var layout := TouchControls.layout_for(tc.layout_size)
+	main.player.global_position = Vector2(Hub.BUILDING_X["lamp_shop"], Hub.PLAYER_Y)
+	await frames(10)
+	await shot("hub")
+	tc.touch(0, layout["buy1"].get_center(), true)
+	tc.touch(0, layout["buy1"].get_center(), false)
+	await frames(10)
+	check(main.progress.level("lantern") == 1 and main.progress.banked_ore == 70, "the on-screen 1 bought a lantern level")
+	var seen: Array = []
+	main.change_scene = func(path: String): seen.append(path)
+	main.player.global_position = Vector2(Hub.ENTRANCE_X, Hub.PLAYER_Y)
+	await frames(5)
+	tc.touch(0, layout["use"].get_center(), true)
+	tc.touch(0, layout["use"].get_center(), false)
+	await frames(10)
+	check(seen == ["res://scenes/Main.tscn"], "Use at the entrance starts a run")
+	TouchKeys.release_all()
+	TouchControls.force = false
