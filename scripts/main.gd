@@ -24,6 +24,7 @@ const MAX_LIVE_BURROWERS := 8
 const WAVE_SHAKE_SECONDS := 0.5 # the camera shakes when a wave surfaces, twice as hard for a peak
 const WAVE_SHAKE_PIXELS := 2.0
 const WAVE_SPREAD_TILES := [0, -3, 3, -6, 6, -9, 9, -12]
+const TouchControlsScene := preload("res://scenes/TouchControls.tscn")
 const BurrowerScene := preload("res://scenes/Burrower.tscn")
 
 # Placed lights (milestone 20): a few per run, noisy to place.
@@ -138,6 +139,8 @@ var _debug_event_index: int = 0
 var _build_keys_down: Dictionary = {}
 var _bell_ringing: bool = false
 var progress: Progress
+## The on-screen controls for phones; hidden unless touch is wanted.
+var touch_controls: TouchControls
 ## How a scene is changed; tests swap it so the runner's scene is left alone.
 var change_scene: Callable = func(path: String): Engine.get_main_loop().change_scene_to_file(path)
 var lost_miners: Array[LostMiner] = []
@@ -181,6 +184,9 @@ func _ready() -> void:
 	_spawn_old_ladder()
 	debug_enabled = LaunchOptions.debug_enabled()
 	hud.show_seed(mine.mine_seed, debug_enabled)
+	touch_controls = TouchControlsScene.instantiate()
+	add_child(touch_controls)
+	touch_controls.set_mode("mine")
 	Sfx.warm_up()
 
 ## The old mine's ladder (milestone 51): each surviving 8-row piece is a run
@@ -387,8 +393,22 @@ func _process(delta: float) -> void:
 		noise_meter.add_noise(MineGrid.DECAY_NOISE, lost_at)
 	hud.update_base(run_base, get_tree().get_nodes_in_group("burrowers").size() > 0, mine.wall_count())
 	hud.update_prompts(_action_prompts())
+	touch_controls.set_base_nearby(_near_base())
+	touch_controls.set_tools_available(_touch_tools())
 	max_depth_reached = max(max_depth_reached, _current_depth())
 	_check_extraction()
+
+## The tools the touch menu lists: Rope, Grapple and Beam always, and Ladder,
+## Lamp and Anchor once unlocked or still carried (as the HUD's tool line does).
+func _touch_tools() -> Array:
+	var tools := ["tool_rope", "tool_grapple", "tool_beam"]
+	if progress.has_unlock("ladders") or player.ladders_left > 0:
+		tools.append("tool_ladder")
+	if progress.has_unlock("lamps") or lamps_left > 0:
+		tools.append("tool_lamp")
+	if progress.has_unlock("anchors") or player.anchors_left > 0:
+		tools.append("tool_anchor")
+	return tools
 
 ## HUD layer line, and the layer's Stalker on the first descent into it.
 func _check_layer() -> void:

@@ -18,6 +18,7 @@ const MINER_STEP := 14.0
 const PLAYER_Y := -8.0
 const MINER_Y := -7.0 # the drawn miner's feet sit 7 px below its centre
 const MAIN_SCENE := "res://scenes/Main.tscn"
+const TouchControlsScene := preload("res://scenes/TouchControls.tscn")
 
 @onready var player: Player = $Player
 @onready var hud: HUD = $HUD
@@ -27,6 +28,8 @@ var buildings: Array[HubBuilding] = []
 var miners: Array[HubMiner] = []
 var board_label: Label
 var board_panel: ColorRect
+## The on-screen controls for phones; hidden unless touch is wanted.
+var touch_controls: TouchControls
 var change_scene: Callable = func(path: String): Engine.get_main_loop().change_scene_to_file(path)
 
 func _ready() -> void:
@@ -48,6 +51,9 @@ func _ready() -> void:
 	camera.limit_bottom = 46
 	hud.set_hub_mode()
 	hud.update_banked(progress.banked_ore)
+	touch_controls = TouchControlsScene.instantiate()
+	add_child(touch_controls)
+	touch_controls.set_mode("hub")
 	Sfx.warm_up()
 
 func _build_ground() -> void:

@@ -110,10 +110,18 @@ func _rect(widget: String) -> Rect2:
 			return menu_rect(column, slot, layout_size)
 	return layout_for(layout_size)[widget]
 
-## Whether the controls are wanted at all: a touch screen, a first real touch,
+## Whether the controls are wanted at all: a touch device, a first real touch,
 ## the ?touch launch option, or a test forcing them on.
 static func wanted() -> bool:
-	return force or seen_touch or DisplayServer.is_touchscreen_available() or LaunchOptions.has("touch")
+	return force or seen_touch or _device_has_touch() or LaunchOptions.has("touch")
+
+## Whether this device has a touch screen. DisplayServer.is_touchscreen_available()
+## is not used: it reports true whenever mouse-to-touch emulation is on, which
+## the project turns on so a desktop can test the controls.
+static func _device_has_touch() -> bool:
+	if OS.has_feature("web"):
+		return bool(JavaScriptBridge.eval("navigator.maxTouchPoints > 0"))
+	return DisplayServer.has_feature(DisplayServer.FEATURE_TOUCHSCREEN)
 
 static func is_portrait(size: Vector2) -> bool:
 	return size.y > size.x

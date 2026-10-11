@@ -271,3 +271,107 @@ func test_hidden_controls_ignore_touches() -> void:
 	c.touch(0, _at("dig"), true)
 	assert_true(not TouchKeys.is_down(KEY_SPACE), "nothing pressed while hidden")
 	_done()
+
+# --- wired into the mine and the hub --------------------------------------------
+
+func test_project_has_the_phone_display_settings() -> void:
+	assert_eq(ProjectSettings.get_setting("display/window/size/viewport_width"), 1152, "base width")
+	assert_eq(ProjectSettings.get_setting("display/window/size/viewport_height"), 648, "base height")
+	assert_eq(ProjectSettings.get_setting("display/window/stretch/mode"), "canvas_items", "stretch mode")
+	assert_eq(ProjectSettings.get_setting("display/window/stretch/aspect"), "expand", "aspect")
+	assert_eq(ProjectSettings.get_setting("input_devices/pointing/emulate_touch_from_mouse"), true, "a mouse click acts as a touch for testing")
+
+func _main() -> Main:
+	Progress.path_override = TestCase.TEST_SAVE_PATH
+	var fresh := Progress.new() # earlier tests leave unlocks in the shared test save
+	fresh.save_path = TestCase.TEST_SAVE_PATH
+	fresh.save()
+	TouchControls.force = true
+	var main: Main = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(10)
+	main.touch_controls.layout_size = SIZE
+	return main
+
+func test_main_and_hub_each_have_touch_controls_in_their_mode() -> void:
+	var main := await _main()
+	assert_eq(main.touch_controls.mode, "mine", "the mine's mode")
+	Progress.path_override = TEST_SAVE_PATH
+	var hub: Hub = add(load("res://scenes/Hub.tscn").instantiate())
+	await physics_frames(3)
+	assert_eq(hub.touch_controls.mode, "hub", "the hub's mode")
+	_done()
+	Progress.path_override = ""
+
+func test_the_pad_down_digs_down_in_the_mine() -> void:
+	var main := await _main()
+	var start_y: float = main.player.global_position.y
+	var pad: Rect2 = TouchControls.layout_for(SIZE)["pad"]
+	main.touch_controls.touch(0, pad.get_center() + Vector2(0, pad.size.x * 0.4), true)
+	await physics_frames(60)
+	main.touch_controls.touch(0, pad.get_center(), false)
+	assert_true(main.player.global_position.y > start_y + 2.0 * MineGrid.TILE_SIZE, "the pad's down dug down: %s to %s" % [start_y, main.player.global_position.y])
+	_done()
+	Progress.path_override = ""
+
+func test_the_pad_down_and_side_digs_a_stair() -> void:
+	var main := await _main()
+	var start: Vector2 = main.player.global_position
+	var pad: Rect2 = TouchControls.layout_for(SIZE)["pad"]
+	main.touch_controls.touch(0, pad.get_center() + Vector2(pad.size.x * 0.4, pad.size.x * 0.4), true)
+	await physics_frames(90)
+	main.touch_controls.touch(0, pad.get_center(), false)
+	assert_true(main.player.global_position.y > start.y + MineGrid.TILE_SIZE and main.player.global_position.x > start.x + MineGrid.TILE_SIZE, "down and right made a stair: %s to %s" % [start, main.player.global_position])
+	_done()
+	Progress.path_override = ""
+
+func test_the_menu_lists_only_unlocked_tools_and_base_items_only_at_the_base() -> void:
+	var main := await _main()
+	var tools: Rect2 = TouchControls.layout_for(SIZE)["tools"]
+	main.touch_controls.touch(0, tools.get_center(), true)
+	main.touch_controls.touch(0, tools.get_center(), false)
+	var shown: Array = main.touch_controls.visible_widgets()
+	for name in ["tool_rope", "tool_grapple", "tool_beam"]:
+		assert_true(shown.has(name), "%s is always there" % name)
+	for name in ["tool_ladder", "tool_lamp", "tool_anchor"]:
+		assert_true(not shown.has(name), "%s is not unlocked on a fresh save" % name)
+	assert_true(not shown.has("base_plant"), "no base items away from the base")
+	main.player.global_position = main.run_base.global_position
+	await physics_frames(3)
+	assert_true(main.touch_controls.visible_widgets().has("base_plant"), "base items at the base")
+	_done()
+	Progress.path_override = ""
+
+func test_use_at_the_hub_entrance_changes_scene() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	TouchControls.force = true
+	var hub: Hub = add(load("res://scenes/Hub.tscn").instantiate())
+	await physics_frames(3)
+	hub.touch_controls.layout_size = SIZE
+	var seen: Array = []
+	hub.change_scene = func(path: String): seen.append(path)
+	hub.player.global_position = Vector2(Hub.ENTRANCE_X, Hub.PLAYER_Y)
+	hub.touch_controls.touch(0, _at("use"), true)
+	hub.touch_controls.touch(0, _at("use"), false)
+	await physics_frames(8)
+	assert_eq(seen, ["res://scenes/Main.tscn"], "Use at the entrance starts a run")
+	_done()
+	Progress.path_override = ""
+
+func test_continue_on_the_summary_leaves_for_the_hub() -> void:
+	var main := await _main()
+	var seen: Array = []
+	main.change_scene = func(path: String): seen.append(path)
+	main.player.take_hit(Player.MAX_HEALTH, "fall")
+	await physics_frames(3)
+	assert_true(tree.paused, "the summary pauses the game")
+	await tree.process_frame
+	assert_eq(main.touch_controls.visible_widgets().size(), 2, "only Continue and Esc")
+	main.touch_controls.touch(0, _at("continue"), true)
+	main.touch_controls.touch(0, _at("continue"), false)
+	await tree.process_frame
+	await tree.process_frame
+	await tree.process_frame
+	assert_eq(seen, ["res://scenes/Hub.tscn"], "Continue goes to the hub")
+	tree.paused = false
+	_done()
+	Progress.path_override = ""

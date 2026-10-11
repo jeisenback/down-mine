@@ -18,6 +18,17 @@ config/name="Down Mine"
 run/main_scene="res://scenes/Hub.tscn"
 config/features=PackedStringArray("4.7")
 
+[display]
+
+window/size/viewport_width=1152
+window/size/viewport_height=648
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+
 [rendering]
 
 textures/canvas_textures/default_texture_filter=0
