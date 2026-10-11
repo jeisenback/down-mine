@@ -892,3 +892,22 @@ func test_main_has_no_hub_purchase_handlers() -> void:
 	var names := main_script.get_script_method_list().map(func(m): return m.name)
 	assert_true(not names.has("_on_upgrade_requested"), "purchases moved to the hub")
 	assert_true(not names.has("_on_crew_toggle_requested"), "crew picking moved to the hub")
+
+func test_e_held_from_the_hub_does_not_extract_the_new_run() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var e := InputEventKey.new()
+	e.physical_keycode = KEY_E
+	e.keycode = KEY_E
+	e.pressed = true
+	Input.parse_input_event(e) # the press that went down the mine is still held
+	await physics_frames(3) # it was down for a few frames before the scene changed
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(6)
+	assert_true(not main.run_ended, "the held E was not an extraction")
+	var release := InputEventKey.new()
+	release.physical_keycode = KEY_E
+	release.keycode = KEY_E
+	release.pressed = false
+	Input.parse_input_event(release)
+	tree.paused = false
+	Progress.path_override = ""

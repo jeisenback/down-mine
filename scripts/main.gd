@@ -148,6 +148,8 @@ var crew_jobs: CrewJobs
 var stations: Dictionary = {}
 
 func _ready() -> void:
+	# The E that went down the mine from the hub is still held: that press is not an extraction.
+	_extract_key_was_pressed = Input.is_physical_key_pressed(KEY_E)
 	player.mine = mine
 	noise_meter.quiet_at = func(pos: Vector2): return mine.is_quiet_at(pos)
 	noise_meter.base_position = func(): return run_base.global_position

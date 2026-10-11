@@ -258,3 +258,39 @@ func test_the_board_panel_only_dims_the_screen_while_the_board_is_open() -> void
 	await physics_frames(2)
 	assert_true(not hub.board_panel.visible, "clear again once it is closed")
 	Progress.path_override = ""
+
+func test_the_strip_has_walls_at_both_ends() -> void:
+	var hub := await _hub()
+	_stand(hub, 12.0)
+	_key(KEY_A, true)
+	await physics_frames(90)
+	_key(KEY_A, false)
+	assert_true(hub.player.global_position.x >= 0.0 and hub.player.global_position.y < 20.0, "stopped at the left end: %s" % hub.player.global_position)
+	_stand(hub, Hub.STRIP_WIDTH - 12.0)
+	_key(KEY_D, true)
+	await physics_frames(90)
+	_key(KEY_D, false)
+	assert_true(hub.player.global_position.x <= Hub.STRIP_WIDTH and hub.player.global_position.y < 20.0, "stopped at the right end: %s" % hub.player.global_position)
+	Progress.path_override = ""
+
+func test_the_board_counts_hearts_claimed() -> void:
+	var p := _progress()
+	assert_true(not _building("notice_board", p).board_text().contains("Hearts"), "none claimed, no line")
+	p.hearts_claimed = 2
+	assert_true(_building("notice_board", p).board_text().contains("Hearts claimed: 2 - the mine decays faster each time"), "the line returns")
+
+func test_a_saved_roster_and_crew_show_in_the_hub() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var p := _progress()
+	p.roster = [_member("Ada"), _member("Bram", "light")]
+	p.crew_names = ["Bram"]
+	p.save()
+	var hub: Hub = add(HubScene.instantiate())
+	await physics_frames(3)
+	assert_eq(hub.miners.size(), 2, "both figures")
+	assert_true(not hub.miners[0].get_node("Lantern").visible, "Ada is not on the crew: no lantern")
+	assert_true(hub.miners[1].get_node("Lantern").visible, "Bram is on the crew: lantern")
+	_stand(hub, hub.miners[1].global_position.x)
+	await physics_frames(2)
+	assert_true(hub.hud.prompt_label.text.contains("leave crew"), "his prompt offers to take him off")
+	Progress.path_override = ""

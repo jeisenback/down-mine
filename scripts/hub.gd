@@ -65,6 +65,15 @@ func _build_ground() -> void:
 	ground.add_child(shape)
 	ground.position = Vector2(STRIP_WIDTH / 2.0, 20.0)
 	add_child(ground)
+	for wall_x in [-8.0, STRIP_WIDTH + 8.0]: # the strip's ends: nothing to fall into past them
+		var wall := StaticBody2D.new()
+		var wall_shape := CollisionShape2D.new()
+		var wall_rect := RectangleShape2D.new()
+		wall_rect.size = Vector2(16.0, 400.0)
+		wall_shape.shape = wall_rect
+		wall.add_child(wall_shape)
+		wall.position = Vector2(wall_x, -200.0)
+		add_child(wall)
 	var floor_art := ColorRect.new()
 	floor_art.color = Color8(104, 88, 70)
 	floor_art.position = Vector2(-200, 0)

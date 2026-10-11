@@ -63,6 +63,9 @@ func board_text() -> String:
 	if progress.journal_read > 0:
 		lines.append("")
 		lines.append("Latest journal page: " + Progress.JOURNAL[progress.journal_read - 1])
+	if progress.hearts_claimed > 0:
+		lines.append("")
+		lines.append("Hearts claimed: %d - the mine decays faster each time" % progress.hearts_claimed)
 	if not progress.stranded.is_empty():
 		lines.append("")
 	for npc in progress.stranded:
