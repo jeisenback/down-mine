@@ -161,7 +161,7 @@ func _dig_down() -> void:
 	check(main.player.global_position.y > start_y + 2 * MineGrid.TILE_SIZE, "holding S digs down")
 	await shot("dug_down")
 
-## A flat course: a 1-tile bump, a 2-tile wall, then a 3-tile wall.
+## A flat course: a 1-tile bump, a 2-tile wall, then a 4-tile wall (a jump plus mantle reaches 3).
 func _step_up_and_mantle() -> void:
 	await _start_game()
 	var mine: MineGrid = main.mine
@@ -175,7 +175,7 @@ func _step_up_and_mantle() -> void:
 		for h in range(2):
 			mine.fill_cell(Vector2i(x, o.y + 7 - h))
 	for x in range(o.x + 20, o.x + 30):
-		for h in range(3):
+		for h in range(4): # a jump plus mantle now reaches 3 tiles; 4 still needs a tool
 			mine.fill_cell(Vector2i(x, o.y + 7 - h))
 	teleport(o + Vector2i(2, 7))
 	await frames(20)
@@ -185,7 +185,7 @@ func _step_up_and_mantle() -> void:
 	check(mine.world_to_cell(main.player.global_position).x > o.x + 13, "mantled the 2-tile wall")
 	await walk_right_until(o.x + 19, 90)
 	await jump_right()
-	check(mine.world_to_cell(main.player.global_position).x < o.x + 20, "3-tile wall still blocks")
+	check(mine.world_to_cell(main.player.global_position).x < o.x + 20, "4-tile wall still blocks")
 	await shot("course")
 
 ## Holds D until the player reaches cell column x (or the frames run out).
@@ -389,7 +389,8 @@ func _bumps_and_dig_rhythm() -> void:
 			landings += 1
 	key_event(KEY_S, false)
 	check(landings <= 2, "digging down never waits on the undug cell (%d floor frames)" % landings)
-	check(_cell().y >= start_y + 12, "steady descent keeps its pace (%d rows in 2s)" % (_cell().y - start_y))
+	var expected_rows := floori(0.75 * Player.DIG_DESCENT_SPEED * 2.0 / MineGrid.TILE_SIZE) # 75% of the dig-down speed
+	check(_cell().y >= start_y + expected_rows, "steady descent keeps its pace (%d rows in 2s, wanted %d)" % [_cell().y - start_y, expected_rows])
 	await shot("dug_down")
 
 # --- the old mine (milestone 51) -------------------------------------------
@@ -629,20 +630,20 @@ func _shaft_lift_from_the_ladder() -> void:
 ## page says.)
 func _stair_step(dir: int) -> void:
 	var walk := KEY_D if dir > 0 else KEY_A
-	await hold([KEY_SPACE, KEY_W], 40)
-	await frames(30)
-	await hold([KEY_SPACE, KEY_W], 40)
-	await frames(30)
+	await hold([KEY_SPACE, KEY_W], 60) # the dig is a third slower and the jump floatier (milestone 59): 1.5x the frames
+	await frames(45)
+	await hold([KEY_SPACE, KEY_W], 60)
+	await frames(45)
 	key_event(KEY_W, true)
-	await frames(16)
+	await frames(25)
 	key_event(KEY_W, false)
 	key_event(KEY_SPACE, true)
 	key_event(walk, true)
-	await frames(8)
+	await frames(12)
 	key_event(KEY_SPACE, false)
-	await frames(40)
+	await frames(60)
 	key_event(walk, false)
-	await frames(10)
+	await frames(15)
 
 ## Climbs back up past the collapse on a dug stair, from 12 tiles out in
 ## solid rock to the open shaft above it: the way home the journal points at.
@@ -663,12 +664,16 @@ func _shaft_from_below() -> void:
 		steps += 1
 		if _cell().y <= open.y and _cell().x <= col + 3:
 			break
-	key_event(KEY_SPACE, true)
-	key_event(KEY_A, true)
-	await frames(90)
-	key_event(KEY_SPACE, false)
-	key_event(KEY_A, false)
-	await frames(30)
+	if not main.mine.is_in_shaft(_cell()): # the floatier jump may already have climbed into it
+		key_event(KEY_SPACE, true)
+		key_event(KEY_A, true)
+		for i in range(40): # tunnel left until the shaft is reached (the dig is slower now), up to 400 frames
+			await frames(10)
+			if main.mine.is_in_shaft(_cell()):
+				break
+		key_event(KEY_SPACE, false)
+		key_event(KEY_A, false)
+	await frames(45)
 	check(_cell().y <= open.y and main.mine.is_in_shaft(_cell()), "climbed the collapse on a dug stair into the open shaft (cell %s, open rows end at %d, %d steps)" % [_cell(), open.y, steps])
 	await shot("in_the_shaft")
 

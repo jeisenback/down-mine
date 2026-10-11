@@ -10,7 +10,9 @@ signal made_noise(amount: float)
 const SPEED := 120.0
 const ACCELERATION := 900.0  # reaches full speed in ~0.13s
 const DECELERATION := 1200.0 # stops in ~0.1s, snappier than starting
-const GRAVITY := 700.0
+# Milestone 59: 0.7 of the old 700. A jump peaks ~2.5 tiles and falls drift; fall
+# damage is worked out in tiles from this same constant, so it keeps its tile steps.
+const GRAVITY := 490.0
 const JUMP_VELOCITY := -200.0
 # Digging straight down is a steady descent: the fall is held to just
 # under one tile per cooldown while there is rock to dig below, so the
@@ -19,8 +21,8 @@ const JUMP_VELOCITY := -200.0
 # zeroed the speed, waited out the cooldown and started again from rest:
 # a visible hitch every couple of tiles. The hold lifts as soon as the
 # two cells below are open, so a drop into a cave is a real fall.
-const DIG_COOLDOWN := 0.11
-const DIG_DESCENT_SPEED := MineGrid.TILE_SIZE / DIG_COOLDOWN * 0.9 # ~131 px/s, 8 tiles/s
+const DIG_COOLDOWN := 0.165 # milestone 59: was 0.11, a third slower
+const DIG_DESCENT_SPEED := MineGrid.TILE_SIZE / DIG_COOLDOWN * 0.9 # ~87 px/s, 5.4 tiles/s
 const DIG_CENTRE_STEP := 2.0 # px per frame toward the dug column's centre
 const MAX_HEALTH := 3
 # Touch (milestone 58): with assist_dig on, pushing sideways into rock for this
@@ -42,8 +44,9 @@ const JUMP_CUT := 0.4
 const STEP_HEIGHT := 17.0 # one tile, plus a pixel to clear the edge
 const STEP_PROBE := 2.0
 # Milestone 42: pushing into a wall in mid-air pulls you up over its lip
-# if the top is within this many px of your feet. Jump peak (~30 px) plus
-# this reaches a 2-tile ledge (32 px) but not a 3-tile one (48 px).
+# if the top is within this many px of your feet. With the lighter gravity
+# (milestone 59) the jump peaks ~41 px, so a jump plus this reaches a 3-tile
+# ledge (48 px) but not a 4-tile one (64 px): pits still need a tool.
 const MANTLE_REACH := 14
 
 # Grapple: the PRD's "reusable tool, the reliable baseline" for getting
@@ -590,7 +593,10 @@ func _dig_forward(walking: bool = false) -> void:
 		global_position.y - half_extents.y + 2.0,
 		global_position.y + half_extents.y - 2.0
 	)
-	if walking and is_on_floor() and _is_steppable_bump(cells):
+	# A bump is stepped over, not dug, while walking on the floor - or while
+	# falling toward it, since the player lands and steps up next (lighter
+	# gravity keeps them in the air longer after stepping off a bump).
+	if walking and (is_on_floor() or velocity.y >= 0.0) and _is_steppable_bump(cells):
 		return
 	if mine.dig_cells(cells) > 0:
 		dig_timer = DIG_COOLDOWN
