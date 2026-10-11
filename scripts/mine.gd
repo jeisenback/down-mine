@@ -28,14 +28,15 @@ const STONE_BLOCK := Rect2i(8, 120, 16, 16)
 #   quiet   - noise never fills the meter and no Stalker enters (the
 #             lonely start: nothing hunts in the first two layers)
 #   gas     - gas pockets in the rock (see _place_gas_pockets)
-#   decay   - decay interval multiplier; below 1 the layer is unstable
+#   decay   - decay interval multiplier; below 1 the layer is unstable, above 1
+#             (the quiet layers, 2.0) it is gentle
 #   stalker - the first descent into the layer wakes a Stalker
 # Equal depth bands; the layer index is the key in saves too (stranded
 # miners' layer, where a miner was found), so order matters.
 const LAYERS := [
-	{"name": "Topsoil", "quiet": true, "gas": false, "decay": 1.0, "stalker": false,
+	{"name": "Topsoil", "quiet": true, "gas": false, "decay": 2.0, "stalker": false,
 		"fill": 0.62, "ore": 10, "camp_ore": 15, "color": Color(0.42, 0.32, 0.22), "region": SPECKLE_GREEN},
-	{"name": "Clay", "quiet": true, "gas": false, "decay": 1.0, "stalker": false,
+	{"name": "Clay", "quiet": true, "gas": false, "decay": 2.0, "stalker": false,
 		"fill": 0.60, "ore": 15, "camp_ore": 20, "color": Color(0.5, 0.3, 0.22), "region": SPECKLE_GREEN},
 	{"name": "Stone", "quiet": false, "gas": true, "decay": 1.0, "stalker": true,
 		"fill": 0.56, "ore": 25, "camp_ore": 30, "color": Color(0.45, 0.45, 0.48), "region": SPECKLE_BLUE},
