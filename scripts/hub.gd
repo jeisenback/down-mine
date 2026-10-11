@@ -26,6 +26,7 @@ var progress: Progress
 var buildings: Array[HubBuilding] = []
 var miners: Array[HubMiner] = []
 var board_label: Label
+var board_panel: ColorRect
 var change_scene: Callable = func(path: String): Engine.get_main_loop().change_scene_to_file(path)
 
 func _ready() -> void:
@@ -39,6 +40,7 @@ func _ready() -> void:
 	_build_board_panel()
 	player.global_position = Vector2(60.0, PLAYER_Y)
 	player.light.set_process(false) # nothing burns down here
+	player.light.point_light.visible = false # the hub is lit by day, not by the lantern
 	var camera: Camera2D = player.get_node("Camera2D")
 	camera.limit_left = 0
 	camera.limit_right = int(STRIP_WIDTH)
@@ -50,7 +52,7 @@ func _ready() -> void:
 
 func _build_ground() -> void:
 	var backdrop := ColorRect.new()
-	backdrop.color = Color8(34, 30, 38)
+	backdrop.color = Color8(72, 66, 88)
 	backdrop.position = Vector2(-200, -400)
 	backdrop.size = Vector2(STRIP_WIDTH + 400.0, 400.0)
 	backdrop.z_index = -10
@@ -64,7 +66,7 @@ func _build_ground() -> void:
 	ground.position = Vector2(STRIP_WIDTH / 2.0, 20.0)
 	add_child(ground)
 	var floor_art := ColorRect.new()
-	floor_art.color = Color8(66, 56, 46)
+	floor_art.color = Color8(104, 88, 70)
 	floor_art.position = Vector2(-200, 0)
 	floor_art.size = Vector2(STRIP_WIDTH + 400.0, 40.0)
 	floor_art.z_index = -5
@@ -111,9 +113,11 @@ func _add_miner(member: Dictionary, x: float) -> void:
 func _build_board_panel() -> void:
 	var layer := CanvasLayer.new()
 	var panel := ColorRect.new()
+	board_panel = panel
 	panel.color = Color(0, 0, 0, 0.8)
 	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.visible = false # only while the notice board is open
 	board_label = Label.new()
 	board_label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	board_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -200,6 +204,7 @@ func _process(_delta: float) -> void:
 	for m in miners:
 		m.get_node("Lantern").visible = m.on_crew()
 	var board := _building_of("notice_board")
+	board_panel.visible = board.board_open
 	board_label.visible = board.board_open
 	if board.board_open:
 		board_label.text = board.board_text()

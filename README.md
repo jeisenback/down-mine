@@ -5,7 +5,7 @@ Side-view extraction roguelike prototype. See `MineRoguelike_PRD.md` for the ful
 ## Milestone 1 — vertical slice
 
 Proves the core tension: light decays, digging is loud, and enemies punish
-darkness. No crew, hub, or stranding yet.
+darkness.
 
 **Controls**
 - `Esc` — show or hide the controls (pauses the game); a title screen shows once per launch (`Enter` to start)
@@ -25,10 +25,9 @@ darkness. No crew, hub, or stranding yet.
 - `B` — at the run base, fortify: reinforce the 12 nearest plain rock tiles within 5 tiles (2 of this run's ore per tile, noisy); press again for more
 - `1` — build a support beam where you stand (15 of this run's ore): stops collapses and crumbling within 3 tiles; wears out, faster in the dark
 - `U` — at the run base, grow it to its next tier (see The run base below); the Outpost brings a beacon (base light reaches 50% further but burns 50% faster) and the Fort an alarm bell (warns when noise nears the Burrower threshold and shows each wave's size)
-- `1`-`6` — on the run summary (the hub), spend banked ore: lantern tank (+15s light), hard hat (+1 health), crew bunk (+1 crew slot, up to 4), or unlock lamps (40), ladders (60) or anchors (100). The grapple and ropes are always available.
-- `A`-`J` — on the hub, put a rescued miner on the crew or take them off
-- `L` — on the hub, show the last 10 runs: result and cause of death, time, depth, ore, Burrowers, damage by source, seed
-- `Enter` — start a new run from the run summary (banked ore and upgrades are saved between runs)
+- `Enter` — on the run summary, go to the hub (banked ore and upgrades are saved between runs)
+
+**The hub** (between runs) is a small settlement you walk with `A`/`D`: a lamp shop, a smithy, a bunkhouse, a notice board and the mine entrance. Standing beside a building, `1`, `2` and `3` buy what it sells: the lamp shop a lantern tank (+15s light, three levels) and the lamps unlock (40); the smithy a hard hat (+1 health, two levels) and the ladders (60) and anchors (100) unlocks; the bunkhouse a crew bunk (+1 crew slot, up to 4). The grapple and ropes are always available. Your rescued miners stand by the bunkhouse: `E` beside one puts them on the crew (a lantern at their feet) or takes them off, while the crew has a free slot. `E` at the notice board shows the last 10 runs (result and cause of death, time, depth, ore, Burrowers, damage by source, seed), the latest journal page and where stranded miners are. `E` at the entrance goes down the mine. Nothing in the hub can be lost or attacked.
 
 **Noise and the base**: every sound is made somewhere, and the base hears
 it by distance - in full at the base, not at all 80 tiles away - so a
@@ -161,7 +160,7 @@ Whisper (Noise) makes everything the base hears 25% quieter, free and silent. Jo
 spend the ore you carry and pause when you have none; every working miner but the
 Whisper adds a little noise at the base, so a bigger crew is a louder base (a base
 in the quiet layers is not heard). New finds lean toward types you don't have yet.
-You start with one crew slot; pick who fills it at the hub.
+You start with one crew slot; pick who fills it at the bunkhouse.
 Crew gain a run of experience whenever a run they were on ends in
 extraction: Seasoned at 2 runs (bonus x1.5), Veteran at 5 (bonus x2, plus
 a title such as "Ada the Lamplighter", plus a quirk - a small effect such

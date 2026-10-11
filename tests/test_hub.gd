@@ -246,3 +246,15 @@ func test_dig_rope_and_grapple_keys_do_nothing_in_the_hub() -> void:
 	assert_true(hub.player.mine == null, "still no mine")
 	assert_true(hub.player.global_position.y < 10.0, "still standing on the ground")
 	Progress.path_override = ""
+
+func test_the_board_panel_only_dims_the_screen_while_the_board_is_open() -> void:
+	var hub := await _hub()
+	assert_true(not hub.board_panel.visible, "the screen is not dimmed at load")
+	_stand(hub, Hub.BUILDING_X["notice_board"])
+	hub.press_use()
+	await physics_frames(2)
+	assert_true(hub.board_panel.visible, "dimmed behind the open board")
+	hub.press_use()
+	await physics_frames(2)
+	assert_true(not hub.board_panel.visible, "clear again once it is closed")
+	Progress.path_override = ""

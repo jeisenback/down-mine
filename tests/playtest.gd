@@ -55,6 +55,7 @@ func _run() -> void:
 		["wave_meets_the_base_light", _wave_meets_the_base_light],
 		["drawn_art_on_screen", _drawn_art_on_screen],
 		["crew_jobs_at_work", _crew_jobs_at_work],
+		["hub_buy_crew_and_descend", _hub_buy_crew_and_descend],
 	]
 	var failed := 0
 	for entry in scenarios:
@@ -821,3 +822,58 @@ func _base_grows_in_tiers() -> void:
 	base.global_position += Vector2(200, 0)
 	main._place_crew_at_base()
 	check(base.tier == 2 and base.get_node("Rampart").global_position - base.global_position == rampart_offset, "replanting keeps the tier and the props follow")
+
+## The hub (milestone 57): walk the settlement with real keys, buy a lantern
+## level, put a miner on the crew, read the board, and go down the mine.
+func _hub_buy_crew_and_descend() -> void:
+	var saved := Progress.new()
+	saved.save_path = SAVE_PATH
+	saved.banked_ore = 100
+	saved.roster = [{"name": "Ana", "type": "repair", "runs": 0, "found_in": 0}, {"name": "Bo", "type": "light", "runs": 0, "found_in": 0}]
+	saved.crew_names = []
+	saved.save()
+	HUD.title_seen = true
+	paused = false
+	main = load("res://scenes/Hub.tscn").instantiate() # _end_game frees it like a run
+	root.add_child(main)
+	await frames(10)
+	check(main.get_node_or_null("Mine") == null and main.get_node_or_null("RunBase") == null, "no mine and no run base in the hub")
+	check(main.miners.size() == 2, "a figure for each rostered miner")
+	await _hub_walk_to(Hub.BUILDING_X["lamp_shop"])
+	check(main.hud.prompt_label.text.contains("Lantern tank"), "the lamp shop offers the lantern")
+	await shot("lamp shop")
+	await tap(KEY_1)
+	check(main.progress.level("lantern") == 1 and main.progress.banked_ore == 70, "1 bought a lantern level for 30 ore")
+	check(main.hud.banked_label.text == "Banked: 70", "the banked ore updated")
+	await _hub_walk_to(main.miners[0].global_position.x)
+	check(main.hud.prompt_label.text.contains("Ana"), "the prompt names the miner")
+	await tap(KEY_E)
+	check(main.progress.crew_names.has("Ana"), "E put Ana on the crew")
+	await shot("crew")
+	await _hub_walk_to(Hub.BUILDING_X["notice_board"])
+	await tap(KEY_E)
+	check(main.board_label.visible and main.board_label.text.contains("RECENT RUNS"), "the notice board opens")
+	await shot("board")
+	await tap(KEY_E)
+	check(not main.board_label.visible, "and closes")
+	var seen: Array = []
+	main.change_scene = func(path: String): seen.append(path)
+	await _hub_walk_to(Hub.ENTRANCE_X)
+	await shot("entrance")
+	await tap(KEY_E)
+	check(seen == ["res://scenes/Main.tscn"], "the entrance starts a run")
+
+## Walks the hub's player to x with real keys, then settles it exactly there.
+func _hub_walk_to(x: float) -> void:
+	for i in range(900):
+		var dx: float = x - main.player.global_position.x
+		if absf(dx) < 3.0:
+			break
+		var code := KEY_D if dx > 0.0 else KEY_A
+		key_event(code, true)
+		await frames(1)
+		key_event(code, false)
+	await frames(12)
+	main.player.global_position.x = x
+	main.player.velocity = Vector2.ZERO
+	await frames(3)
