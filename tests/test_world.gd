@@ -1124,3 +1124,37 @@ func test_pushing_into_rock_digs_it_when_assisted() -> void:
 
 func test_pushing_into_rock_does_not_dig_on_the_keyboard() -> void:
 	assert_true(not await _tunnel_run(false), "not assisted: walking into rock digs nothing")
+
+# --- movement feel (milestone 59): slower digging, lighter gravity -----------------
+
+func test_digging_down_descends_about_five_tiles_a_second() -> void:
+	var tiles_per_second: float = Player.DIG_DESCENT_SPEED / MineGrid.TILE_SIZE
+	assert_true(tiles_per_second >= 4.5 and tiles_per_second <= 6.0, "descends %.1f tiles a second" % tiles_per_second)
+
+func test_a_plain_jump_clears_a_two_tile_ledge() -> void:
+	var apex: float = Player.JUMP_VELOCITY * Player.JUMP_VELOCITY / (2.0 * Player.GRAVITY)
+	assert_true(apex >= 2.0 * MineGrid.TILE_SIZE, "the jump peaks %.0f px, a 2-tile ledge is %d" % [apex, 2 * MineGrid.TILE_SIZE])
+
+func test_a_jump_and_mantle_reach_three_tiles_but_not_four() -> void:
+	var apex: float = Player.JUMP_VELOCITY * Player.JUMP_VELOCITY / (2.0 * Player.GRAVITY)
+	var reach: float = apex + Player.MANTLE_REACH
+	assert_true(reach >= 3.0 * MineGrid.TILE_SIZE, "a 3-tile ledge is climbable (%.0f px reach)" % reach)
+	assert_true(reach < 4.0 * MineGrid.TILE_SIZE, "a 4-tile ledge still needs a tool (%.0f px reach)" % reach)
+
+func test_a_held_dig_does_not_chew_a_bump_the_player_is_falling_toward() -> void:
+	# With lighter gravity the player is airborne longer after stepping off a bump,
+	# and walking with Space held must still step over the next one, not dig it.
+	var mine: MineGrid = add(MineScene.instantiate())
+	var start := _step_course(mine)
+	var bump := start + Vector2i(1, 0)
+	var player: Player = add(PlayerScene.instantiate())
+	player.set_physics_process(false)
+	player.mine = mine
+	player.facing = 1
+	player.global_position = mine.cell_to_world(start)
+	player.velocity.y = 40.0 # falling, not on the floor
+	player._dig_forward(true)
+	assert_true(mine.is_solid(bump), "falling toward a steppable bump: it is left to be stepped on")
+	player.velocity.y = -40.0 # rising (a jump): the old behaviour stays
+	player._dig_forward(true)
+	assert_true(not mine.is_solid(bump), "rising into it with the dig held still digs it")
