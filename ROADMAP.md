@@ -152,6 +152,11 @@ dictates.
   code before anything moved) proves every seed still builds the same mine, tiles, decor, rooms, pickups and torches.
   The slowest generation tests now read the layout with no scene. Suite time is about level for now (generation is
   still about 0.9 s a mine, and the golden net adds about 40 s); stage 2 rewrites the smoothing, the 0.65 s of it.
+- ~~**M72 - Faster mine smoothing.**~~ Done (issue #74 stage 2, issue #82): the cave smoothing runs over a flat byte array
+  (`MineGenerator.smooth`, one column-triple sum per cell instead of eight lookups), checked cell for cell against the
+  old nested-array algorithm and by the 31 golden seeds. A mine takes about 0.5 s to generate, down from about 0.95 s;
+  the local unit suite went from about 4:56 to 3:07 (it was 5:45 before #82). Tests and generation speed only: every
+  seed still builds the same mine.
 
 ## Quality pass
 

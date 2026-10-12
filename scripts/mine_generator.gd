@@ -84,11 +84,13 @@ func _run(mine_seed: int) -> MineLayout:
 				_solid[x][y] = _rng.randf() < MineGrid.LAYERS[layer_index_for_row(y)].fill
 	_reinforce_boundaries(_solid)
 
+	var flat := _flatten(_solid)
 	for i in range(MineGrid.CA_ITERATIONS):
-		_solid = _smooth(_solid)
-		_reinforce_boundaries(_solid)
+		flat = smooth(flat)
+		_reinforce_flat(flat)
 		for x in range(MineGrid.GRID_WIDTH):
-			_solid[x][MineGrid.SURFACE_ROWS] = true
+			flat[x * MineGrid.GRID_HEIGHT + MineGrid.SURFACE_ROWS] = 1
+	_solid = _unflatten(flat)
 	_carve_old_mine()
 	_carve_event_rooms()
 
@@ -137,33 +139,57 @@ func _reinforce_boundaries(grid: Array) -> void:
 		grid[0][y] = true
 		grid[MineGrid.GRID_WIDTH - 1][y] = true
 
-func _smooth(grid: Array) -> Array:
-	var new_grid := _make_grid(false)
+## One cellular-automata pass over a flat grid (index x * GRID_HEIGHT + y, 1 = solid): a
+## solid cell stays solid with 4 or more solid neighbours of its 8, an empty one becomes
+## solid with 5 or more; outside the map counts as solid; rows above the surface stay empty.
+## Each cell's column triple is summed once, then a neighbour count is three of those.
+static func smooth(grid: PackedByteArray) -> PackedByteArray:
+	var w := MineGrid.GRID_WIDTH
+	var h := MineGrid.GRID_HEIGHT
+	var triple := PackedByteArray()
+	triple.resize(w * h)
+	for x in range(w):
+		var base := x * h
+		for y in range(h):
+			var above := grid[base + y - 1] if y > 0 else 1
+			var below := grid[base + y + 1] if y < h - 1 else 1
+			triple[base + y] = above + grid[base + y] + below
+	var out := PackedByteArray()
+	out.resize(w * h)
+	for x in range(w):
+		var base := x * h
+		for y in range(MineGrid.SURFACE_ROWS, h):
+			var left := triple[base - h + y] if x > 0 else 3
+			var right := triple[base + h + y] if x < w - 1 else 3
+			var cell := grid[base + y]
+			var walls := left + triple[base + y] + right - cell
+			out[base + y] = 1 if walls >= (4 if cell == 1 else 5) else 0
+	return out
+
+func _flatten(grid: Array) -> PackedByteArray:
+	var flat := PackedByteArray()
+	flat.resize(MineGrid.GRID_WIDTH * MineGrid.GRID_HEIGHT)
 	for x in range(MineGrid.GRID_WIDTH):
 		for y in range(MineGrid.GRID_HEIGHT):
-			if y < MineGrid.SURFACE_ROWS:
-				new_grid[x][y] = false
-				continue
-			var wall_count := _count_wall_neighbors(grid, x, y)
-			if grid[x][y]:
-				new_grid[x][y] = wall_count >= 4
-			else:
-				new_grid[x][y] = wall_count >= 5
-	return new_grid
+			flat[x * MineGrid.GRID_HEIGHT + y] = 1 if grid[x][y] else 0
+	return flat
 
-func _count_wall_neighbors(grid: Array, x: int, y: int) -> int:
-	var count := 0
-	for dx in range(-1, 2):
-		for dy in range(-1, 2):
-			if dx == 0 and dy == 0:
-				continue
-			var nx := x + dx
-			var ny := y + dy
-			if nx < 0 or nx >= MineGrid.GRID_WIDTH or ny < 0 or ny >= MineGrid.GRID_HEIGHT:
-				count += 1 # treat out-of-bounds as solid, keeps caves from opening at the edges
-			elif grid[nx][ny]:
-				count += 1
-	return count
+func _unflatten(flat: PackedByteArray) -> Array:
+	var grid := _make_grid(false)
+	for x in range(MineGrid.GRID_WIDTH):
+		for y in range(MineGrid.GRID_HEIGHT):
+			grid[x][y] = flat[x * MineGrid.GRID_HEIGHT + y] == 1
+	return grid
+
+## _reinforce_boundaries on a flat grid.
+func _reinforce_flat(flat: PackedByteArray) -> void:
+	var w := MineGrid.GRID_WIDTH
+	var h := MineGrid.GRID_HEIGHT
+	for x in range(w):
+		flat[x * h + h - 1] = 1
+	for y in range(h):
+		flat[y] = 1
+		flat[(w - 1) * h + y] = 1
 
 ## Opens the shaft from just below the crust, fills its last
 ## SHAFT_COLLAPSE_ROWS rows with rock, and keeps both clear of pickups, gas

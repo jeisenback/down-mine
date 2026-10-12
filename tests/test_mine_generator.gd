@@ -198,3 +198,60 @@ func test_cave_torches_stand_on_free_floor_in_the_first_two_layers() -> void:
 			for j in range(i):
 				var apart := Vector2(cell).distance_to(Vector2(caves[j].cell))
 				assert_true(apart >= MineGrid.TORCH_CAVE_SPACING_TILES, "seed %d: torches %d tiles apart" % [s, apart])
+
+# --- smoothing --------------------------------------------------------------------
+
+## The smoothing step exactly as it was before the flat-array rewrite (nested arrays,
+## 8 lookups per cell): the reference the fast version must match cell for cell.
+func _reference_smooth(grid: Array) -> Array:
+	var w := MineGrid.GRID_WIDTH
+	var h := MineGrid.GRID_HEIGHT
+	var out: Array = []
+	for x in range(w):
+		var column: Array = []
+		column.resize(h)
+		column.fill(false)
+		out.append(column)
+	for x in range(w):
+		for y in range(h):
+			if y < MineGrid.SURFACE_ROWS:
+				continue
+			var walls := 0
+			for dx in range(-1, 2):
+				for dy in range(-1, 2):
+					if dx == 0 and dy == 0:
+						continue
+					var nx := x + dx
+					var ny := y + dy
+					if nx < 0 or nx >= w or ny < 0 or ny >= h:
+						walls += 1
+					elif grid[nx][ny]:
+						walls += 1
+			out[x][y] = walls >= 4 if grid[x][y] else walls >= 5
+	return out
+
+func test_smooth_matches_the_reference_on_random_grids() -> void:
+	var w := MineGrid.GRID_WIDTH
+	var h := MineGrid.GRID_HEIGHT
+	for s in [1, 2, 3, 4, 5]:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = s
+		var nested: Array = []
+		var flat := PackedByteArray()
+		flat.resize(w * h)
+		for x in range(w):
+			var column: Array = []
+			column.resize(h)
+			for y in range(h):
+				var solid: bool = rng.randf() < 0.45 + 0.1 * s / 5.0
+				column[y] = solid
+				flat[x * h + y] = 1 if solid else 0
+			nested.append(column)
+		var expected := _reference_smooth(nested)
+		var got: PackedByteArray = MineGenerator.smooth(flat)
+		var mismatches := 0
+		for x in range(w):
+			for y in range(h):
+				if (got[x * h + y] == 1) != expected[x][y]:
+					mismatches += 1
+		assert_eq(mismatches, 0, "grid %d: cells that differ from the reference" % s)
