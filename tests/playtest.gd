@@ -992,7 +992,7 @@ func _touch_controls_play() -> void:
 	tc.touch(3, layout["esc"].get_center(), false)
 	await frames(10)
 	check(paused and main.hud.overlay.visible, "Esc paused the game and showed the controls")
-	check(tc.visible_widgets().has("continue") and tc.visible_widgets().size() == 2, "paused: only Continue and Esc")
+	check(tc.visible_widgets().has("continue") and tc.visible_widgets().has("esc") and tc.visible_widgets().has("abandon") and tc.visible_widgets().size() == 3, "paused in the mine: Continue, Esc and Abandon")
 	check(main.hud._overlay_label.text.contains("Continue to close") and not main.hud._overlay_label.text.contains("A / D"), "the touch controls overlay names buttons, not keys")
 	check(main.hud.prompt_label.modulate.a == 0.0, "the prompt line is hidden under the Continue button")
 	await shot("paused")
