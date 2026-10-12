@@ -17,13 +17,20 @@ extends SceneTree
 ## the Heart, dig straight down onto its room, take it, climb home on ropes and extract. No fuel
 ## detours, no fighting: the worst case for the win. One line per seed. Add `flare` (`-- heart flare`)
 ## and it also holds Shift while a Stalker is within FLARE_RANGE px and the lantern is at or under a
-## quarter, which is when a Stalker strikes unless you flare.
+## quarter, which is when a Stalker strikes unless you flare. Add `detour=N` and it models taking fuel
+## pickups near its shaft: each pickup within DETOUR_TILES of the column it passes is removed, adds its
+## light and costs N seconds of light (the travel, paid as burned fuel); none is taken when the lantern
+## is nearly full. The detour is modelled, not walked: the output is the break-even N for the win.
 
 const SEEDS := [1001, 2002, 3003]
 const TRIP_DEPTHS := [50, 100, 150, 200]
 const HEART_SEEDS := [1001, 2002, 3003, 1, 2, 3] # the Heart is 19 to 66 tiles off the shaft
 const HEART_KIT := {"lantern": 3}
 const FLARE_RANGE := 150.0
+const DETOUR_TILES := 6
+var _detour_cost := -1.0 # seconds of light a detour costs; negative = no detours (`-- heart detour=N`)
+var _pickups: Array = []
+var _picked := 0
 const STRIKE_FUEL_FRACTION := 0.25 # Stalker.STRIKE_FUEL_FRACTION
 var _flare_on := false # set by `-- heart flare`
 var _flaring := false
@@ -43,6 +50,9 @@ func _run() -> void:
 		return
 	if OS.get_cmdline_user_args().has("heart"):
 		_flare_on = OS.get_cmdline_user_args().has("flare")
+		for arg in OS.get_cmdline_user_args():
+			if arg.begins_with("detour="):
+				_detour_cost = float(arg.substr(7))
 		await _run_hearts()
 		quit()
 		return
@@ -148,6 +158,7 @@ func _climb_home(main: Node, report: Dictionary) -> void:
 		up += 1.0 / 60.0
 		since_rope += 1.0 / 60.0
 		_flare(main)
+		_detour(main)
 		var blocked: bool = main.mine.is_solid(main.mine.world_to_cell(main.player.global_position) + Vector2i.UP)
 		if blocked and main.player.is_on_rope():
 			pinned += 1.0 / 60.0
@@ -189,6 +200,21 @@ func _flare(main: Node) -> void:
 				near = true
 	_set_flare(near)
 
+## With `detour=N`: takes a pickup near the shaft as the player passes its row, paying N seconds of light.
+func _detour(main: Node) -> void:
+	if _pickups.is_empty():
+		return
+	var light: MineLight = main.player.light
+	if light.max_fuel - light.fuel < 10.0:
+		return
+	for pickup in _pickups:
+		if is_instance_valid(pickup) and absf(pickup.global_position.y - main.player.global_position.y) < 24.0:
+			light.fuel = clampf(light.fuel + pickup.fuel_amount - _detour_cost, 0.0, light.max_fuel)
+			_pickups.erase(pickup)
+			pickup.queue_free()
+			_picked += 1
+			return
+
 func _set_flare(on: bool) -> void:
 	if on != _flaring:
 		_flaring = on
@@ -212,6 +238,8 @@ func _trip_line(main: Node, report: Dictionary) -> String:
 				line += " (%s)" % ", ".join(entry.hits.keys().map(func(k): return "%s %d" % [k, entry.hits[k]]))
 	if report.has("light_left"):
 		line += ", %.0fs of light and %d health left" % [report.light_left, report.health]
+	if _detour_cost >= 0.0:
+		line += ", %d pickups at %.0fs each" % [_picked, _detour_cost]
 	return line
 
 # --- the Heart run -----------------------------------------------------------------
@@ -252,6 +280,10 @@ func _heart(main: Node) -> Dictionary:
 	var report := {"outcome": "", "across": 0.0, "down": 0.0, "up": 0.0}
 	var heart_cell := _heart_cell(main)
 	var heart_x: float = main.mine.cell_to_world(heart_cell).x
+	_pickups = []
+	_picked = 0
+	if _detour_cost >= 0.0:
+		_pickups = main.mine.get_children().filter(func(c): return c is FuelPickup and absf(c.global_position.x - heart_x) <= DETOUR_TILES * MineGrid.TILE_SIZE)
 	report.across = await _walk_to(main, heart_x)
 	if report.across < 0.0:
 		report.across = 0.0
@@ -264,6 +296,7 @@ func _heart(main: Node) -> Dictionary:
 		await physics_frame
 		t += 1.0 / 60.0
 		_flare(main)
+		_detour(main)
 	_key(KEY_S, false)
 	var waited := 0
 	while not main.player.is_on_floor() and waited < 120 and not main.run_ended:
