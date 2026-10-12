@@ -13,6 +13,8 @@ func _run() -> void:
 	OS.add_logger(errors)
 	var failed := 0
 	var passed := 0
+	var timings: Array = [] # [seconds, "file.test"], for the slowest-tests table
+	var file_seconds: Dictionary = {}
 	for file in DirAccess.get_files_at("res://tests"):
 		if not (file.begins_with("test_") and file.ends_with(".gd")):
 			continue
@@ -31,7 +33,11 @@ func _run() -> void:
 			errors.script_errors.clear()
 			TestHooks.reset(TestCase.TEST_SAVE_PATH) # no test depends on what an earlier one left behind
 			DirAccess.remove_absolute(ProjectSettings.globalize_path(TestCase.TEST_SAVE_PATH))
+			var started := Time.get_ticks_usec()
 			await case.call(name)
+			var seconds := (Time.get_ticks_usec() - started) / 1000000.0
+			timings.append([seconds, "%s.%s" % [file.get_basename(), name]])
+			file_seconds[file.get_basename()] = file_seconds.get(file.get_basename(), 0.0) + seconds
 			TestHooks.reset(TestCase.TEST_SAVE_PATH)
 			for error in errors.script_errors:
 				case.failures.append("script error: " + error)
@@ -48,11 +54,24 @@ func _run() -> void:
 				for f in case.failures:
 					print("          " + f)
 	OS.remove_logger(errors)
+	TestCase.free_shared_mines()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TestCase.TEST_SAVE_PATH))
 	# Let the audio thread release stopped sounds before quitting, or Godot
 	# reports their playbacks as leaked at exit.
 	Sfx.stop_all()
 	OS.delay_msec(100)
 	await process_frame
+	_print_timings(timings, file_seconds)
 	print("%d passed, %d failed" % [passed, failed])
 	quit(1 if failed > 0 else 0)
+
+## Where the time goes: the slowest tests and each file's total, so a speed-up
+## starts from numbers.
+func _print_timings(timings: Array, file_seconds: Dictionary) -> void:
+	timings.sort_custom(func(a, b): return a[0] > b[0])
+	print("slowest tests:")
+	for entry in timings.slice(0, 15):
+		print("  %6.1fs  %s" % [entry[0], entry[1]])
+	print("seconds per file:")
+	for file in file_seconds:
+		print("  %6.1fs  %s" % [file_seconds[file], file])

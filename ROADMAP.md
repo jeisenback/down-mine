@@ -140,6 +140,11 @@ dictates.
   `[meta]` and `load_saved` runs `_migrate` before reading anything, one step per version, so the next change to the
   saved shape converts old saves instead of dropping them. The first step is the old inline crew default; a frozen
   pre-versioning save in the tests is the regression net. A save from a newer game loads without crashing.
+- ~~**M70 - Faster unit tests.**~~ Done (issue #82): the runner prints the slowest 15 tests and each file's total, and
+  tests that only read a mine share one per seed (`TestCase.shared_mine`, generated once and kept out of the tree)
+  instead of generating it again; a mine costs about a second. The unit suite went from about 5:45 to 4:00 locally
+  (`test_world` 206 s to 99 s). `test_main` (about 100 s, one Main scene per test) is the next cost, and the
+  structural fix is the pure `MineGenerator` of #74. Tests only: no gameplay change.
 
 ## Quality pass
 
