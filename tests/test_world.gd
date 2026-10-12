@@ -635,7 +635,7 @@ func _mine_with_seed(mine_seed: int) -> MineGrid:
 	return add(MineScene.instantiate())
 
 func test_shaft_runs_from_below_the_crust_to_a_collapse_in_upper_stone() -> void:
-	var mine := _mine_with_seed(1001)
+	var mine := shared_mine(1001)
 	var col := mine.shaft_column()
 	assert_eq(col, MineGrid.GRID_WIDTH / 2, "on the centre column")
 	var stone := mine._layer_rows(2)
@@ -672,7 +672,7 @@ func test_the_same_seed_builds_the_same_shaft_and_seeds_differ() -> void:
 func test_event_rooms_and_pickups_keep_out_of_the_shaft() -> void:
 	# 3, 8, 13 and 51 are seeds whose rooms landed on the shaft before rooms learned to avoid it.
 	for s in [3, 8, 11, 13, 22, 33, 44, 51, 55]:
-		var mine := _mine_with_seed(s)
+		var mine := shared_mine(s)
 		for room in mine.event_rooms:
 			if room.has("shaft"):
 				continue # the lift is the shaft's own
@@ -703,7 +703,7 @@ func test_about_thirty_percent_of_old_ladder_pieces_are_missing() -> void:
 	var present := 0
 	var total := 0
 	for s in range(1, 21):
-		var mine := _mine_with_seed(s)
+		var mine := shared_mine(s)
 		var open := mine.shaft_open_rows()
 		var pieces := int(ceil((open.y - open.x + 1) / float(MineGrid.OLD_LADDER_PIECE_ROWS)))
 		total += pieces
@@ -715,7 +715,7 @@ func test_about_thirty_percent_of_old_ladder_pieces_are_missing() -> void:
 
 func test_each_worked_layer_gets_a_drift_of_the_right_shape() -> void:
 	for s in [1001, 1, 2, 3, 4, 5, 6, 7]:
-		var mine := _mine_with_seed(s)
+		var mine := shared_mine(s)
 		var layers: Array = mine.drifts.map(func(d): return d.layer)
 		assert_true(layers.has(0) and layers.has(1), "seed %d: Topsoil and Clay always have one" % s)
 		for d in mine.drifts:
@@ -732,7 +732,7 @@ func test_each_worked_layer_gets_a_drift_of_the_right_shape() -> void:
 func test_drifts_floor_caves_with_planks_and_post_every_six_tiles() -> void:
 	var planks := 0
 	for s in range(1, 13):
-		var mine := _mine_with_seed(s)
+		var mine := shared_mine(s)
 		for d in mine.drifts:
 			var step: int = d.side
 			for i in range(absi(d.x1 - d.x0) + 1):
@@ -742,14 +742,14 @@ func test_drifts_floor_caves_with_planks_and_post_every_six_tiles() -> void:
 				var posted := mine.get_cell_atlas_coords(MineGrid.DECOR_LAYER, Vector2i(x, d.row)) == MineGrid.POST_ATLAS_COORDS
 				assert_eq(posted, i > 0 and i % MineGrid.DRIFT_POST_SPACING == 0, "seed %d: post at step %d" % [s, i])
 	assert_true(planks > 0, "across 12 seeds some drift crosses a cave and gets planks")
-	var mine := _mine_with_seed(1001)
+	var mine := shared_mine(1001)
 	var data: TileData = (mine.tile_set.get_source(mine.source_id) as TileSetAtlasSource).get_tile_data(MineGrid.POST_ATLAS_COORDS, 0)
 	assert_eq(data.get_collision_polygons_count(0), 0, "the post has no collision")
 
 func test_event_rooms_and_pickups_keep_out_of_the_drifts() -> void:
 	# 44 and 89 are seeds where the lift room landed on a Stone drift before rooms avoided drifts.
 	for s in [3, 8, 13, 22, 33, 44, 51, 55, 89, 1001]:
-		var mine := _mine_with_seed(s)
+		var mine := shared_mine(s)
 		for room in mine.event_rooms:
 			if room.has("drift"):
 				continue # a drift's own camp stands inside it
@@ -770,7 +770,7 @@ func _cells_of(box: Rect2i) -> Array:
 
 func test_clay_and_stone_drifts_have_a_collapsed_section_and_topsoil_does_not() -> void:
 	for s in [1001, 1, 2, 3, 4, 5]:
-		var mine := _mine_with_seed(s)
+		var mine := shared_mine(s)
 		for d in mine.drifts:
 			var box: Rect2i = d.features.collapse
 			if d.layer == 0:
@@ -788,7 +788,7 @@ func test_clay_and_stone_drifts_have_a_collapsed_section_and_topsoil_does_not() 
 
 func test_camps_of_the_worked_layers_stand_at_the_drift_ends() -> void:
 	for s in [1001, 1, 2, 3]:
-		var mine := _mine_with_seed(s)
+		var mine := shared_mine(s)
 		var camps: Array = mine.event_rooms.filter(func(r): return r.kind == "camp")
 		assert_eq(camps.size(), MineGrid.LAYERS.size(), "seed %d: one camp per layer" % s)
 		for d in mine.drifts:
@@ -801,7 +801,7 @@ func test_camps_of_the_worked_layers_stand_at_the_drift_ends() -> void:
 func test_the_lost_miner_stands_at_the_stone_drifts_far_end() -> void:
 	var with_drift := 0
 	for s in range(1, 21):
-		var mine := _mine_with_seed(s)
+		var mine := shared_mine(s)
 		var stone: Array = mine.drifts.filter(func(d): return d.layer == 2)
 		if stone.is_empty():
 			assert_true(mine.lost_miner_cell.x >= 0, "seed %d: with no Stone drift the miner keeps the old placement" % s)
@@ -812,7 +812,7 @@ func test_the_lost_miner_stands_at_the_stone_drifts_far_end() -> void:
 
 func test_each_drift_has_a_plank_landing_beside_the_shaft() -> void:
 	for s in [1001, 1, 2, 3, 44, 89]:
-		var mine := _mine_with_seed(s)
+		var mine := shared_mine(s)
 		for d in mine.drifts:
 			var landing := Vector2i(mine.shaft_column() + d.side, d.row + 1)
 			assert_true(mine.is_solid(landing), "seed %d layer %d: the shaft's edge has a floor to step onto" % [s, d.layer])
@@ -822,7 +822,7 @@ func test_each_drift_has_a_plank_landing_beside_the_shaft() -> void:
 func test_the_lift_stands_in_the_shaft_at_the_bottom_of_clay() -> void:
 	# 31 and 98 move the lift off a Clay gallery; 35 caps it at the shaft's open end and then moves it.
 	for s in [1001, 1, 2, 3, 4, 5, 6, 7, 8, 31, 35, 44, 89, 98]:
-		var mine := _mine_with_seed(s)
+		var mine := shared_mine(s)
 		var lifts: Array = mine.event_rooms.filter(func(r): return r.kind == "lift")
 		assert_eq(lifts.size(), 1, "seed %d: one lift" % s)
 		var cell: Vector2i = lifts[0].cell
@@ -847,7 +847,7 @@ func _pixels_equal(a: Image, a_origin: Vector2i, b: Image, b_origin: Vector2i) -
 	return true
 
 func test_the_old_mines_tiles_come_from_the_props_sheet() -> void:
-	var mine := _mine_with_seed(1001)
+	var mine := shared_mine(1001)
 	var atlas: Image = (mine.tile_set.get_source(mine.source_id) as TileSetAtlasSource).texture.get_image()
 	var props: Image = MineGrid.OLD_MINE_ART.get_image()
 	props.decompress()
@@ -1192,7 +1192,7 @@ func test_a_torch_never_burns_down_and_is_not_a_lamp() -> void:
 
 func test_shaft_torches_sit_on_the_frame_every_ten_rows_in_topsoil_and_clay() -> void:
 	for s in TORCH_SEEDS:
-		var mine := _mine_with_seed(s)
+		var mine := shared_mine(s)
 		var open := mine.shaft_open_rows()
 		var clay_bottom: int = mine._layer_rows(1).y
 		var shaft := _torches(mine, "shaft")
@@ -1212,7 +1212,7 @@ func test_shaft_torches_sit_on_the_frame_every_ten_rows_in_topsoil_and_clay() ->
 
 func test_cave_torches_stand_on_free_floor_in_the_first_two_layers() -> void:
 	for s in TORCH_SEEDS:
-		var mine := _mine_with_seed(s)
+		var mine := shared_mine(s)
 		var caves := _torches(mine, "cave")
 		assert_eq(caves.size(), MineGrid.TORCH_CAVE_COUNT, "seed %d: the cave torch count" % s)
 		for i in range(caves.size()):
@@ -1227,7 +1227,7 @@ func test_cave_torches_stand_on_free_floor_in_the_first_two_layers() -> void:
 
 func test_torches_are_nodes_that_share_no_cell_with_a_pickup() -> void:
 	for s in [1001, 2, 98]:
-		var mine := _mine_with_seed(s)
+		var mine := shared_mine(s)
 		var nodes := mine.get_children().filter(func(c): return c.is_in_group(Groups.TORCHES))
 		assert_eq(nodes.size(), mine.torches.size(), "seed %d: one node per torch" % s)
 		for t in mine.torches:

@@ -8,6 +8,9 @@ class_name TestCase
 
 const TEST_SAVE_PATH := "user://test_save.cfg"
 
+## Mines generated once and shared by tests that only read them (see shared_mine).
+static var _shared_mines: Dictionary = {}
+
 var tree: SceneTree
 var failures: Array[String] = []
 
@@ -27,3 +30,21 @@ func add(node: Node) -> Node:
 func physics_frames(count: int) -> void:
 	for i in range(count):
 		await tree.physics_frame
+
+## A mine for `mine_seed`, generated once per run and shared: generation costs
+## about a second, and many tests only read the same seeds. READ ONLY - a test
+## that digs, decays, or compares two mines of one seed uses a fresh mine.
+func shared_mine(mine_seed: int) -> MineGrid:
+	var cached = _shared_mines.get(mine_seed)
+	if is_instance_valid(cached):
+		return cached
+	var holder: Node = tree.root.get_node_or_null("SharedMines")
+	if holder == null: # the runner makes it first so the per-test cleanup leaves it alone
+		holder = Node.new()
+		holder.name = "SharedMines"
+		tree.root.add_child(holder)
+	MineGrid.next_seed = mine_seed
+	var mine: MineGrid = load("res://scenes/Mine.tscn").instantiate()
+	holder.add_child(mine)
+	_shared_mines[mine_seed] = mine
+	return mine

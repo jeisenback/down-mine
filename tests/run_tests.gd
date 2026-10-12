@@ -9,6 +9,9 @@ func _initialize() -> void:
 
 func _run() -> void:
 	TestHooks.reset(TestCase.TEST_SAVE_PATH)
+	var shared := Node.new() # mines that read-only tests share (TestCase.shared_mine)
+	shared.name = "SharedMines"
+	root.add_child(shared)
 	var errors := ErrorLogger.new()
 	OS.add_logger(errors)
 	var failed := 0
@@ -54,6 +57,7 @@ func _run() -> void:
 				for f in case.failures:
 					print("          " + f)
 	OS.remove_logger(errors)
+	shared.free()
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(TestCase.TEST_SAVE_PATH))
 	# Let the audio thread release stopped sounds before quitting, or Godot
 	# reports their playbacks as leaked at exit.
