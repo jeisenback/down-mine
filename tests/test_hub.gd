@@ -317,3 +317,32 @@ func test_a_first_visit_says_where_to_go_and_later_visits_stay_quiet() -> void:
 	var later := await _hub(0, [], [{"result": "Extracted", "seconds": 90, "depth": 40, "ore": 12, "seed": 7}])
 	assert_eq(later.hud._message, "", "a returning player is not told again")
 	Progress.path_override = ""
+
+func test_the_board_closes_when_the_player_walks_away() -> void:
+	var hub := await _hub()
+	var board_x: float = Hub.BUILDING_X["notice_board"]
+	_stand(hub, board_x)
+	await physics_frames(2)
+	assert_true(hub.press_use(), "E beside the board opens it")
+	await physics_frames(2)
+	assert_true(hub._building_of("notice_board").board_open, "open")
+	_stand(hub, board_x + HubBuilding.RANGE - 4.0)
+	await physics_frames(2)
+	assert_true(hub._building_of("notice_board").board_open, "still beside it: stays open")
+	_stand(hub, board_x - 200.0)
+	await physics_frames(2)
+	assert_true(not hub._building_of("notice_board").board_open, "walked away: closed")
+	assert_true(not hub.board_panel.visible, "and the screen is not left dimmed")
+	Progress.path_override = ""
+
+func test_the_hub_sky_is_a_gradient_behind_everything() -> void:
+	var hub := await _hub()
+	var sky: TextureRect = hub.get_node("Sky")
+	assert_true(sky.texture is GradientTexture2D, "a drawn gradient, not a flat colour")
+	var gradient: Gradient = (sky.texture as GradientTexture2D).gradient
+	var top := gradient.get_color(0)
+	var horizon := gradient.get_color(gradient.get_point_count() - 1)
+	assert_true(top.get_luminance() < horizon.get_luminance(), "darker overhead, lighter at the horizon")
+	assert_true(sky.z_index < -5, "behind the ground and the buildings")
+	assert_true(sky.position.y + sky.size.y <= 0.0 + 0.001, "it ends at the ground")
+	Progress.path_override = ""

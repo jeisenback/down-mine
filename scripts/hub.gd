@@ -18,6 +18,8 @@ const MINER_STEP := 14.0
 const PLAYER_Y := -8.0
 const MINER_Y := -7.0 # the drawn miner's feet sit 7 px below its centre
 const MAIN_SCENE := "res://scenes/Main.tscn"
+const SKY_TOP := Color8(40, 36, 72)
+const SKY_HORIZON := Color8(150, 118, 140)
 ## Shown on the first visit (no run logged yet); it names no keys, so it suits touch too.
 const FIRST_VISIT_TEXT := "Visit a building to see what it sells. The mine entrance is far right."
 const TouchControlsScene := preload("res://scenes/TouchControls.tscn")
@@ -61,12 +63,26 @@ func _ready() -> void:
 	Sfx.warm_up()
 
 func _build_ground() -> void:
-	var backdrop := ColorRect.new()
-	backdrop.color = Color8(72, 66, 88)
-	backdrop.position = Vector2(-200, -400)
-	backdrop.size = Vector2(STRIP_WIDTH + 400.0, 400.0)
-	backdrop.z_index = -10
-	add_child(backdrop)
+	# The sky: deep indigo overhead, a pale rose-purple at the horizon. The camera never
+	# looks above y = -170, so a 200 px band is all that is ever seen.
+	var gradient := Gradient.new()
+	gradient.set_color(0, SKY_TOP)
+	gradient.set_color(1, SKY_HORIZON)
+	var sky_texture := GradientTexture2D.new()
+	sky_texture.gradient = gradient
+	sky_texture.fill_from = Vector2(0.0, 0.0)
+	sky_texture.fill_to = Vector2(0.0, 1.0)
+	sky_texture.width = 4
+	sky_texture.height = 128
+	var sky := TextureRect.new()
+	sky.name = "Sky"
+	sky.texture = sky_texture
+	sky.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	sky.stretch_mode = TextureRect.STRETCH_SCALE
+	sky.position = Vector2(-200, -200)
+	sky.size = Vector2(STRIP_WIDTH + 400.0, 200.0)
+	sky.z_index = -10
+	add_child(sky)
 	var ground := StaticBody2D.new()
 	var shape := CollisionShape2D.new()
 	var rect := RectangleShape2D.new()
@@ -223,6 +239,8 @@ func _process(_delta: float) -> void:
 	for m in miners:
 		m.get_node("Lantern").visible = m.on_crew()
 	var board := _building_of("notice_board")
+	if board.board_open and not board.in_range(player.global_position):
+		board.board_open = false # walking away closes it
 	board_panel.visible = board.board_open
 	board_label.visible = board.board_open
 	if board.board_open:
