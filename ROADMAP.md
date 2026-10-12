@@ -136,6 +136,10 @@ dictates.
   one file; a guard test fails on a `use`/`prompt` that takes a bare `Node`. `KeyEdge` replaces the hand-rolled
   `_was_pressed` variables for the base, lamp, plant and extract keys and the rope, ladder, anchor and grapple keys
   (jump keeps its own, since it is only sampled off a rope). Structure only: no gameplay change.
+- ~~**M69 - Versioned save file.**~~ Done (issue #77, from the architecture review): `Progress.SAVE_VERSION` is written under
+  `[meta]` and `load_saved` runs `_migrate` before reading anything, one step per version, so the next change to the
+  saved shape converts old saves instead of dropping them. The first step is the old inline crew default; a frozen
+  pre-versioning save in the tests is the regression net. A save from a newer game loads without crashing.
 
 ## Quality pass
 

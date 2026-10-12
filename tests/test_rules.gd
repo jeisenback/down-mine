@@ -306,3 +306,48 @@ func test_wave_line_wording() -> void:
 	assert_eq(MineClock.hud_text(30.0, 5, false, true, 300.0), "Wave in 30 s: 4 Burrowers, PEAK", "peak with the bell")
 	assert_eq(MineClock.hud_text(80.0, 6, true, false, 560.0), "Calm: next wave in 80 s", "during a calm")
 	assert_eq(MineClock.hud_text(80.0, 6, true, true, 560.0), "Calm: next wave in 80 s: 2 Burrowers", "calm with the bell")
+
+# --- save format ---------------------------------------------------------------
+
+## A save exactly as the game wrote it before saves were versioned: no
+## [meta], and no crew list (from before the crew picker). Frozen on purpose:
+## it must keep loading whatever the format becomes.
+func _write_version_zero_save() -> void:
+	var config := ConfigFile.new()
+	config.set_value("bank", "ore", 42)
+	config.set_value("upgrades", "lantern", 2)
+	config.set_value("npcs", "roster", [{"name": "Dita", "type": "light", "runs": 3}, {"name": "Brum", "type": "light", "runs": 0}])
+	config.set_value("lore", "journal_read", 4)
+	config.set_value("lore", "hearts_claimed", 1)
+	config.save(TEST_SAVE_PATH)
+
+func test_a_save_from_before_versioning_still_loads() -> void:
+	_write_version_zero_save()
+	var p := Progress.load_saved(TEST_SAVE_PATH)
+	assert_eq(p.banked_ore, 42, "ore")
+	assert_eq(p.level("lantern"), 2, "upgrade level")
+	assert_eq(p.roster.size(), 2, "roster")
+	assert_eq(p.journal_read, 4, "journal")
+	assert_eq(p.hearts_claimed, 1, "hearts")
+	assert_eq(p.crew_names, ["Dita"], "the implicit crew of an old save")
+
+func test_saving_stamps_the_current_version() -> void:
+	_write_version_zero_save()
+	Progress.load_saved(TEST_SAVE_PATH).save()
+	var config := ConfigFile.new()
+	assert_eq(config.load(TEST_SAVE_PATH), OK, "saved file reads back")
+	assert_eq(config.get_value("meta", "version", 0), Progress.SAVE_VERSION, "version stamped")
+	var again := Progress.load_saved(TEST_SAVE_PATH)
+	assert_eq(again.banked_ore, 42, "a stamped save loads the same")
+	assert_eq(again.crew_names, ["Dita"], "and keeps its crew")
+
+func test_a_newer_save_loads_without_crashing() -> void:
+	var config := ConfigFile.new()
+	config.set_value("meta", "version", Progress.SAVE_VERSION + 5)
+	config.set_value("bank", "ore", 9)
+	config.set_value("npcs", "crew", ["Zed"])
+	config.set_value("future", "thing", "ignored")
+	config.save(TEST_SAVE_PATH)
+	var p := Progress.load_saved(TEST_SAVE_PATH)
+	assert_eq(p.banked_ore, 9, "what is recognised is read")
+	assert_eq(p.crew_names, ["Zed"], "a crew list is not overwritten by the default")
