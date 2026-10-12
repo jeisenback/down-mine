@@ -249,6 +249,10 @@ Heart, dig straight down onto its room, take it, and climb home on ropes. It doe
 pickups or use crew, so it is the worst case. Result on six seeds: it takes the Heart every time and gets home
 none of them (five killed by the Stalker on the climb, one stranded in the dark with the lantern out, where
 digging stops).
+With `-- heart flare` the bot also flares (`Shift`) while a Stalker is within 150 px and the lantern is at or under a
+quarter: no Stalker deaths, but all six are stranded in the dark between depth 216 and 358, because flaring burns
+light four times faster. The light budget is the limit (about 64 s to get down, over a minute and a half to climb
+back, against 105 s of lantern); each seed has 20 to 27 fuel pickups (25 s each) within 6 tiles of the Heart's column.
 
 `tests/playtest.gd` plays scripted scenarios in the real game with key
 presses and saves a screenshot per step to `playtest_out/`:

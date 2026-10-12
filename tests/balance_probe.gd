@@ -15,12 +15,18 @@ extends SceneTree
 ## rope under rock" counts how long it was pinned.
 ## heart (`-- heart`, only this one runs): with the lantern at level 3, walk the surface to above
 ## the Heart, dig straight down onto its room, take it, climb home on ropes and extract. No fuel
-## detours, no fighting: the worst case for the win. One line per seed.
+## detours, no fighting: the worst case for the win. One line per seed. Add `flare` (`-- heart flare`)
+## and it also holds Shift while a Stalker is within FLARE_RANGE px and the lantern is at or under a
+## quarter, which is when a Stalker strikes unless you flare.
 
 const SEEDS := [1001, 2002, 3003]
 const TRIP_DEPTHS := [50, 100, 150, 200]
 const HEART_SEEDS := [1001, 2002, 3003, 1, 2, 3] # the Heart is 19 to 66 tiles off the shaft
 const HEART_KIT := {"lantern": 3}
+const FLARE_RANGE := 150.0
+const STRIKE_FUEL_FRACTION := 0.25 # Stalker.STRIKE_FUEL_FRACTION
+var _flare_on := false # set by `-- heart flare`
+var _flaring := false
 const TRIP_ROPE_GAP := 1.55 # just over Player.ROPE_PLACE_COOLDOWN
 const TRIP_STUCK_SECONDS := 20.0 # no new height this long = give up
 const SAVE_PATH := "user://probe_save.cfg"
@@ -36,6 +42,7 @@ func _run() -> void:
 		quit()
 		return
 	if OS.get_cmdline_user_args().has("heart"):
+		_flare_on = OS.get_cmdline_user_args().has("flare")
 		await _run_hearts()
 		quit()
 		return
@@ -140,6 +147,7 @@ func _climb_home(main: Node, report: Dictionary) -> void:
 		await physics_frame
 		up += 1.0 / 60.0
 		since_rope += 1.0 / 60.0
+		_flare(main)
 		var blocked: bool = main.mine.is_solid(main.mine.world_to_cell(main.player.global_position) + Vector2i.UP)
 		if blocked and main.player.is_on_rope():
 			pinned += 1.0 / 60.0
@@ -164,10 +172,27 @@ func _climb_home(main: Node, report: Dictionary) -> void:
 			break
 	_key(KEY_SPACE, false)
 	_key(KEY_W, false)
+	_set_flare(false)
 	report.up = up
 	if report.outcome == "":
 		var result: String = main.progress.run_log[0].result if main.run_ended and main.progress.run_log.size() > 0 else ""
 		report.outcome = result if result in ["Extracted", "Heart claimed"] else "ended"
+
+## With `flare`: Shift held while a Stalker is within FLARE_RANGE and the lantern is at or under a quarter.
+func _flare(main: Node) -> void:
+	if not _flare_on:
+		return
+	var near := false
+	if main.player.light.fuel_fraction() <= STRIKE_FUEL_FRACTION:
+		for stalker in main.get_tree().get_nodes_in_group(Groups.STALKERS):
+			if stalker.global_position.distance_to(main.player.global_position) < FLARE_RANGE:
+				near = true
+	_set_flare(near)
+
+func _set_flare(on: bool) -> void:
+	if on != _flaring:
+		_flaring = on
+		_key(KEY_SHIFT, on)
 
 func _tap(code: int) -> void:
 	_key(code, true)
@@ -238,11 +263,13 @@ func _heart(main: Node) -> Dictionary:
 	while main.mine.world_to_cell(main.player.global_position).y < heart_cell.y - 2 and not main.run_ended and t < 150.0:
 		await physics_frame
 		t += 1.0 / 60.0
+		_flare(main)
 	_key(KEY_S, false)
 	var waited := 0
 	while not main.player.is_on_floor() and waited < 120 and not main.run_ended:
 		await physics_frame
 		waited += 1
+		_flare(main)
 	report.down = t
 	if main.run_ended:
 		report.outcome = "ended on the way down"
