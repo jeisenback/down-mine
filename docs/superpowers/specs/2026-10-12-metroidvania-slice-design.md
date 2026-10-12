@@ -149,7 +149,7 @@ The Hulk is a derelict carrier. The slice is one section: a dock, a spine corrid
 | 3 Breach | dead | Always zero-g, open to the stars. Grab, kick, fire. Mites on every surface. |
 | 4 Blister | dead | Observation dome with a view of the ring turning. Panel 2. First time gravity goes off; the ring is seen stopping. |
 | 5 Spine West (return) | live | In zero-g the gate floats clear and the shaft is flyable, but the pressure door at its top is sealed. |
-| 6 Spine East | live | First drone. Teaches ricochet and stagger. |
+| 6 Spine East | live | First drone. Teaches ricochet and stagger. Its floor is higher than Spine West's, so the way back west is a drop over the gate's top in any state; only the way east needs zero-g. Without that drop, restoring gravity in the Control Room and descending through the Hangar would strand the player east of the gate. |
 | 7 Vent Room | live | Vents panel. |
 | 8 Locker | live | Enterable only with vents closed and ring off (hatch open, a loose cabinet floated clear). Holds the slice's one secret: a view port into the Control Room where the Warden can be watched. |
 | 9 Workshop | live | Clingers on the walls. Vents open in zero-g, they tumble with the wind. |
