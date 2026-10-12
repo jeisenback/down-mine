@@ -533,3 +533,22 @@ func test_the_prompt_line_makes_room_for_the_touch_buttons() -> void:
 	await tree.process_frame
 	await tree.process_frame
 	assert_eq(hud.prompt_label.offset_left, -300.0, "centred on a keyboard")
+
+# Button looks (milestone 65).
+
+func test_widget_kinds_tell_hold_tap_and_toggle_apart() -> void:
+	for widget in ["dig", "flare", "base_repair"]:
+		assert_eq(TouchControls.widget_kind(widget), "hold", "%s is held" % widget)
+	for widget in ["use", "tool_rope", "tool_grapple", "base_fortify", "esc", "continue", "buy1"]:
+		assert_eq(TouchControls.widget_kind(widget), "tap", "%s is tapped" % widget)
+	assert_eq(TouchControls.widget_kind("tools"), "toggle", "Tools opens a menu")
+
+func test_menu_items_share_one_font_size_and_grapple_fits() -> void:
+	var size := TouchControls.label_size("tool_rope", 1.0)
+	for widget in TouchControls.TOOL_ROW + TouchControls.BASE_ROW:
+		assert_eq(TouchControls.label_size(widget, 1.0), size, "%s matches the other menu items" % widget)
+	assert_true(TouchControls.label_size("dig", 1.0) > size, "the main buttons stay larger")
+	var button_width: float = TouchControls.menu_rect(0, 0, Vector2(1152, 648)).size.x
+	var width := ThemeDB.fallback_font.get_string_size("GRAPPLE", HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+	assert_true(width <= button_width - 6.0, "GRAPPLE (%.0f px) fits a %.0f px button without shrinking" % [width, button_width])
+	assert_eq(TouchControls.label_size("tool_rope", 2.0), 2 * size, "it scales with the screen")
