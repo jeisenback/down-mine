@@ -973,3 +973,91 @@ func test_the_layer_line_counts_in_tiles() -> void:
 	await physics_frames(5)
 	assert_true(main.hud.layer_label.text.contains("tiles deep") and not main.hud.layer_label.text.contains("depth"), main.hud.layer_label.text)
 	Progress.path_override = ""
+
+# Abandoning a run (milestone 66).
+
+func _abandon_counter(hud: HUD) -> Array:
+	var fired := [0]
+	hud.abandon_requested.connect(func(): fired[0] += 1)
+	return fired
+
+func test_abandoning_needs_two_presses_of_x() -> void:
+	var hud := _plain_hud()
+	var fired := _abandon_counter(hud)
+	hud._overlay_key(KEY_ESCAPE)
+	assert_true(hud.can_abandon(), "the controls overlay can abandon in the mine")
+	assert_true(hud._overlay_label.text.contains("X  abandon this run"), "and says how: " + hud._overlay_label.text)
+	hud._overlay_key(KEY_X)
+	assert_eq(fired[0], 0, "one press only asks")
+	assert_true(hud._overlay_label.text.contains("Press X again") and hud._overlay_label.text.contains("ore you carry is lost"), "the question: " + hud._overlay_label.text)
+	hud._overlay_key(KEY_X)
+	assert_eq(fired[0], 1, "the second press abandons")
+	assert_true(not hud.overlay.visible, "the overlay closes")
+	tree.paused = false
+
+func test_esc_or_another_key_cancels_the_abandon_question() -> void:
+	var hud := _plain_hud()
+	var fired := _abandon_counter(hud)
+	hud._overlay_key(KEY_ESCAPE)
+	hud._overlay_key(KEY_X)
+	hud._overlay_key(KEY_D)
+	assert_true(hud._overlay_label.text.begins_with("CONTROLS"), "another key puts the controls back")
+	hud._overlay_key(KEY_X)
+	assert_eq(fired[0], 0, "so the next X only asks again")
+	hud._overlay_key(KEY_ESCAPE)
+	assert_true(not hud.overlay.visible, "Esc closes")
+	hud._overlay_key(KEY_ESCAPE)
+	hud._overlay_key(KEY_X)
+	assert_eq(fired[0], 0, "reopened: the confirmation was reset")
+	hud._overlay_key(KEY_ESCAPE)
+	assert_eq(fired[0], 0, "never abandoned")
+	tree.paused = false
+
+func test_the_hub_the_title_and_the_summary_cannot_abandon() -> void:
+	var hub := _plain_hud()
+	var fired := _abandon_counter(hub)
+	hub.set_hub_mode()
+	hub._overlay_key(KEY_ESCAPE)
+	assert_true(not hub.can_abandon(), "not in the hub")
+	hub._overlay_key(KEY_X)
+	assert_true(not hub._overlay_label.text.contains("Press X again"), "X does nothing there")
+	hub._overlay_key(KEY_ESCAPE)
+	HUD.title_seen = false
+	var title: HUD = add(load("res://scenes/HUD.tscn").instantiate())
+	var fired_title := _abandon_counter(title)
+	assert_true(not title.can_abandon(), "not on the title")
+	title._overlay_key(KEY_X)
+	var summary := _plain_hud()
+	var fired_summary := _abandon_counter(summary)
+	summary.run_summary.visible = true
+	summary._overlay_key(KEY_ESCAPE)
+	assert_true(not summary.can_abandon(), "not once the run has ended")
+	summary._overlay_key(KEY_X)
+	summary._overlay_key(KEY_X)
+	assert_eq(fired[0] + fired_title[0] + fired_summary[0], 0, "nothing was abandoned")
+	tree.paused = false
+	HUD.title_seen = true
+
+func test_the_touch_overlay_asks_for_a_second_tap() -> void:
+	TouchControls.force = true
+	var hud := _plain_hud()
+	TouchControls.force = true
+	hud._overlay_key(KEY_ESCAPE)
+	assert_true(not hud._overlay_label.text.contains("X  abandon"), "the button is on screen, not a key")
+	hud._overlay_key(KEY_X)
+	assert_true(hud._overlay_label.text.contains("Tap ABANDON again"), "the touch question: " + hud._overlay_label.text)
+	hud._overlay_key(KEY_ESCAPE)
+	TouchControls.force = false
+	tree.paused = false
+
+func test_an_abandoned_run_loses_the_ore_and_is_logged() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	main.player.currency = 40
+	main.hud.abandon_requested.emit()
+	assert_true(main.run_ended, "the run is over")
+	assert_true(main.hud.run_summary_label.text.contains("Run Abandoned") and main.hud.run_summary_label.text.contains("Ore lost: 40"), main.hud.run_summary_label.text)
+	assert_eq(main.progress.run_log[0].result, "Abandoned", "logged as abandoned")
+	tree.paused = false
+	Progress.path_override = ""
