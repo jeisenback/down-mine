@@ -244,6 +244,12 @@ tiles get home with 20 to 47 seconds of light left, and 200 (into Stone) gets ho
 is about the limit of the base kit. The bot digs up through rock the mine has refilled over its rope (before a rope
 stopped digging, it was stranded at 200 on every seed).
 
+With `-- heart` instead, a bot plays the win: lantern at level 3 (105 s of light), walk the surface to above the
+Heart, dig straight down onto its room, take it, and climb home on ropes. It does not flare, detour for fuel
+pickups or use crew, so it is the worst case. Result on six seeds: it takes the Heart every time and gets home
+none of them (five killed by the Stalker on the climb, one stranded in the dark with the lantern out, where
+digging stops).
+
 `tests/playtest.gd` plays scripted scenarios in the real game with key
 presses and saves a screenshot per step to `playtest_out/`:
 `xvfb-run -a godot --fixed-fps 60 -s tests/playtest.gd`. CI runs it on
