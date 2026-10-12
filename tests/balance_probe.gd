@@ -10,9 +10,9 @@ extends SceneTree
 ## trip (run with `-- trip` after the script, and only this one runs): dig straight
 ## down to a target depth, then climb back out on ropes and extract - can the base kit
 ## get home from there before the light is gone? One line per depth and seed.
-## Known result: in Stone the mine refills the shaft the bot dug, and a player on a rope
-## cannot dig (Player._physics_process returns from the rope branch first), so a rope
-## that ends under refilled rock strands it (the "on a rope under rock" seconds).
+## In Stone the mine refills the shaft the bot dug; the bot digs up (W + Space) through
+## rock over its rope, as a player can since a rope no longer stops digging. "seconds on a
+## rope under rock" counts how long it was pinned.
 
 const SEEDS := [1001, 2002, 3003]
 const TRIP_DEPTHS := [50, 100, 150, 200]
@@ -122,12 +122,17 @@ func _trip(main: Node, depth: int) -> Dictionary:
 	var best_row := _row(main)
 	var best_at := 0.0
 	var pinned := 0.0 # seconds on a rope with rock directly above
+	var digging := false # Space held: dig up through rock the mine has refilled over the shaft
 	while not main.run_ended and up < 240.0:
 		await physics_frame
 		up += 1.0 / 60.0
 		since_rope += 1.0 / 60.0
-		if main.player.is_on_rope() and main.mine.is_solid(main.mine.world_to_cell(main.player.global_position) + Vector2i.UP):
+		var blocked: bool = main.mine.is_solid(main.mine.world_to_cell(main.player.global_position) + Vector2i.UP)
+		if blocked and main.player.is_on_rope():
 			pinned += 1.0 / 60.0
+		if blocked != digging:
+			digging = blocked
+			_key(KEY_SPACE, digging)
 		if since_rope >= TRIP_ROPE_GAP:
 			since_rope = 0.0
 			_key(KEY_R, true)
@@ -149,6 +154,7 @@ func _trip(main: Node, depth: int) -> Dictionary:
 			report.outcome = "stuck at depth %d (no height gained for %d s; %.0f s of it on a rope under rock)" % [
 				best_row, int(TRIP_STUCK_SECONDS), pinned]
 			break
+	_key(KEY_SPACE, false)
 	report.up = up
 	if report.outcome == "":
 		report.outcome = "extracted" if main.run_ended and main.progress.run_log.size() > 0 and main.progress.run_log[0].result == "Extracted" else "ended"

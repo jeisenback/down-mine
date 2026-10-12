@@ -12,7 +12,7 @@ darkness.
 - `A`/`D` or arrow keys — move
 - `W`/Up — jump (hold for full height, tap for a short hop); walking into a 1-tile bump steps up onto it; jumping into a 2-tile ledge while holding toward it mantles up (3 tiles is too high)
 - `S`/Down — dig downward (hold with a movement key to dig a descending staircase)
-- `Space` — dig forward (in facing direction); hold with `W`/Up to dig straight up instead
+- `Space` — dig forward (in facing direction); hold with `W`/Up to dig straight up instead (also while hanging on a rope or ladder, so a rope that ends under rock, or a shaft the mine has refilled, can be dug through)
 - `Shift` — flare the light (brighter, burns fuel faster; the only thing that hurts a Burrower)
 - `Q` — fire the grapple straight up (reusable, pulls you to the first solid ceiling within range)
 - `L` — set down a lamp (hub unlock; 3 per run; burns ~90s, lights your route, slows rope decay; noisy)
@@ -240,8 +240,9 @@ With `-- trip` after the script, only the round-trip bot runs: it digs straight 
 on each seed, then climbs back on ropes (`R` every 1.55 s, `W` held) and extracts, printing whether it got home and
 how much light and health were left. Base kit, fastest possible dive, no caves explored: it measures the game's
 numbers, not how it feels. To compare a tuning change, edit the constant and rerun. Current result: 50 to 150
-tiles get home with 20 to 47 seconds of light left; from 200 (Stone) the bot is stranded, because the mine refills
-the shaft it dug and a player on a rope cannot dig, so a rope that ends under rock traps it.
+tiles get home with 20 to 47 seconds of light left, and 200 (into Stone) gets home with 1 to 5 seconds left, so that
+is about the limit of the base kit. The bot digs up through rock the mine has refilled over its rope (before a rope
+stopped digging, it was stranded at 200 on every seed).
 
 `tests/playtest.gd` plays scripted scenarios in the real game with key
 presses and saves a screenshot per step to `playtest_out/`:
