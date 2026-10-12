@@ -23,7 +23,7 @@ static func of(mine: MineGrid) -> String:
 		if value is Dictionary and field.ends_with("_cells") or field == "_reserved_floors":
 			parts.append(field + var_to_str(_sorted_cells(value.keys())))
 		else:
-			parts.append(field + var_to_str(value))
+			parts.append(field + var_to_str(_plain(value)))
 	for child in mine.get_children():
 		if child is FuelPickup or child is OrePickup or child is Torch:
 			parts.append("%s %s %s" % [child.get_script().get_global_name(), child.position, child.get("value")])
@@ -40,3 +40,10 @@ static func _sorted_cells(cells: Array) -> Array:
 	var sorted := cells.duplicate()
 	sorted.sort_custom(func(a: Vector2i, b: Vector2i): return a.x < b.x or (a.x == b.x and a.y < b.y))
 	return sorted
+
+## Arrays of typed data objects (Drift, EventRoom, TorchSite) as the dictionaries they replaced, so
+## the recorded fingerprints stay valid: same keys, same order.
+static func _plain(value):
+	if value is Array:
+		return value.map(func(item): return item.to_dict() if item is Object and item.has_method("to_dict") else item)
+	return value

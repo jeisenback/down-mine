@@ -674,7 +674,7 @@ func test_shaft_runs_from_below_the_crust_to_a_collapse_in_upper_stone() -> void
 	assert_eq(open.x, MineGrid.SURFACE_ROWS + 1, "opens just under the crust")
 	var landings: Array = mine.drifts.map(func(d): return Vector2i(col + d.side, d.row + 1)) # a drift's step off the shaft
 	for room in mine.event_rooms:
-		if room.has("shaft"):
+		if room.in_shaft:
 			landings.append(room.cell + Vector2i.DOWN) # the lift's cage floor
 	for y in range(open.x, open.y + 1):
 		for dx in range(-1, 2):
@@ -727,7 +727,7 @@ func test_clay_and_stone_drifts_have_a_collapsed_section_and_topsoil_does_not() 
 	for s in [1001, 1, 2, 3, 4, 5]:
 		var mine := shared_mine(s)
 		for d in mine.drifts:
-			var box: Rect2i = d.features.collapse
+			var box: Rect2i = d.collapse
 			if d.layer == 0:
 				assert_eq(box.size, Vector2i.ZERO, "seed %d: Topsoil's drift is clear" % s)
 				continue
@@ -747,7 +747,7 @@ func test_camps_of_the_worked_layers_stand_at_the_drift_ends() -> void:
 		var camps: Array = mine.event_rooms.filter(func(r): return r.kind == "camp")
 		assert_eq(camps.size(), MineGrid.LAYERS.size(), "seed %d: one camp per layer" % s)
 		for d in mine.drifts:
-			if d.features.end == "camp":
+			if d.end_kind == "camp":
 				var hit: Array = camps.filter(func(r): return r.cell == Vector2i(d.x1, d.row))
 				assert_eq(hit.size(), 1, "seed %d: layer %d's camp is at its drift's end" % [s, d.layer])
 		for layer in [0, 1]:

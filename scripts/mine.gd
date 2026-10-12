@@ -195,21 +195,18 @@ static var _launch_seed_read: bool = false
 var lost_miner_cell := Vector2i(-1, -1)
 ## Floor cells no pickup or NPC has claimed yet (shuffled).
 var _spare_floor_cells: Array = []
-## This mine's torches: {"cell", "where"} with where "shaft" or "cave".
-var torches: Array = []
+## This mine's torches (cell and "shaft" or "cave").
+var torches: Array[TorchSite] = []
 var _wall_cells: Array[Vector2i] = []
 var _wall_decay_timer: float = 0.0
 ## Cells the player has dug (tunnels that can collapse).
 var _dug_cells: Array[Vector2i] = []
 ## Floor cells with a pickup or NPC standing on them; these never crumble.
 var _reserved_floors: Dictionary = {}
-## This run's event rooms: {"kind", "cell"}, cell = floor-standing
-## center of the room.
-var event_rooms: Array = []
-## The old galleries (see Task data in _carve_drifts): one dictionary per
-## drift - layer, side (-1 left / 1 right), row (the standing row; its floor
-## is row + 1), x0 (first cell beside the shaft), x1 (far end), features.
-var drifts: Array = []
+## This run's event rooms (kind, the floor-standing centre cell, rect).
+var event_rooms: Array[EventRoom] = []
+## The old galleries, one Drift per worked layer.
+var drifts: Array[Drift] = []
 ## Collapsed-section cells (solid rock with timber over it, like the shaft's).
 var _debris_cells: Dictionary = {}
 ## Floor cells a drift laid over a cave.
@@ -268,9 +265,9 @@ func _apply(layout: MineLayout) -> void:
 		set_cell(DECOR_LAYER, cell, source_id, FRAME_ATLAS_COORDS if layout.decor[cell] == MineLayout.Decor.FRAME else POST_ATLAS_COORDS)
 	shaft_end_row = layout.shaft_end_row
 	old_ladder_rows = layout.old_ladder_rows.duplicate()
-	drifts = layout.drifts.duplicate(true)
-	event_rooms = layout.event_rooms.duplicate(true)
-	torches = layout.torches.duplicate(true)
+	drifts = layout.drifts.duplicate()
+	event_rooms = layout.event_rooms.duplicate()
+	torches = layout.torches.duplicate()
 	_room_cells = layout.room_cells.duplicate()
 	_reserved_floors = layout.reserved_floors.duplicate()
 	_plank_cells = layout.plank_cells.duplicate()
@@ -387,15 +384,6 @@ func _shaft_rect() -> Rect2i:
 ## The shaft's box, then each drift's box (its two rows and the floor).
 func _old_mine_rects() -> Array[Rect2i]:
 	return MineGenerator.old_mine_rects(drifts, shaft_end_row)
-
-## Every open cell of a drift, both rows.
-func drift_cells(drift: Dictionary) -> Array:
-	var cells: Array = []
-	for i in range(absi(drift.x1 - drift.x0) + 1):
-		var x: int = drift.x0 + drift.side * i
-		cells.append(Vector2i(x, drift.row - 1))
-		cells.append(Vector2i(x, drift.row))
-	return cells
 
 ## Within the shaft or any drift.
 func is_in_old_mine(cell: Vector2i) -> bool:

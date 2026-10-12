@@ -567,7 +567,7 @@ func _drift_collapse() -> void:
 	check(not d.is_empty(), "seed %d has a Clay gallery" % SEED)
 	if d.is_empty():
 		return
-	var box: Rect2i = d.features.collapse
+	var box: Rect2i = d.collapse
 	var mouth_edge: int = box.position.x if d.side > 0 else box.end.x - 1
 	await _place(Vector2i(mouth_edge - d.side * 3, d.row))
 	await shot("before")
@@ -576,7 +576,7 @@ func _drift_collapse() -> void:
 	var past: bool = _cell().x > far_edge if d.side > 0 else _cell().x < far_edge
 	check(past, "dug through the collapsed section (x %d, section %d..%d)" % [_cell().x, box.position.x, box.end.x - 1])
 	var open_cells := 0
-	for cell in main.mine.drift_cells(d):
+	for cell in d.cells():
 		if box.has_point(cell) and not main.mine.is_solid(cell):
 			open_cells += 1
 	check(open_cells >= box.size.y, "the dug column is open (%d cells)" % open_cells)

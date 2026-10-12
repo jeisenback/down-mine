@@ -48,7 +48,7 @@ static func shaft_rect(shaft_end_row: int) -> Rect2i:
 			MineGrid.SHAFT_WIDTH, shaft_end_row - MineGrid.SURFACE_ROWS)
 
 ## The shaft's box, then each drift's box (its two rows and the floor).
-static func old_mine_rects(drifts: Array, shaft_end_row: int) -> Array[Rect2i]:
+static func old_mine_rects(drifts: Array[Drift], shaft_end_row: int) -> Array[Rect2i]:
 	var rects: Array[Rect2i] = [shaft_rect(shaft_end_row)]
 	for d in drifts:
 		var left: int = mini(d.x0, d.x1)
@@ -237,8 +237,7 @@ func _carve_drifts(rng: RandomNumberGenerator) -> void:
 		var side := rng.randi_range(0, 1) * 2 - 1
 		var length := rng.randi_range(MineGrid.DRIFT_MIN_LENGTH, MineGrid.DRIFT_MAX_LENGTH)
 		var x0 := shaft_column() + side * (MineGrid.SHAFT_WIDTH / 2 + 1)
-		var drift := {"layer": layer, "side": side, "row": row, "x0": x0, "x1": x0 + side * (length - 1),
-			"features": {"collapse": Rect2i(), "end": "miner" if layer == 2 else "camp"}}
+		var drift := Drift.new(layer, side, row, x0, x0 + side * (length - 1), "miner" if layer == 2 else "camp")
 		_layout.drifts.append(drift)
 		# Step from the shaft's edge onto the drift's floor.
 		var landing := Vector2i(shaft_column() + side, row + 1)
@@ -262,9 +261,11 @@ func _carve_drifts(rng: RandomNumberGenerator) -> void:
 				_layout.decor[Vector2i(x, row - 1)] = MineLayout.Decor.POST
 		if layer >= 1:
 			_collapse_drift(drift, length, rng)
-		if drift.features.end == "camp":
+		if drift.end_kind == "camp":
 			var end_cell := Vector2i(drift.x1, row)
-			_layout.event_rooms.append({"kind": "camp", "cell": end_cell, "rect": Rect2i(end_cell - Vector2i(0, 1), Vector2i(1, 2)), "drift": true})
+			var camp := EventRoom.new("camp", end_cell, Rect2i(end_cell - Vector2i(0, 1), Vector2i(1, 2)))
+			camp.at_drift_end = true
+			_layout.event_rooms.append(camp)
 
 ## The old cage: the lift stands in the shaft's edge column near the bottom
 ## of Clay, on a plank floor, so the ladder column stays open (the shaft's cells are
@@ -281,12 +282,14 @@ func _place_lift(rng: RandomNumberGenerator) -> void:
 	_solid[floor_cell.x][floor_cell.y] = true
 	_layout.plank_cells[floor_cell] = true
 	_layout.reserved_floors[floor_cell] = true
-	_layout.event_rooms.append({"kind": "lift", "cell": cell, "rect": Rect2i(cell - Vector2i(0, 1), Vector2i(1, 2)), "shaft": true})
+	var lift := EventRoom.new("lift", cell, Rect2i(cell - Vector2i(0, 1), Vector2i(1, 2)))
+	lift.in_shaft = true
+	_layout.event_rooms.append(lift)
 
 ## Fills a DRIFT_COLLAPSE_MIN..MAX long stretch of both rows with rock,
 ## leaving DRIFT_END_CLEAR open tiles at each end so neither the shaft mouth
 ## nor the camp / miner at the far end is swallowed.
-func _collapse_drift(drift: Dictionary, length: int, rng: RandomNumberGenerator) -> void:
+func _collapse_drift(drift: Drift, length: int, rng: RandomNumberGenerator) -> void:
 	var size := rng.randi_range(MineGrid.DRIFT_COLLAPSE_MIN, MineGrid.DRIFT_COLLAPSE_MAX)
 	var start := rng.randi_range(MineGrid.DRIFT_END_CLEAR, length - MineGrid.DRIFT_END_CLEAR - size)
 	var first_x: int = drift.x0 + drift.side * start
@@ -296,7 +299,7 @@ func _collapse_drift(drift: Dictionary, length: int, rng: RandomNumberGenerator)
 			_solid[x][y] = true
 			_layout.debris_cells[Vector2i(x, y)] = true
 			_layout.reserved_floors[Vector2i(x, y)] = true
-	drift.features.collapse = Rect2i(mini(first_x, last_x), drift.row - 1, size, 2)
+	drift.collapse = Rect2i(mini(first_x, last_x), drift.row - 1, size, 2)
 
 ## Clears a ROOM_SIZE chamber per EVENT_ROOMS entry, on a solid floor,
 ## spaced apart. A room that finds no spot is skipped.
@@ -322,9 +325,9 @@ func _carve_event_rooms() -> void:
 					_layout.room_cells[Vector2i(x, y)] = true
 					if _solid[x][y]:
 						_layout.reserved_floors[Vector2i(x, y)] = true
-			var entry := {"kind": room.kind, "cell": center, "rect": Rect2i(top_left, MineGrid.ROOM_SIZE)}
+			var entry := EventRoom.new(room.kind, center, Rect2i(top_left, MineGrid.ROOM_SIZE))
 			if room.kind == "vault":
-				entry["door"] = _seal_vault(top_left)
+				entry.door = _seal_vault(top_left)
 			_layout.event_rooms.append(entry)
 			break
 
@@ -393,7 +396,7 @@ func _scatter_pickups(floor_cells: Array) -> void:
 
 func _pick_lost_miner_cell() -> void:
 	for d in _layout.drifts:
-		if d.features.end == "miner": # the Stone gallery's far end
+		if d.end_kind == "miner": # the Stone gallery's far end
 			_layout.lost_miner_cell = Vector2i(d.x1, d.row)
 			return
 	var first := quiet_floor_row() - MineGrid.LOST_MINER_ROWS_ABOVE_QUIET_FLOOR
@@ -422,7 +425,7 @@ func _place_torches() -> void:
 		var cell := Vector2i(shaft_column() + side, y)
 		if _layout.is_solid(cell) or lift_cells.has(cell):
 			continue
-		_layout.torches.append({"cell": cell, "where": "shaft"})
+		_layout.torches.append(TorchSite.new(cell, "shaft"))
 		side = -side
 	var candidates: Array = _layout.spare_floor_cells.filter(func(c): return c.y <= clay_bottom)
 	var placed: Array[Vector2i] = []
@@ -435,4 +438,4 @@ func _place_torches() -> void:
 		placed.append(cell)
 		_layout.spare_floor_cells.erase(cell)
 		_layout.reserved_floors[cell + Vector2i.DOWN] = true
-		_layout.torches.append({"cell": cell, "where": "cave"})
+		_layout.torches.append(TorchSite.new(cell, "cave"))
