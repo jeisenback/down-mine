@@ -52,7 +52,7 @@ var repair_speed_multiplier: float = 1.0
 var repair_progress: float = 0.0
 
 func _ready() -> void:
-	light.add_to_group("snuffable") # Snuffers hunt the base light too
+	light.add_to_group(Groups.SNUFFABLE) # Snuffers hunt the base light too
 
 func build_beacon() -> void:
 	has_beacon = true

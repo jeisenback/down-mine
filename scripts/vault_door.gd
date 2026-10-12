@@ -6,7 +6,7 @@ class_name VaultDoor
 const BREAK_NOISE := 60.0
 
 func _ready() -> void:
-	add_to_group("mine_events")
+	add_to_group(Groups.MINE_EVENTS)
 
 func prompt(_main: Node) -> String:
 	return "E: break into the vault (very loud)"

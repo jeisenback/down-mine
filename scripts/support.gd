@@ -12,7 +12,7 @@ const DARK_DECAY_MULTIPLIER := 2.0
 var lifetime: float = 1.0
 
 func _ready() -> void:
-	add_to_group("supports")
+	add_to_group(Groups.SUPPORTS)
 
 func _process(delta: float) -> void:
 	var rate := (1.0 / LIFE_SECONDS) * (1.0 if MineLight.is_lit(get_tree(), global_position) else DARK_DECAY_MULTIPLIER)
@@ -23,7 +23,7 @@ func _process(delta: float) -> void:
 
 ## Whether any standing support protects world_pos.
 static func protects(tree: SceneTree, world_pos: Vector2) -> bool:
-	for support in tree.get_nodes_in_group("supports"):
+	for support in tree.get_nodes_in_group(Groups.SUPPORTS):
 		if support.global_position.distance_to(world_pos) <= RADIUS_TILES * MineGrid.TILE_SIZE:
 			return true
 	return false

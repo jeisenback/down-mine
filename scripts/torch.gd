@@ -7,4 +7,4 @@ class_name Torch
 ## snuffable: Snuffers neither spawn for it nor hunt it.
 
 func _ready() -> void:
-	add_to_group("torches")
+	add_to_group(Groups.TORCHES)

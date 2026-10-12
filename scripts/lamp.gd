@@ -9,6 +9,6 @@ class_name Lamp
 @onready var light: MineLight = $MineLight
 
 func _ready() -> void:
-	add_to_group("lamps")
-	light.add_to_group("snuffable")
+	add_to_group(Groups.LAMPS)
+	light.add_to_group(Groups.SNUFFABLE)
 	light.fuel_depleted.connect(queue_free) # an empty MineLight still glows at radius_min

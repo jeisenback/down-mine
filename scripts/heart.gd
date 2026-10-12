@@ -6,7 +6,7 @@ class_name Heart
 ## getting it to the surface wins the run.
 
 func _ready() -> void:
-	add_to_group("mine_events")
+	add_to_group(Groups.MINE_EVENTS)
 
 func prompt(_main: Node) -> String:
 	return "E: take the Heart of the mine (it wakes)"

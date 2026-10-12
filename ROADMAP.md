@@ -125,6 +125,11 @@ dictates.
 - ~~**M66 - Abandon a run.**~~ Done (issue #68): from the controls overlay in the mine, `X` twice (or the ABANDON button
   tapped twice on touch) ends the run as a death does: the carried ore is lost, escorted and base-crew miners are
   stranded, and the run is logged as "Abandoned". Not offered in the hub, on the title or after the run ends.
+- ~~**M67 - Test hygiene and group constants.**~~ Done (issue #72, from the architecture review): `TestHooks.reset` puts
+  every static test or launch hook back to its baseline before and after each test and between playtest
+  scenarios (the unit runner also clears the test save), so no test depends on what an earlier one left behind. A
+  guard test fails when a new `static var` is neither reset nor explained, and `Groups` names the 12 node groups
+  by constant (a second guard fails on a bare group string). Tests and structure only: no gameplay change.
 
 ## Quality pass
 

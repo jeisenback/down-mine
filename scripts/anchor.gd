@@ -13,7 +13,7 @@ var life_seconds: float = LIFE_SECONDS
 var lifetime: float = 1.0
 
 func _ready() -> void:
-	add_to_group("anchors")
+	add_to_group(Groups.ANCHORS)
 
 func _process(delta: float) -> void:
 	var rate := (1.0 / life_seconds) * (1.0 if MineLight.is_lit(get_tree(), global_position) else DARK_DECAY_MULTIPLIER)

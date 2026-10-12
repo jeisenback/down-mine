@@ -27,7 +27,7 @@ func test_quiet_layers_hear_nothing_and_wake_no_stalker() -> void:
 	assert_true(main.mine.is_quiet_at(main.player.global_position), "the surface is in the quiet zone")
 	main.noise_meter.add_noise(50.0, main.player.global_position)
 	assert_eq(main.noise_meter.noise, 0.0, "noise in the quiet zone adds nothing")
-	assert_true(main.get_tree().get_nodes_in_group("stalkers").is_empty(), "no Stalker above the quiet floor")
+	assert_true(main.get_tree().get_nodes_in_group(Groups.STALKERS).is_empty(), "no Stalker above the quiet floor")
 	main.player.global_position = main.mine.cell_to_world(Vector2i(40, main.mine.quiet_floor_row() + 10))
 	# The base hears by distance; put it beside the sound so only the amount is under test.
 	main.run_base.global_position = main.player.global_position
@@ -35,7 +35,7 @@ func test_quiet_layers_hear_nothing_and_wake_no_stalker() -> void:
 	main.noise_meter.add_noise(50.0, main.player.global_position)
 	assert_eq(main.noise_meter.noise, 50.0, "noise counts below it")
 	await tree.create_timer(0.2).timeout # physics frames alone may not run _process
-	var stalkers := main.get_tree().get_nodes_in_group("stalkers")
+	var stalkers := main.get_tree().get_nodes_in_group(Groups.STALKERS)
 	assert_eq(stalkers.size(), 1, "the first descent below the quiet zone wakes one Stalker")
 	assert_true(stalkers[0].min_y > main.mine.cell_to_world(Vector2i(0, main.mine.quiet_floor_row())).y, "held out of the quiet layers")
 	Progress.path_override = ""
@@ -66,7 +66,7 @@ func test_camp_search_and_lift_ride() -> void:
 	Progress.path_override = TEST_SAVE_PATH
 	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
 	await physics_frames(5)
-	var events := main.get_tree().get_nodes_in_group("mine_events")
+	var events := main.get_tree().get_nodes_in_group(Groups.MINE_EVENTS)
 	var camp: Camp = events.filter(func(e): return e is Camp)[0]
 	var lift: Lift = events.filter(func(e): return e is Lift)[0]
 
@@ -97,7 +97,7 @@ func test_outpost_trades_recruits_and_is_noisy() -> void:
 	Progress.path_override = TEST_SAVE_PATH
 	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
 	await physics_frames(5)
-	var events := main.get_tree().get_nodes_in_group("mine_events")
+	var events := main.get_tree().get_nodes_in_group(Groups.MINE_EVENTS)
 	var outpost: Outpost = events.filter(func(e): return e is Outpost)[0]
 	var survivor: LostMiner = events.filter(func(e): return e is LostMiner)[0]
 
@@ -113,7 +113,7 @@ func test_outpost_trades_recruits_and_is_noisy() -> void:
 	survivor.use(main)
 	assert_eq(main.player.currency, 0, "recruit paid")
 	assert_true(survivor.following and survivor in main._escorts(), "survivor joins as an escort")
-	assert_true(not survivor.is_in_group("mine_events"), "no longer an event")
+	assert_true(not survivor.is_in_group(Groups.MINE_EVENTS), "no longer an event")
 
 	main.noise_meter.decay_rate = 0.0
 	main.noise_meter.noise = 0.0
@@ -128,7 +128,7 @@ func test_vault_door_is_loud_and_relic_pays() -> void:
 	Progress.path_override = TEST_SAVE_PATH
 	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
 	await physics_frames(5)
-	var events := main.get_tree().get_nodes_in_group("mine_events")
+	var events := main.get_tree().get_nodes_in_group(Groups.MINE_EVENTS)
 	var door: VaultDoor = events.filter(func(e): return e is VaultDoor)[0]
 	var relic: Relic = events.filter(func(e): return e is Relic)[0]
 	main.noise_meter.decay_rate = 0.0
@@ -177,7 +177,7 @@ func test_flaring_burns_the_nest_and_calms_the_deep() -> void:
 	Progress.path_override = TEST_SAVE_PATH
 	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
 	await physics_frames(5)
-	var nest: Nest = main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Nest)[0]
+	var nest: Nest = main.get_tree().get_nodes_in_group(Groups.MINE_EVENTS).filter(func(e): return e is Nest)[0]
 	main.player.set_physics_process(false) # no input: flaring set by hand
 	main.player.global_position = nest.global_position
 	await tree.create_timer(0.2).timeout # physics frames alone may not run _process
@@ -202,7 +202,7 @@ func test_heart_wakes_the_mine_and_wins_the_run() -> void:
 	Progress.path_override = TEST_SAVE_PATH
 	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
 	await physics_frames(5)
-	var heart: Heart = main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Heart)[0]
+	var heart: Heart = main.get_tree().get_nodes_in_group(Groups.MINE_EVENTS).filter(func(e): return e is Heart)[0]
 	var claimed: int = main.progress.hearts_claimed
 	var decay: float = main.mine.decay_multiplier
 	assert_eq(decay, pow(main.CLAIMED_DECAY_STEP, claimed), "claimed Hearts speed up decay")
@@ -357,7 +357,7 @@ func test_noise_alerts_only_stalkers_within_30_tiles() -> void:
 	await physics_frames(5)
 	main.player.global_position = main.mine.cell_to_world(Vector2i(40, main.mine.quiet_floor_row() + 10))
 	await tree.create_timer(0.2).timeout # wakes the first Stalker
-	var stalker: Stalker = main.get_tree().get_nodes_in_group("stalkers")[0]
+	var stalker: Stalker = main.get_tree().get_nodes_in_group(Groups.STALKERS)[0]
 	stalker.global_position = main.player.global_position + Vector2(20 * MineGrid.TILE_SIZE, 0)
 	main.noise_meter.add_noise(Stalker.LOUD_NOISE, main.player.global_position)
 	assert_eq(stalker.alert_timer, Stalker.ALERT_SECONDS, "20 tiles away hears it")
@@ -371,9 +371,9 @@ func test_a_wave_spawns_below_the_quiet_floor_and_is_counted_apart() -> void:
 	Progress.path_override = TEST_SAVE_PATH
 	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
 	await physics_frames(5)
-	var before: int = main.get_tree().get_nodes_in_group("burrowers").size()
+	var before: int = main.get_tree().get_nodes_in_group(Groups.BURROWERS).size()
 	main._spawn_wave()
-	var burrowers := main.get_tree().get_nodes_in_group("burrowers")
+	var burrowers := main.get_tree().get_nodes_in_group(Groups.BURROWERS)
 	assert_eq(burrowers.size(), before + 1, "one Burrower")
 	assert_eq(main.waves_spawned, 1, "counted as a wave")
 	assert_eq(main.burrowers_spawned, 0, "not as a noise Burrower")
@@ -388,9 +388,9 @@ func test_no_waves_after_the_run_ends() -> void:
 	main.run_seconds = 1000.0
 	main.mine_clock._countdown = 0.01 # one frame from a wave
 	main.run_ended = true
-	var before: int = main.get_tree().get_nodes_in_group("burrowers").size()
+	var before: int = main.get_tree().get_nodes_in_group(Groups.BURROWERS).size()
 	await physics_frames(30)
-	assert_eq(main.get_tree().get_nodes_in_group("burrowers").size(), before, "a finished run sends nothing")
+	assert_eq(main.get_tree().get_nodes_in_group(Groups.BURROWERS).size(), before, "a finished run sends nothing")
 	Progress.path_override = ""
 
 func test_quiet_noise_does_not_alert_a_stalker() -> void:
@@ -399,7 +399,7 @@ func test_quiet_noise_does_not_alert_a_stalker() -> void:
 	await physics_frames(5)
 	main.player.global_position = main.mine.cell_to_world(Vector2i(40, main.mine.quiet_floor_row() + 10))
 	await tree.create_timer(0.2).timeout # wakes the first Stalker
-	var stalker: Stalker = main.get_tree().get_nodes_in_group("stalkers")[0]
+	var stalker: Stalker = main.get_tree().get_nodes_in_group(Groups.STALKERS)[0]
 	stalker.global_position = main.player.global_position + Vector2(5 * MineGrid.TILE_SIZE, 0)
 	stalker.retreat_timer = 2.0
 	main.noise_meter.add_noise(MineGrid.DIG_NOISE, main.player.global_position)
@@ -453,7 +453,7 @@ func test_main_places_a_camp_and_the_miner_inside_the_drifts() -> void:
 	assert_true(not stone.is_empty(), "seed 1001 has a Stone drift")
 	var miner_cell: Vector2i = main.mine.world_to_cell(main.lost_miners[0].global_position)
 	assert_true(absi(miner_cell.x - stone[0].x1) <= 1 and absi(miner_cell.y - stone[0].row) <= 1, "the lost miner is at the Stone drift's far end")
-	var camps := main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Camp)
+	var camps := main.get_tree().get_nodes_in_group(Groups.MINE_EVENTS).filter(func(e): return e is Camp)
 	var topsoil: Array = main.mine.drifts.filter(func(d): return d.layer == 0)
 	assert_true(camps.any(func(c): return main.mine.world_to_cell(c.global_position) == Vector2i(topsoil[0].x1, topsoil[0].row)), "the Topsoil camp stands at its drift's end")
 	Progress.path_override = ""
@@ -490,7 +490,7 @@ func test_the_lift_prompt_does_not_call_a_quiet_repair_loud() -> void:
 	Progress.path_override = TEST_SAVE_PATH
 	var main: Node = add(load("res://scenes/Main.tscn").instantiate())
 	await physics_frames(5)
-	var lift: Lift = main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Lift)[0]
+	var lift: Lift = main.get_tree().get_nodes_in_group(Groups.MINE_EVENTS).filter(func(e): return e is Lift)[0]
 	main.player.currency = Lift.REPAIR_ORE
 	assert_true(not lift.prompt(main).contains("loud"), "the prompt (%s) does not say loud" % lift.prompt(main))
 	Progress.path_override = ""
@@ -633,7 +633,7 @@ func _new_main() -> Node:
 	return main
 
 func _live(main: Node) -> Array:
-	return main.get_tree().get_nodes_in_group("burrowers")
+	return main.get_tree().get_nodes_in_group(Groups.BURROWERS)
 
 func test_a_wave_spawns_its_whole_group_spread_out() -> void:
 	var main: Node = await _new_main()

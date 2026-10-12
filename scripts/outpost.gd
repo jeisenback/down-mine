@@ -18,7 +18,7 @@ var main: Node
 var stock: int = STOCK
 
 func _ready() -> void:
-	add_to_group("mine_events")
+	add_to_group(Groups.MINE_EVENTS)
 
 func _process(delta: float) -> void:
 	if main and main.player.global_position.distance_to(global_position) < NOISE_RADIUS:

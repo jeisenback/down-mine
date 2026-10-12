@@ -6,7 +6,7 @@ class_name Relic
 const VALUE := 150
 
 func _ready() -> void:
-	add_to_group("mine_events")
+	add_to_group(Groups.MINE_EVENTS)
 
 func prompt(_main: Node) -> String:
 	return "E: take the relic, %d ore" % VALUE
