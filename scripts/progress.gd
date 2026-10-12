@@ -103,6 +103,12 @@ var hearts_claimed: int = 0
 var run_log: Array = []
 const RUN_LOG_SIZE := 10
 
+## The save format's version, written under [meta]. A file without one is
+## version 0: everything saved before versioning. Change the shape of saved
+## data = bump this and add a step to _migrate (with a frozen old save in
+## the tests), so old saves convert instead of losing data.
+const SAVE_VERSION := 1
+
 ## When set, load_saved() uses this path instead - the Main smoke test
 ## points it at the test save so it never reads the player's real one.
 static var path_override: String = ""
@@ -114,6 +120,7 @@ static func load_saved(path: String = SAVE_PATH) -> Progress:
 	progress.save_path = path
 	var config := ConfigFile.new()
 	if config.load(path) == OK:
+		_migrate(config)
 		progress.banked_ore = int(config.get_value("bank", "ore", 0))
 		for id in UPGRADES:
 			progress.levels[id] = int(config.get_value("upgrades", id, 0))
@@ -122,11 +129,20 @@ static func load_saved(path: String = SAVE_PATH) -> Progress:
 		progress.journal_read = int(config.get_value("lore", "journal_read", 0))
 		progress.hearts_claimed = int(config.get_value("lore", "hearts_claimed", 0))
 		progress.run_log = config.get_value("stats", "run_log", [])
-		# Saves from before the crew picker: keep their implicit crew.
-		var default_crew := progress.roster.slice(0, BASE_CREW_SLOTS).map(func(m): return m.name)
-		progress.crew_names = config.get_value("npcs", "crew", default_crew)
+		progress.crew_names = config.get_value("npcs", "crew", [])
 		progress._assign_missing_quirks() # Veterans from before quirks existed
 	return progress
+
+## Brings a loaded config up to SAVE_VERSION, one step per version, before
+## any field is read. A save from a newer game (version above SAVE_VERSION)
+## is read as it is: what it holds that we know is used, the rest ignored.
+static func _migrate(config: ConfigFile) -> void:
+	var version := int(config.get_value("meta", "version", 0))
+	if version < 1:
+		# Saves from before the crew picker: keep their implicit crew.
+		if not config.has_section_key("npcs", "crew"):
+			var roster: Array = config.get_value("npcs", "roster", [])
+			config.set_value("npcs", "crew", roster.slice(0, BASE_CREW_SLOTS).map(func(m): return m.name))
 
 ## Gives every Veteran without a quirk a random one, preferring quirks no
 ## one on the roster has yet so Veterans stay distinct. Returns who got one.
@@ -152,6 +168,7 @@ func extra_lamps() -> int:
 
 func save() -> void:
 	var config := ConfigFile.new()
+	config.set_value("meta", "version", SAVE_VERSION)
 	config.set_value("bank", "ore", banked_ore)
 	for id in UPGRADES:
 		config.set_value("upgrades", id, level(id))
