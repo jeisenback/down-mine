@@ -254,6 +254,12 @@ quarter: no Stalker deaths, but all six are stranded in the dark between depth 2
 light four times faster. The light budget is the limit (about 64 s to get down, over a minute and a half to climb
 back, against 105 s of lantern); each seed has 20 to 27 fuel pickups (25 s each) within 6 tiles of the Heart's column.
 
+`-- heart detour=N` models taking those pickups: each one within 6 tiles of the column that the bot passes is removed,
+adds its 25 s of light, and costs N seconds of light for the travel (modelled, not walked; the mine's other clocks do
+not advance during it). The break-even is about 15 s: at 3 s and 8 s all six seeds bring the Heart home (9 to 19
+pickups used), at 15 s five of six (with or without flaring), and at 20 s and 25 s none. So the win works if reaching a
+nearby pickup costs a player under about 15 seconds, and not otherwise.
+
 `tests/playtest.gd` plays scripted scenarios in the real game with key
 presses and saves a screenshot per step to `playtest_out/`:
 `xvfb-run -a godot --fixed-fps 60 -s tests/playtest.gd`. CI runs it on
