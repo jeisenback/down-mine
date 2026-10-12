@@ -10,13 +10,14 @@ const FIELDS := [
 ]
 
 static func of(mine: MineGrid) -> String:
-	var parts: PackedStringArray = []
+	var tiles := PackedInt32Array()
 	for layer in [0, MineGrid.DECOR_LAYER]:
-		var row_parts: PackedStringArray = []
 		for x in range(MineGrid.GRID_WIDTH):
 			for y in range(MineGrid.GRID_HEIGHT):
-				row_parts.append(str(mine.get_cell_atlas_coords(layer, Vector2i(x, y))))
-		parts.append("\n".join(row_parts))
+				var coords := mine.get_cell_atlas_coords(layer, Vector2i(x, y))
+				tiles.append(coords.x)
+				tiles.append(coords.y)
+	var parts: PackedStringArray = []
 	for field in FIELDS:
 		var value = mine.get(field)
 		if value is Dictionary and field.ends_with("_cells") or field == "_reserved_floors":
@@ -26,8 +27,12 @@ static func of(mine: MineGrid) -> String:
 	for child in mine.get_children():
 		if child is FuelPickup or child is OrePickup or child is Torch:
 			parts.append("%s %s %s" % [child.get_script().get_global_name(), child.position, child.get("value")])
+	# Where the global generator stands once the mine is built: a draw added anywhere
+	# in generation changes every later random choice (names, crumbling floors).
+	parts.append("global rng %d" % randi())
 	var hasher := HashingContext.new()
 	hasher.start(HashingContext.HASH_SHA256)
+	hasher.update(tiles.to_byte_array())
 	hasher.update("\n".join(parts).to_utf8_buffer())
 	return hasher.finish().hex_encode()
 

@@ -1,12 +1,15 @@
 extends RefCounted
 class_name MineGenerator
 
-## Turns a seed into a MineLayout (issue #74). Pure: no nodes, no tile map.
+## Turns a seed into a MineLayout (issue #74). No nodes, no tile map. One
+## side effect: it seeds the GLOBAL random generator (`seed(mine_seed)`), which
+## the floor-cell shuffle here and the fuel pickups MineGrid builds afterwards
+## draw from, so what Main picks later (names, crumbling floors) depends on it.
 ## The same seed must always build the same mine, so the random sources and
 ## their order are exactly the old MineGrid's: one generator seeded with the
 ## mine seed (fill, event rooms, gas), `seed + 51` (old mine), `seed + 52`
-## (torches), and the global generator seeded with the mine seed for the
-## floor-cell shuffle.
+## (torches), and the global generator for the shuffle. The golden fingerprint
+## test hashes where the global generator ends up, so an extra draw fails it.
 
 var _layout := MineLayout.new()
 var _solid: Array = []
@@ -68,7 +71,7 @@ static func is_boundary(x: int, y: int) -> bool:
 func _run(mine_seed: int) -> MineLayout:
 	_layout.mine_seed = mine_seed
 	_rng.seed = mine_seed
-	seed(mine_seed) # shuffles elsewhere in generation use the global RNG
+	seed(mine_seed) # the floor-cell shuffle below, then the fuel pickups, draw from the global RNG
 
 	_solid = _make_grid(false)
 	for x in range(MineGrid.GRID_WIDTH):
