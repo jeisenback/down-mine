@@ -8,6 +8,8 @@ class_name TestCase
 
 const TEST_SAVE_PATH := "user://test_save.cfg"
 
+const SHARED_MINE_OFFSET := 10000000.0
+
 ## Mines generated once and shared by tests that only read them (see shared_mine).
 static var _shared_mines: Dictionary = {}
 
@@ -45,6 +47,7 @@ func shared_mine(mine_seed: int) -> MineGrid:
 		tree.root.add_child(holder)
 	MineGrid.next_seed = mine_seed
 	var mine: MineGrid = load("res://scenes/Mine.tscn").instantiate()
+	mine.position = Vector2(SHARED_MINE_OFFSET, SHARED_MINE_OFFSET) # its collision must not meet other tests' players
 	holder.add_child(mine)
 	_shared_mines[mine_seed] = mine
 	return mine
