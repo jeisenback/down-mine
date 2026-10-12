@@ -233,6 +233,10 @@ func _physics_process(delta: float) -> void:
 			velocity.y = -climb
 		elif down_held:
 			velocity.y = climb
+		# Hanging on a rope or ladder you can still dig up (W + Space): a rope that ends
+		# under rock, or a shaft the mine has refilled, is cleared and climbed through.
+		if up_held and Input.is_physical_key_pressed(KEY_SPACE):
+			_dig_straight_up()
 		_move()
 		return
 

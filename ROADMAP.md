@@ -157,6 +157,11 @@ dictates.
   old nested-array algorithm and by the 31 golden seeds. A mine takes about 0.5 s to generate, down from about 0.95 s;
   the local unit suite went from about 4:56 to 3:07 (it was 5:45 before #82). Tests and generation speed only: every
   seed still builds the same mine.
+- ~~**M73 - Round-trip bot, and digging up on a rope.**~~ Done: `tests/balance_probe.gd -- trip` digs to 50, 100, 150 and 200
+  tiles and climbs home on ropes. It showed the return from Stone was impossible for a reason in the code, not in
+  the numbers: a player on a rope could not dig, and the mine refills dark tunnels, so a rope ending under rock
+  trapped them. Holding `W` and `Space` now digs up while on a rope or ladder. With that, a perfect base-kit dive to
+  200 tiles gets home with 1 to 5 seconds of light left.
 
 ## Quality pass
 

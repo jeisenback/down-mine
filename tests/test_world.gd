@@ -520,6 +520,35 @@ func test_rope_throws_up_to_the_ceiling_and_drops_over_an_edge() -> void:
 	rope = mine.get_children().filter(func(n): return n is Rope)[-1]
 	assert_eq(mine.world_to_cell(rope.global_position + Vector2(0, 1)), start + Vector2i(-1, 0), "S+R hangs over the edge")
 
+func _hold(code: int, down: bool) -> void:
+	var e := InputEventKey.new()
+	e.physical_keycode = code
+	e.keycode = code
+	e.pressed = down
+	Input.parse_input_event(e)
+
+func test_digging_up_works_while_hanging_on_a_rope() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var start := _step_course(mine)
+	var rock := start + Vector2i(0, -4) # the ceiling: the rope's top stops under it
+	mine.fill_cell(rock)
+	var player: Player = add(PlayerScene.instantiate())
+	player.mine = mine
+	player.global_position = mine.cell_to_world(start)
+	await physics_frames(10)
+	player._place_rope()
+	await physics_frames(5)
+	assert_true(player.is_on_rope(), "hanging on the rope")
+	_hold(KEY_W, true)
+	await physics_frames(60)
+	assert_true(mine.is_solid(rock), "climbing alone does not dig the rock over the rope")
+	assert_true(player.is_on_rope(), "still on the rope at its top")
+	_hold(KEY_SPACE, true)
+	await physics_frames(40)
+	_hold(KEY_SPACE, false)
+	_hold(KEY_W, false)
+	assert_true(not mine.is_solid(rock), "W with Space digs up through it while on the rope")
+
 func test_in_the_dark_means_lantern_out_and_no_other_light() -> void:
 	var player := _still_player(Vector2(1000, 1000), 1.0)
 	assert_true(not player.in_the_dark(), "lit by own lantern")
