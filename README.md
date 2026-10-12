@@ -236,6 +236,13 @@ standing still until the light fails) over three seeds and prints each
 run's log line - compare the output before and after a tuning change:
 `godot --headless --fixed-fps 60 -s tests/balance_probe.gd`.
 
+With `-- trip` after the script, only the round-trip bot runs: it digs straight down to 50, 100, 150 and 200 tiles
+on each seed, then climbs back on ropes (`R` every 1.55 s, `W` held) and extracts, printing whether it got home and
+how much light and health were left. Base kit, fastest possible dive, no caves explored: it measures the game's
+numbers, not how it feels. To compare a tuning change, edit the constant and rerun. Current result: 50 to 150
+tiles get home with 20 to 47 seconds of light left; from 200 (Stone) the bot is stranded, because the mine refills
+the shaft it dug and a player on a rope cannot dig, so a rope that ends under rock traps it.
+
 `tests/playtest.gd` plays scripted scenarios in the real game with key
 presses and saves a screenshot per step to `playtest_out/`:
 `xvfb-run -a godot --fixed-fps 60 -s tests/playtest.gd`. CI runs it on
