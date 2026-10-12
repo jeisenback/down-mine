@@ -170,6 +170,12 @@ dictates.
   of the Heart's column. `detour=N` models taking them at N seconds of light each: the Heart is won on all six seeds
   up to about 8 s a detour, five of six at 15 s, none at 20 s or more. The win needs a nearby pickup to cost a player
   under about 15 seconds to reach, in the dark. Next: how findable they are.
+- ~~**M75 - Typed mine data.**~~ Done (issue #75, from the architecture review): `Drift`, `EventRoom` and `TorchSite` replace the
+  untyped dictionaries in `MineLayout` and `MineGrid`, so a mistyped field is an error instead of a silent `null`, and
+  the cross-file contract is written in three small classes (a drift's collapse and end are now plain fields; an
+  event room's `in_shaft`, `at_drift_end` and `door` replace keys that were sometimes present). Each has a `to_dict()`
+  that returns the old dictionary key for key, and the golden fingerprints hash that, so all 31 recorded seeds
+  still match without re-recording. The save-file dictionaries are left for later, as the issue says.
 
 ## Quality pass
 

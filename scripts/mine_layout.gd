@@ -13,9 +13,9 @@ var mine_seed: int = 0
 var kinds := PackedByteArray()
 ## Decor-layer cells (shaft timber, drift posts): cell -> Decor.
 var decor: Dictionary = {}
-var drifts: Array = []
-var event_rooms: Array = []
-var torches: Array = []
+var drifts: Array[Drift] = []
+var event_rooms: Array[EventRoom] = []
+var torches: Array[TorchSite] = []
 ## Sets of cells (cell -> true), as MineGrid keeps them.
 var room_cells: Dictionary = {}
 var reserved_floors: Dictionary = {}

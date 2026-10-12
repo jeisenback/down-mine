@@ -476,7 +476,7 @@ func debug_toggle_god() -> void:
 func debug_next_event() -> void:
 	if mine.event_rooms.is_empty():
 		return
-	var room: Dictionary = mine.event_rooms[_debug_event_index % mine.event_rooms.size()]
+	var room: EventRoom = mine.event_rooms[_debug_event_index % mine.event_rooms.size()]
 	_debug_event_index += 1
 	player.global_position = mine.cell_to_world(room.cell) # an event's own cell is open ground: a gallery camp or the lift has rock or air beside it
 	player.velocity = Vector2.ZERO

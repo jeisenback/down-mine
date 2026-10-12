@@ -8,14 +8,6 @@ const TORCH_SEEDS := [1001, 1, 2, 3, 31, 35, 44, 98]
 func _in_shaft(layout: MineLayout, cell: Vector2i) -> bool:
 	return MineGenerator.shaft_rect(layout.shaft_end_row).has_point(cell)
 
-func _drift_cells(d: Dictionary) -> Array:
-	var cells: Array = []
-	for i in range(absi(d.x1 - d.x0) + 1):
-		var x: int = d.x0 + d.side * i
-		cells.append(Vector2i(x, d.row - 1))
-		cells.append(Vector2i(x, d.row))
-	return cells
-
 func _pickup_cells(layout: MineLayout) -> Array:
 	return layout.fuel_cells + layout.ore_cells.map(func(o): return o.cell)
 
@@ -29,13 +21,27 @@ func test_generate_creates_no_nodes() -> void:
 	MineGenerator.generate(7)
 	assert_eq(Performance.get_monitor(Performance.OBJECT_NODE_COUNT), before, "no node was made")
 
+func test_drifts_rooms_and_torches_are_typed_data() -> void:
+	var layout := shared_layout(1001)
+	assert_true(not layout.drifts.is_empty() and layout.drifts.all(func(d): return d is Drift), "drifts are Drift objects")
+	assert_true(not layout.event_rooms.is_empty() and layout.event_rooms.all(func(r): return r is EventRoom), "rooms are EventRoom objects")
+	assert_true(not layout.torches.is_empty() and layout.torches.all(func(t): return t is TorchSite), "torches are TorchSite objects")
+	var lift: EventRoom = layout.event_rooms.filter(func(r): return r.kind == "lift")[0]
+	assert_true(lift.in_shaft and not lift.at_drift_end, "the lift is flagged as the shaft's own")
+	var vault: EventRoom = layout.event_rooms.filter(func(r): return r.kind == "vault")[0] if layout.event_rooms.any(func(r): return r.kind == "vault") else null
+	if vault != null:
+		assert_true(vault.door.x >= 0, "a vault knows its door")
+	var stone: Drift = layout.drifts.filter(func(d): return d.layer == 2)[0]
+	assert_eq(stone.end_kind, "miner", "the Stone gallery ends at the lost miner")
+	assert_eq(stone.cells().size(), (absi(stone.x1 - stone.x0) + 1) * 2, "a drift lists its two rows of open cells")
+
 func test_generate_is_a_pure_function_of_the_seed() -> void:
 	var a := MineGenerator.generate(4242)
 	var b := MineGenerator.generate(4242)
 	assert_true(a.kinds == b.kinds, "same tiles")
-	assert_eq(a.drifts, b.drifts, "same drifts")
-	assert_eq(a.event_rooms, b.event_rooms, "same rooms")
-	assert_eq(a.torches, b.torches, "same torches")
+	assert_eq(a.drifts.map(func(d): return d.to_dict()), b.drifts.map(func(d): return d.to_dict()), "same drifts")
+	assert_eq(a.event_rooms.map(func(r): return r.to_dict()), b.event_rooms.map(func(r): return r.to_dict()), "same rooms")
+	assert_eq(a.torches.map(func(t): return t.to_dict()), b.torches.map(func(t): return t.to_dict()), "same torches")
 	assert_eq(a.spare_floor_cells, b.spare_floor_cells, "same spare floors")
 	assert_true(a.kinds != MineGenerator.generate(4243).kinds, "another seed builds another mine")
 
@@ -79,7 +85,7 @@ func test_each_worked_layer_gets_a_drift_of_the_right_shape() -> void:
 			var length: int = absi(d.x1 - d.x0) + 1
 			assert_true(length >= MineGrid.DRIFT_MIN_LENGTH and length <= MineGrid.DRIFT_MAX_LENGTH, "seed %d: length %d" % [s, length])
 			assert_eq(d.x0, layout.shaft_column() + d.side * (MineGrid.SHAFT_WIDTH / 2 + 1), "seed %d: starts beside the shaft" % s)
-			for cell in _drift_cells(d):
+			for cell in d.cells():
 				assert_true(not layout.is_solid(cell) or layout.kind_at(cell) == MineLayout.Kind.DEBRIS, "seed %d: open at %s" % [s, cell])
 			for x in range(mini(d.x0, d.x1), maxi(d.x0, d.x1) + 1):
 				var floor_kind := layout.kind_at(Vector2i(x, d.row + 1))
@@ -136,7 +142,7 @@ func test_event_rooms_and_pickups_keep_out_of_the_shaft() -> void:
 	for s in [3, 8, 11, 13, 22, 33, 44, 51, 55]:
 		var layout := shared_layout(s)
 		for room in layout.event_rooms:
-			if room.has("shaft"):
+			if room.in_shaft:
 				continue # the lift is the shaft's own
 			var rect: Rect2i = room.rect.grow(1)
 			for y in range(rect.position.y, rect.end.y):
@@ -153,11 +159,11 @@ func test_event_rooms_and_pickups_keep_out_of_the_drifts() -> void:
 		var layout := shared_layout(s)
 		var old_mine := MineGenerator.old_mine_rects(layout.drifts, layout.shaft_end_row)
 		for room in layout.event_rooms:
-			if room.has("drift"):
+			if room.at_drift_end:
 				continue # a drift's own camp stands inside it
 			var rect: Rect2i = room.rect.grow(1)
 			for d in layout.drifts:
-				for cell in _drift_cells(d):
+				for cell in d.cells():
 					assert_true(not rect.has_point(cell), "seed %d: room %s overlaps a drift" % [s, room.kind])
 		for cell in _pickup_cells(layout):
 			assert_true(not old_mine.any(func(r): return r.has_point(cell)), "seed %d: pickup in the old mine" % s)
