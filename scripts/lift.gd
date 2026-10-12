@@ -14,7 +14,7 @@ var state: State = State.BROKEN
 @onready var cage: ArtSprite = $Art
 
 func _ready() -> void:
-	add_to_group("mine_events")
+	add_to_group(Groups.MINE_EVENTS)
 
 func prompt(main: Node) -> String:
 	match state:

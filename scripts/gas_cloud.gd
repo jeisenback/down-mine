@@ -17,7 +17,7 @@ var _damage_timer: float = 0.0
 @onready var art: ArtSprite = $Art
 
 func _ready() -> void:
-	add_to_group("gas_clouds")
+	add_to_group(Groups.GAS_CLOUDS)
 	Sfx.play("hiss")
 
 func _process(delta: float) -> void:

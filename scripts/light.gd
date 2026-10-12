@@ -19,7 +19,7 @@ var is_flaring: bool = false
 @onready var detection_shape: CollisionShape2D = $DetectionArea/CollisionShape2D
 
 func _ready() -> void:
-	add_to_group("mine_lights") # so Rope can check "am I lit" without a direct reference
+	add_to_group(Groups.MINE_LIGHTS) # so Rope can check "am I lit" without a direct reference
 	fuel = max_fuel
 	point_light.texture = _make_glow_texture()
 	detection_shape.shape = CircleShape2D.new()
@@ -36,7 +36,7 @@ func _process(delta: float) -> void:
 ## "is this spot lit?" test that decay, ropes and anchors share.
 ## A light equal to `except` is skipped (a lantern doesn't light its own bearer's dark).
 static func is_lit(tree: SceneTree, world_pos: Vector2, except: Node = null) -> bool:
-	for light in tree.get_nodes_in_group("mine_lights"):
+	for light in tree.get_nodes_in_group(Groups.MINE_LIGHTS):
 		if light == except:
 			continue
 		if world_pos.distance_to(light.global_position) < light.current_radius():

@@ -245,7 +245,7 @@ func _free_miner_names() -> Array:
 ## The closest mine event within reach, or null.
 func _nearest_event() -> Node2D:
 	var nearest: Node2D = null
-	for event in get_tree().get_nodes_in_group("mine_events"):
+	for event in get_tree().get_nodes_in_group(Groups.MINE_EVENTS):
 		var d := player.global_position.distance_to(event.global_position)
 		if d < EVENT_RANGE and (nearest == null or d < player.global_position.distance_to(nearest.global_position)):
 			nearest = event
@@ -389,11 +389,11 @@ func _process(delta: float) -> void:
 		"Lamps": lamps_left if progress.has_unlock("lamps") or lamps_left > 0 else -1,
 		"Ladders": player.ladders_left if progress.has_unlock("ladders") or player.ladders_left > 0 else -1,
 		"Anchors": player.anchors_left if progress.has_unlock("anchors") or player.anchors_left > 0 else -1,
-	}, get_tree().get_nodes_in_group("snuffers").size() > 0)
+	}, get_tree().get_nodes_in_group(Groups.SNUFFERS).size() > 0)
 	mine.decay_walls(delta, run_base.light.fuel_fraction())
 	for lost_at in mine.tick_decay(delta, player.global_position):
 		noise_meter.add_noise(MineGrid.DECAY_NOISE, lost_at)
-	hud.update_base(run_base, get_tree().get_nodes_in_group("burrowers").size() > 0, mine.wall_count())
+	hud.update_base(run_base, get_tree().get_nodes_in_group(Groups.BURROWERS).size() > 0, mine.wall_count())
 	hud.update_prompts(_action_prompts())
 	touch_controls.set_base_nearby(_near_base())
 	touch_controls.set_can_plant(_can_plant())
@@ -626,7 +626,7 @@ func _check_lamp() -> void:
 	_lamp_key_was_pressed = pressed
 
 func _check_snuffer_spawn(delta: float) -> void:
-	if get_tree().get_nodes_in_group("lamps").is_empty() or not get_tree().get_nodes_in_group("snuffers").is_empty():
+	if get_tree().get_nodes_in_group(Groups.LAMPS).is_empty() or not get_tree().get_nodes_in_group(Groups.SNUFFERS).is_empty():
 		_snuffer_timer = 0.0
 		return
 	_snuffer_timer += delta
@@ -642,7 +642,7 @@ func _check_snuffer_spawn(delta: float) -> void:
 ## clamped inside the mine below the crust.
 func _snuffer_spawn_position() -> Vector2:
 	var far_light: Node2D = null
-	for light in get_tree().get_nodes_in_group("snuffable"):
+	for light in get_tree().get_nodes_in_group(Groups.SNUFFABLE):
 		if far_light == null or light.global_position.distance_to(player.global_position) > far_light.global_position.distance_to(player.global_position):
 			far_light = light
 	var offset := Vector2.RIGHT.rotated(randf() * TAU) * SNUFFER_SPAWN_DISTANCE_TILES * mine.TILE_SIZE
@@ -736,7 +736,7 @@ func _on_tile_dug(noise_amount: float, world_pos: Vector2) -> void:
 func _on_noise_made(position: Vector2, amount: float) -> void:
 	if amount < Stalker.LOUD_NOISE:
 		return
-	for stalker in get_tree().get_nodes_in_group("stalkers"):
+	for stalker in get_tree().get_nodes_in_group(Groups.STALKERS):
 		if stalker.global_position.distance_to(position) / mine.TILE_SIZE <= Stalker.HEARING_TILES:
 			stalker.alert()
 
@@ -754,7 +754,7 @@ func _spawn_wave() -> void:
 	var peak := MineClock.is_peak(number)
 	Sfx.play("rumble", 0.0 if peak else -6.0)
 	_shake_camera(WAVE_SHAKE_SECONDS, WAVE_SHAKE_PIXELS * (2.0 if peak else 1.0))
-	var alive := get_tree().get_nodes_in_group("burrowers").size()
+	var alive := get_tree().get_nodes_in_group(Groups.BURROWERS).size()
 	var count := mini(MineClock.wave_size(number), MAX_LIVE_BURROWERS - alive)
 	var base_cell := mine.world_to_cell(run_base.global_position)
 	for i in range(maxi(0, count)):

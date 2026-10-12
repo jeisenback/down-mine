@@ -168,7 +168,7 @@ func test_the_hub_loads_with_a_new_save() -> void:
 	assert_eq(hub.buildings.size(), 4, "four buildings")
 	assert_eq(hub.miners.size(), 0, "no one in the bunkhouse yet")
 	assert_eq(hub.hud.banked_label.text, "Banked: 0", "banked ore shown")
-	assert_true(hub.get_tree().get_nodes_in_group("mine_events").is_empty(), "no mine")
+	assert_true(hub.get_tree().get_nodes_in_group(Groups.MINE_EVENTS).is_empty(), "no mine")
 	Progress.path_override = ""
 
 func test_one_figure_per_rostered_miner_up_to_ten() -> void:

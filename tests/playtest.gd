@@ -66,6 +66,7 @@ func _run() -> void:
 		_scenario = entry[0]
 		_shot_index = 0
 		failures.clear()
+		TestHooks.reset(SAVE_PATH) # each scenario starts from the same hooks
 		await entry[1].call()
 		_end_game()
 		if failures.is_empty():
@@ -210,7 +211,7 @@ func jump_right() -> void:
 
 func _camp_search() -> void:
 	await _start_game()
-	var camp: Camp = main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Camp)[0]
+	var camp: Camp = main.get_tree().get_nodes_in_group(Groups.MINE_EVENTS).filter(func(e): return e is Camp)[0]
 	teleport(main.mine.world_to_cell(camp.global_position)) # its own cell: a gallery camp has a cave beside it
 	await frames(20)
 	var ore: int = main.player.currency
@@ -222,7 +223,7 @@ func _camp_search() -> void:
 
 func _heart_run() -> void:
 	await _start_game()
-	var heart: Heart = main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Heart)[0]
+	var heart: Heart = main.get_tree().get_nodes_in_group(Groups.MINE_EVENTS).filter(func(e): return e is Heart)[0]
 	teleport(main.mine.world_to_cell(heart.global_position) + Vector2i(-1, 0))
 	await frames(20)
 	await tap(KEY_E)
@@ -555,7 +556,7 @@ func _drift_to_camp() -> void:
 	await _walk_to(d, d.x1, _walk_frames(d))
 	check(absi(_cell().x - d.x1) <= 1, "walked the gallery to its far end (x %d, end %d)" % [_cell().x, d.x1])
 	await tap(KEY_E)
-	var camps := main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Camp and main.mine.world_to_cell(e.global_position) == Vector2i(d.x1, d.row))
+	var camps := main.get_tree().get_nodes_in_group(Groups.MINE_EVENTS).filter(func(e): return e is Camp and main.mine.world_to_cell(e.global_position) == Vector2i(d.x1, d.row))
 	check(camps.size() == 1 and camps[0].searched, "the camp at the end was searched")
 	await shot("camp")
 
@@ -625,7 +626,7 @@ func _drift_from_the_ladder() -> void:
 ## Repairs the old cage at the bottom of Clay and rides it to the surface.
 func _shaft_lift_ride() -> void:
 	await _in_shaft()
-	var lifts := main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Lift)
+	var lifts := main.get_tree().get_nodes_in_group(Groups.MINE_EVENTS).filter(func(e): return e is Lift)
 	check(lifts.size() == 1, "one lift")
 	if lifts.size() != 1:
 		return
@@ -643,7 +644,7 @@ func _shaft_lift_ride() -> void:
 ## Steps off the old ladder, sideways, into the lift's cage and repairs it.
 func _shaft_lift_from_the_ladder() -> void:
 	await _in_shaft()
-	var lifts := main.get_tree().get_nodes_in_group("mine_events").filter(func(e): return e is Lift)
+	var lifts := main.get_tree().get_nodes_in_group(Groups.MINE_EVENTS).filter(func(e): return e is Lift)
 	check(lifts.size() == 1, "one lift")
 	if lifts.size() != 1:
 		return
@@ -827,11 +828,11 @@ func _wave_meets_the_base_light() -> void:
 	base.light.fuel = base.light.max_fuel
 	main.mine_clock.wave_number = 3 # a wave of two
 	main._spawn_wave()
-	check(main.get_tree().get_nodes_in_group("burrowers").size() == 2, "two Burrowers surfaced")
+	check(main.get_tree().get_nodes_in_group(Groups.BURROWERS).size() == 2, "two Burrowers surfaced")
 	Engine.time_scale = 6.0
 	await frames(250) # about 25 s
 	Engine.time_scale = 1.0
-	check(main.get_tree().get_nodes_in_group("burrowers").is_empty(), "a full base light killed them both")
+	check(main.get_tree().get_nodes_in_group(Groups.BURROWERS).is_empty(), "a full base light killed them both")
 	check(base.health == RunBase.MAX_HEALTH, "and the base kept every point of health (%d)" % base.health)
 	await shot("full light")
 	base.light.fuel = base.light.max_fuel * 0.02

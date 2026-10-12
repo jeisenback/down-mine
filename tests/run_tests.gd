@@ -8,7 +8,7 @@ func _initialize() -> void:
 	_run.call_deferred()
 
 func _run() -> void:
-	HUD.title_seen = true # scene tests must not start paused on the title
+	TestHooks.reset(TestCase.TEST_SAVE_PATH)
 	var errors := ErrorLogger.new()
 	OS.add_logger(errors)
 	var failed := 0
@@ -29,7 +29,10 @@ func _run() -> void:
 			case.tree = self
 			var before := root.get_child_count()
 			errors.script_errors.clear()
+			TestHooks.reset(TestCase.TEST_SAVE_PATH) # no test depends on what an earlier one left behind
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(TestCase.TEST_SAVE_PATH))
 			await case.call(name)
+			TestHooks.reset(TestCase.TEST_SAVE_PATH)
 			for error in errors.script_errors:
 				case.failures.append("script error: " + error)
 			while root.get_child_count() > before:

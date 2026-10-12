@@ -13,7 +13,7 @@ var burn: float = 0.0
 var destroyed: bool = false
 
 func _ready() -> void:
-	add_to_group("mine_events")
+	add_to_group(Groups.MINE_EVENTS)
 
 func _process(delta: float) -> void:
 	if destroyed:
@@ -34,7 +34,7 @@ func use(_main: Node) -> void:
 
 func _destroy() -> void:
 	destroyed = true
-	remove_from_group("mine_events")
+	remove_from_group(Groups.MINE_EVENTS)
 	$Art.art.pose = 1.0 # eggs become a scorched patch
 	main.noise_meter.add_noise(BURN_NOISE, global_position)
 	Sfx.play("hiss")

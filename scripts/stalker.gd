@@ -52,7 +52,7 @@ var _strike_timer: float = 0.0
 @onready var art: ArtSprite = $Art
 
 func _ready() -> void:
-	add_to_group("stalkers")
+	add_to_group(Groups.STALKERS)
 
 func _process(delta: float) -> void:
 	_strike_timer = maxf(0.0, _strike_timer - delta)

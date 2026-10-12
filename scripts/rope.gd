@@ -18,7 +18,7 @@ var lifetime: float = 1.0 # 1.0 = fresh, 0.0 = gone
 
 func _process(delta: float) -> void:
 	var rate := (1.0 / life_seconds) * (1.0 if MineLight.is_lit(get_tree(), global_position) else DARK_DECAY_MULTIPLIER)
-	var player := get_tree().get_first_node_in_group("player") as Player
+	var player := get_tree().get_first_node_in_group(Groups.PLAYER) as Player
 	if player != null and player.light.is_out():
 		rate *= DARK_ROT_MULTIPLIER
 	lifetime -= rate * delta

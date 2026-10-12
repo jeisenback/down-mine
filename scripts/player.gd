@@ -149,7 +149,7 @@ var _grapple_waypoint: Vector2 = Vector2.INF
 var _was_on_floor: bool = true
 
 func _ready() -> void:
-	add_to_group("player")
+	add_to_group(Groups.PLAYER)
 	rope_detector.area_entered.connect(_on_rope_area_entered)
 	rope_detector.area_exited.connect(_on_rope_area_exited)
 
@@ -468,7 +468,7 @@ func _climb_speed() -> float:
 func _anchor_in_reach() -> Node2D:
 	var best: Node2D = null
 	var best_waypoint := Vector2.INF
-	for anchor in get_tree().get_nodes_in_group("anchors"):
+	for anchor in get_tree().get_nodes_in_group(Groups.ANCHORS):
 		var d := global_position.distance_to(anchor.global_position)
 		if d > ANCHOR_RANGE or d < ANCHOR_ARRIVE_DISTANCE:
 			continue

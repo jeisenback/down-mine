@@ -1185,9 +1185,9 @@ func test_a_torch_never_burns_down_and_is_not_a_lamp() -> void:
 	assert_eq(light.fuel, light.max_fuel, "the fuel does not drop")
 	assert_eq(light.current_radius(), radius, "so the radius holds")
 	assert_true(radius < 140.0, "dimmer than the lantern (%.0f)" % radius)
-	assert_true(light.is_in_group("mine_lights"), "it protects the ground and slows rope decay like any light")
-	assert_true(not light.is_in_group("snuffable"), "Snuffers do not hunt it")
-	assert_true(not torch.is_in_group("lamps"), "and it does not count as a placed lamp")
+	assert_true(light.is_in_group(Groups.MINE_LIGHTS), "it protects the ground and slows rope decay like any light")
+	assert_true(not light.is_in_group(Groups.SNUFFABLE), "Snuffers do not hunt it")
+	assert_true(not torch.is_in_group(Groups.LAMPS), "and it does not count as a placed lamp")
 	assert_true(MineLight.is_lit(tree, torch.global_position + Vector2(radius - 5.0, 0.0)), "it lights the spot beside it")
 
 func test_shaft_torches_sit_on_the_frame_every_ten_rows_in_topsoil_and_clay() -> void:
@@ -1228,12 +1228,12 @@ func test_cave_torches_stand_on_free_floor_in_the_first_two_layers() -> void:
 func test_torches_are_nodes_that_share_no_cell_with_a_pickup() -> void:
 	for s in [1001, 2, 98]:
 		var mine := _mine_with_seed(s)
-		var nodes := mine.get_children().filter(func(c): return c.is_in_group("torches"))
+		var nodes := mine.get_children().filter(func(c): return c.is_in_group(Groups.TORCHES))
 		assert_eq(nodes.size(), mine.torches.size(), "seed %d: one node per torch" % s)
 		for t in mine.torches:
 			var at: Vector2 = mine.map_to_local(t.cell)
 			for c in mine.get_children():
-				if c is Node2D and not c.is_in_group("torches"):
+				if c is Node2D and not c.is_in_group(Groups.TORCHES):
 					assert_true(c.position.distance_to(at) > 1.0, "seed %d: nothing else on the torch at %s" % [s, str(t.cell)])
 			assert_true(not mine._spare_floor_cells.has(t.cell), "seed %d: spawns cannot pick a torch's cell" % s)
 

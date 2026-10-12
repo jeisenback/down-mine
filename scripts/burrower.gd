@@ -38,7 +38,7 @@ static func base_light_damage_per_second(fuel_fraction: float, presence_flaring:
 	return BASE_LIGHT_DAMAGE_RATE * fuel_fraction * (PRESENCE_FLARE_MULTIPLIER if presence_flaring else 1.0)
 
 func _ready() -> void:
-	add_to_group("burrowers")
+	add_to_group(Groups.BURROWERS)
 
 func _physics_process(delta: float) -> void:
 	_attack_timer = max(0.0, _attack_timer - delta)

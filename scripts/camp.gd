@@ -15,7 +15,7 @@ var searched: bool = false
 var _lamp: Lamp = null
 
 func _ready() -> void:
-	add_to_group("mine_events")
+	add_to_group(Groups.MINE_EVENTS)
 
 func prompt(main: Node) -> String:
 	if not searched:

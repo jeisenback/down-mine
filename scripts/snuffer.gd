@@ -21,7 +21,7 @@ var _retarget_timer: float = 0.0
 @onready var art: ArtSprite = $Art
 
 func _ready() -> void:
-	add_to_group("snuffers")
+	add_to_group(Groups.SNUFFERS)
 
 func _physics_process(delta: float) -> void:
 	var from_player := global_position - player.global_position
@@ -50,7 +50,7 @@ func _physics_process(delta: float) -> void:
 func _pick_target() -> MineLight:
 	var best: MineLight = null
 	var best_distance := -1.0
-	for light in get_tree().get_nodes_in_group("snuffable"):
+	for light in get_tree().get_nodes_in_group(Groups.SNUFFABLE):
 		if light.fuel <= 0.0:
 			continue
 		var d: float = light.global_position.distance_to(player.global_position)

@@ -45,7 +45,7 @@ func _ready() -> void:
 	$MineLight/PointLight2D.color = shirt_color.lightened(0.4)
 	if recruit_cost > 0:
 		stationary = true
-		add_to_group("mine_events")
+		add_to_group(Groups.MINE_EVENTS)
 	_refresh_art()
 
 ## A miner nobody has found yet sits slumped, lamp guttering; anyone on their
@@ -74,7 +74,7 @@ func use(main: Node) -> void:
 		return
 	main.player.currency -= recruit_cost
 	recruit_cost = 0
-	remove_from_group("mine_events")
+	remove_from_group(Groups.MINE_EVENTS)
 	stationary = false
 	following = true
 	_refresh_art()
