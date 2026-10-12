@@ -122,6 +122,9 @@ dictates.
   size (so GRAPPLE no longer shrinks), held buttons have a double border, the Tools toggle a small up triangle,
   and a pressed button's outline turns white. Not done: audio volume, mute and text size settings (YAGNI until
   hand-play shows a need), and drawn icons.
+- ~~**M66 - Abandon a run.**~~ Done (issue #68): from the controls overlay in the mine, `X` twice (or the ABANDON button
+  tapped twice on touch) ends the run as a death does: the carried ore is lost, escorted and base-crew miners are
+  stranded, and the run is logged as "Abandoned". Not offered in the hub, on the title or after the run ends.
 
 ## Quality pass
 

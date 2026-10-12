@@ -59,6 +59,7 @@ func _run() -> void:
 		["touch_controls_play", _touch_controls_play],
 		["touch_hub_buy", _touch_hub_buy],
 		["torches_light_the_early_mine", _torches_light_the_early_mine],
+		["abandon_a_run", _abandon_a_run],
 	]
 	var failed := 0
 	for entry in scenarios:
@@ -419,6 +420,31 @@ func _shaft_ladder_climb() -> void:
 	await hold([KEY_W], 120)
 	check(start.y - _cell().y >= 8, "the old ladder climbs at least 8 rows (from row %d to %d)" % [start.y, _cell().y])
 	await shot("top")
+
+## Esc, then X twice: the real keys end the run as a death does (the ore is lost), and the
+## touch controls offer an ABANDON button over CONTINUE while the overlay is open.
+func _abandon_a_run() -> void:
+	await _start_game()
+	main.player.currency = 25
+	await tap(KEY_ESCAPE)
+	check(paused and main.hud.can_abandon(), "the controls overlay can abandon")
+	await shot("overlay")
+	await tap(KEY_X)
+	check(not main.run_ended and main.hud._overlay_label.text.contains("Press X again"), "one X only asks")
+	await shot("asked")
+	await tap(KEY_X)
+	await frames(5)
+	check(main.run_ended and main.hud.run_summary.visible, "the second X ends the run")
+	check(main.hud.run_summary_label.text.contains("Run Abandoned") and main.hud.run_summary_label.text.contains("Ore lost: 25"), "the summary says so: " + main.hud.run_summary_label.text)
+	await shot("summary")
+	_end_game()
+	TouchControls.force = true
+	await _start_game()
+	await tap(KEY_ESCAPE)
+	await frames(5)
+	check(main.touch_controls.visible_widgets().has("abandon"), "touch: an ABANDON button while the overlay is open")
+	await shot("touch_overlay")
+	TouchControls.force = false
 
 ## The first shaft torch and one cave torch, with the lantern burnt out so only the torch lights
 ## the ground; the torch's light must show the dark shaft around it.
