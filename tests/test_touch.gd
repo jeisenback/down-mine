@@ -132,6 +132,7 @@ func test_layout_rects_are_big_inside_and_do_not_overlap() -> void:
 		"mine": ["pad", "dig", "flare", "use", "tools", "esc", "tool_rope", "tool_ladder", "tool_anchor", "tool_lamp", "tool_beam", "tool_grapple", "base_plant", "base_repair", "base_fortify", "base_grow"],
 		"hub": ["pad", "use", "buy1", "buy2", "buy3", "esc"],
 		"paused": ["continue", "esc"],
+		"paused, abandonable": ["continue", "esc", "abandon"],
 	}
 	for size in [SIZE, Vector2(2400, 1080)]:
 		var layout := TouchControls.layout_for(size)
@@ -552,3 +553,28 @@ func test_menu_items_share_one_font_size_and_grapple_fits() -> void:
 	var width := ThemeDB.fallback_font.get_string_size("GRAPPLE", HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 	assert_true(width <= button_width - 6.0, "GRAPPLE (%.0f px) fits a %.0f px button without shrinking" % [width, button_width])
 	assert_eq(TouchControls.label_size("tool_rope", 2.0), 2 * size, "it scales with the screen")
+
+func test_the_abandon_button_shows_only_while_paused_and_allowed() -> void:
+	var c := _fresh()
+	tree.paused = true
+	assert_eq(c.visible_widgets().size(), 2, "not offered by default")
+	c.abandon_check = func(): return true
+	assert_true(c.visible_widgets().has("abandon") and c.visible_widgets().size() == 3, "offered when the overlay allows it")
+	c.abandon_check = func(): return false
+	assert_true(not c.visible_widgets().has("abandon"), "gone when it does not")
+	tree.paused = false
+	c.abandon_check = func(): return true
+	assert_true(not c.visible_widgets().has("abandon"), "never while playing")
+	_done()
+
+func test_the_abandon_button_presses_x_and_is_a_tap() -> void:
+	var c := _fresh()
+	tree.paused = true
+	c.abandon_check = func(): return true
+	assert_eq(TouchControls.widget_kind("abandon"), "tap", "a tap")
+	assert_eq(TouchControls.LABELS["abandon"], "ABANDON", "labelled")
+	c.touch(0, _at("abandon"), true)
+	assert_true(TouchKeys.is_down(KEY_X), "it presses X")
+	c.touch(0, _at("abandon"), false)
+	tree.paused = false
+	_done()

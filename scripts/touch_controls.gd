@@ -37,6 +37,7 @@ const WIDGETS := {
 	"buy3": {"keys": [KEY_3], "hold": false, "modes": ["hub"]},
 	"esc": {"keys": [KEY_ESCAPE], "hold": false, "modes": ["mine", "hub"]},
 	"continue": {"keys": [KEY_ENTER], "hold": false, "modes": []},
+	"abandon": {"keys": [KEY_X], "hold": false, "modes": []},
 	"pad": {"keys": [], "hold": true, "modes": ["mine", "hub"]},
 }
 const TOOL_ROW := ["tool_rope", "tool_ladder", "tool_anchor", "tool_lamp", "tool_beam", "tool_grapple"]
@@ -48,6 +49,8 @@ var mode: String = "mine"
 ## when it is ready and whenever the window is resized.
 var layout_size: Vector2 = Vector2(1152, 648)
 var tools_open: bool = false
+## Asked while paused: whether the controls overlay offers "abandon the run" (Main sets it to HUD.can_abandon).
+var abandon_check: Callable = func(): return false
 var base_nearby: bool = false
 ## Whether the keyboard's P would plant the base here (below the crust, on a floor, once per run).
 var can_plant: bool = false
@@ -85,6 +88,7 @@ static func layout_for(size: Vector2) -> Dictionary:
 		out["buy%d" % (i + 1)] = Rect2(use.position.x - 224.0 * u + i * 72.0 * u, size.y - m - 64.0 * u, 64.0 * u, 64.0 * u)
 	out["esc"] = Rect2(size.x - m - 56.0 * u, 72.0 * u, 56.0 * u, 56.0 * u)
 	out["continue"] = Rect2(size.x / 2.0 - 120.0 * u, size.y - m - 72.0 * u, 240.0 * u, 72.0 * u)
+	out["abandon"] = Rect2(size.x / 2.0 - 120.0 * u, size.y - m - 72.0 * u - 68.0 * u, 240.0 * u, 56.0 * u)
 	return out
 
 ## One slot of the Tools menu, packed upward from the Tools button: column 0
@@ -141,7 +145,10 @@ func visible_widgets() -> Array:
 	if is_portrait(layout_size):
 		return out
 	if is_inside_tree() and get_tree().paused:
-		return ["continue", "esc"]
+		var paused_widgets: Array = ["continue", "esc"]
+		if abandon_check.call():
+			paused_widgets.append("abandon") # the controls overlay offers it in the mine
+		return paused_widgets
 	for widget in WIDGETS:
 		if not WIDGETS[widget].modes.has(mode):
 			continue
@@ -300,7 +307,7 @@ func _notification(what: int) -> void:
 		release_all()
 
 const LABELS := {
-	"dig": "DIG", "flare": "FLARE", "use": "USE", "tools": "TOOLS", "esc": "HELP", "continue": "CONTINUE",
+	"dig": "DIG", "flare": "FLARE", "use": "USE", "tools": "TOOLS", "esc": "HELP", "continue": "CONTINUE", "abandon": "ABANDON",
 	"tool_rope": "ROPE", "tool_ladder": "LADDER", "tool_anchor": "ANCHOR", "tool_lamp": "LAMP",
 	"tool_beam": "BEAM", "tool_grapple": "GRAPPLE", "base_plant": "PLANT", "base_repair": "REPAIR",
 	"base_fortify": "FORTIFY", "base_grow": "GROW", "buy1": "1", "buy2": "2", "buy3": "3",

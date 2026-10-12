@@ -4,6 +4,8 @@ class_name HUD
 ## Emitted when the player presses Enter on the run summary (it leads to the hub).
 ## The HUD runs while the tree is paused (see _ready) so it can hear this.
 signal new_run_requested
+## The player confirmed "abandon this run" in the controls overlay (milestone 66).
+signal abandon_requested
 
 const COMPASS_MARGIN := 40.0
 # Below this distance, hide the arrow instead of pointing it - arctan2 of
@@ -51,6 +53,18 @@ Pad  left and right walk, up jumps
 1 2 3  buy at the building you stand beside
 Use  join or leave the crew beside a miner, open the notice board, or go down the mine at the entrance"""
 
+const ABANDON_LINE := "X  abandon this run (asks first)"
+const ABANDON_ASK := """Abandon this run?
+
+The ore you carry is lost, as if you had died.
+
+Press X again to confirm, Esc to cancel."""
+const TOUCH_ABANDON_ASK := """Abandon this run?
+
+The ore you carry is lost, as if you had died.
+
+Tap ABANDON again to confirm, HELP to cancel."""
+
 const DEBUG_TEXT := """
 
 DEBUG:  I god mode    O +100 ore    Y refill light
@@ -85,6 +99,7 @@ var _message_time: float = 0.0
 var overlay: ColorRect
 var seed_label: Label
 var _hub_mode: bool = false
+var _confirm_abandon: bool = false
 var _debug: bool = false
 var esc_hint: Label
 var compass_label: Label
@@ -170,6 +185,8 @@ func _controls_text() -> String:
 		text = TOUCH_HUB_CONTROLS_TEXT if _hub_mode else TOUCH_CONTROLS_TEXT
 	elif _hub_mode:
 		text = HUB_CONTROLS_TEXT
+	else:
+		text += "\n\n" + ABANDON_LINE
 	return text + ("\n\nSeed %d" % _seed if _seed != 0 else "")
 
 func _show_overlay(text: String, is_title: bool) -> void:
@@ -177,6 +194,10 @@ func _show_overlay(text: String, is_title: bool) -> void:
 	_showing_title = is_title
 	overlay.visible = true
 	get_tree().paused = true
+
+## Whether the controls overlay can end the run: open, in the mine, run not over.
+func can_abandon() -> bool:
+	return overlay.visible and not _showing_title and not _hub_mode and not run_summary.visible
 
 ## Closes the overlay; the game stays paused behind the run summary.
 func _hide_overlay() -> void:
@@ -188,6 +209,20 @@ func _hide_overlay() -> void:
 ## Esc toggles controls (from the title too); Enter starts from the
 ## title. Returns whether the key was used.
 func _overlay_key(keycode: int) -> bool:
+	if keycode == KEY_X and can_abandon():
+		if _confirm_abandon:
+			_confirm_abandon = false
+			_hide_overlay()
+			abandon_requested.emit()
+		else:
+			_confirm_abandon = true
+			_overlay_label.text = TOUCH_ABANDON_ASK if _touch() else ABANDON_ASK
+		return true
+	if _confirm_abandon and overlay.visible and keycode != KEY_ESCAPE:
+		_confirm_abandon = false # any other key takes the question back
+		_overlay_label.text = _controls_text()
+		return true
+	_confirm_abandon = false
 	if keycode == KEY_ESCAPE:
 		if overlay.visible and not _showing_title:
 			_hide_overlay()

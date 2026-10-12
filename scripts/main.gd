@@ -165,6 +165,7 @@ func _ready() -> void:
 	player.died.connect(_on_player_died)
 	run_base.fell.connect(_on_base_fell)
 	hud.new_run_requested.connect(_go_to_hub)
+	hud.abandon_requested.connect(_on_abandon_requested)
 	progress = Progress.load_saved()
 	progress.apply_to(player, noise_meter, run_base)
 	mine.decay_multiplier = pow(CLAIMED_DECAY_STEP, progress.hearts_claimed)
@@ -187,6 +188,7 @@ func _ready() -> void:
 	touch_controls = TouchControlsScene.instantiate()
 	add_child(touch_controls)
 	touch_controls.set_mode("mine")
+	touch_controls.abandon_check = hud.can_abandon
 	Sfx.warm_up()
 
 ## The old mine's ladder (milestone 51): each surviving 8-row piece is a run
@@ -810,12 +812,15 @@ func _on_base_fell() -> void:
 func _on_player_died() -> void:
 	_fail_run("Run Failed")
 
+func _on_abandon_requested() -> void:
+	_fail_run("Run Abandoned")
+
 func _fail_run(title: String) -> void:
 	if run_ended:
 		return
 	run_ended = true
 	hud.update_health(player.health, player.max_health)
-	var result := "Base fell" if title == "Base Fell" else "Died (%s)" % (player.last_hit_by if player.last_hit_by != "" else "unknown")
+	var result := "Base fell" if title == "Base Fell" else ("Abandoned" if title == "Run Abandoned" else "Died (%s)" % (player.last_hit_by if player.last_hit_by != "" else "unknown"))
 	_record_run(result)
 	# PRD: miners lost during an escort are stranded where they were lost,
 	# and crew left at the base are stranded in the base's layer.
