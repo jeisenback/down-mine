@@ -162,6 +162,12 @@ dictates.
   the numbers: a player on a rope could not dig, and the mine refills dark tunnels, so a rope ending under rock
   trapped them. Holding `W` and `Space` now digs up while on a rope or ladder. With that, a perfect base-kit dive to
   200 tiles gets home with 1 to 5 seconds of light left.
+- ~~**M74 - Heart-run bot.**~~ Done: `tests/balance_probe.gd -- heart` walks the surface to above the Heart (435 tiles
+  down, 19 to 66 tiles off the entrance shaft), digs down onto its room, takes it and climbs home, with the lantern
+  at level 3 and nothing else. On six seeds it takes the Heart every time and gets home none of them: five Stalker
+  deaths on the climb, one stranded in the dark. With `flare` the Stalker deaths become six strandings in the dark
+  (flaring burns light four times faster), so light is the limit; each seed has 20 to 27 fuel pickups within 6 tiles
+  of the Heart's column. Next measurement: detouring for those pickups.
 
 ## Quality pass
 
