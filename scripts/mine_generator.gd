@@ -1,15 +1,23 @@
 extends RefCounted
 class_name MineGenerator
 
-## Turns a seed into a MineLayout (issue #74). No nodes, no tile map. One
-## side effect: it seeds the GLOBAL random generator (`seed(mine_seed)`), which
-## the floor-cell shuffle here and the fuel pickups MineGrid builds afterwards
-## draw from, so what Main picks later (names, crumbling floors) depends on it.
-## The same seed must always build the same mine, so the random sources and
-## their order are exactly the old MineGrid's: one generator seeded with the
-## mine seed (fill, event rooms, gas), `seed + 51` (old mine), `seed + 52`
-## (torches), and the global generator for the shuffle. The golden fingerprint
-## test hashes where the global generator ends up, so an extra draw fails it.
+## Turns a seed into a MineLayout (issue #74). No nodes, no tile map.
+##
+## Random numbers (issue #76). The same seed must always build the same mine, so
+## these sources and their order are fixed:
+##   - one generator seeded with the mine seed: the fill, the event rooms, the gas;
+##   - mine_seed + 51: the old mine (shaft end, ladder pieces, drifts, lift);
+##   - mine_seed + 52: the torches;
+##   - the GLOBAL generator, seeded here with seed(mine_seed): the floor-cell shuffle,
+##     then one draw per fuel pickup as MineGrid builds it (FuelPickup keeps that draw
+##     on purpose). Gameplay keeps drawing from it afterwards (crew names, crumbling
+##     floors), so a side effect of generating is that it is seeded.
+## New randomness in generation gets its own RandomNumberGenerator at the next free
+## offset (53), so no existing stream moves. Leave the global generator alone: using
+## it differently changes every seed a player may have noted ("Seed 1001").
+## The golden fingerprints (tests/test_mine_golden.gd) hash the tiles, every list and
+## where the global generator ends up, so an accidental change fails there. A change
+## meant to alter layouts re-records them from the old code and says so in the PR.
 
 var _layout := MineLayout.new()
 var _solid: Array = []
