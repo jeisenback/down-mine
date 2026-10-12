@@ -1013,6 +1013,62 @@ func test_esc_or_another_key_cancels_the_abandon_question() -> void:
 	assert_eq(fired[0], 0, "never abandoned")
 	tree.paused = false
 
+## A HUD in a given overlay state (title, none, controls, the abandon question), optionally in the hub
+## or with the run over, reached the way a player reaches it.
+func _hud_in(state: int, hub: bool, run_over: bool) -> HUD:
+	var hud: HUD
+	if state == HUD.Overlay.TITLE:
+		HUD.title_seen = false
+		hud = add(load("res://scenes/HUD.tscn").instantiate())
+	else:
+		hud = _plain_hud()
+	if hub:
+		hud.set_hub_mode()
+	hud.run_summary.visible = run_over
+	if state == HUD.Overlay.CONTROLS or state == HUD.Overlay.ASK_ABANDON:
+		hud._overlay_key(KEY_ESCAPE)
+	if state == HUD.Overlay.ASK_ABANDON:
+		hud._overlay_key(KEY_X)
+	return hud
+
+## Every overlay transition: [from, hub, run over, key, to, abandon fired, key swallowed].
+func test_overlay_transitions() -> void:
+	var o := HUD.Overlay
+	var rows := [
+		[o.NONE, false, false, KEY_ESCAPE, o.CONTROLS, 0, true],
+		[o.NONE, false, false, KEY_ENTER, o.NONE, 0, false],
+		[o.NONE, false, false, KEY_X, o.NONE, 0, false],
+		[o.NONE, false, true, KEY_ESCAPE, o.CONTROLS, 0, true],
+		[o.TITLE, false, false, KEY_ENTER, o.NONE, 0, true],
+		[o.TITLE, false, false, KEY_ESCAPE, o.CONTROLS, 0, true],
+		[o.TITLE, false, false, KEY_X, o.TITLE, 0, true],
+		[o.TITLE, false, false, KEY_D, o.TITLE, 0, true],
+		[o.CONTROLS, false, false, KEY_ESCAPE, o.NONE, 0, true],
+		[o.CONTROLS, false, false, KEY_ENTER, o.NONE, 0, true],
+		[o.CONTROLS, false, false, KEY_X, o.ASK_ABANDON, 0, true],
+		[o.CONTROLS, false, false, KEY_D, o.CONTROLS, 0, true],
+		[o.CONTROLS, true, false, KEY_X, o.CONTROLS, 0, true],
+		[o.CONTROLS, false, true, KEY_X, o.CONTROLS, 0, true],
+		[o.ASK_ABANDON, false, false, KEY_X, o.NONE, 1, true],
+		[o.ASK_ABANDON, false, false, KEY_ESCAPE, o.NONE, 0, true],
+		[o.ASK_ABANDON, false, false, KEY_D, o.CONTROLS, 0, true],
+		[o.ASK_ABANDON, false, false, KEY_ENTER, o.CONTROLS, 0, true],
+	]
+	for row in rows:
+		var hud := _hud_in(row[0], row[1], row[2])
+		var fired := _abandon_counter(hud)
+		assert_eq(hud.overlay_state, row[0], "row %s: starts in the state it was built for" % [row])
+		var swallowed := hud._overlay_key(row[3])
+		assert_eq(hud.overlay_state, row[4], "row %s: ends in the state" % [row])
+		assert_eq(fired[0], row[5], "row %s: abandon fired" % [row])
+		assert_eq(swallowed, row[6], "row %s: key swallowed" % [row])
+		assert_eq(hud.overlay.visible, row[4] != o.NONE, "row %s: the overlay shows exactly when a state is open" % [row])
+		var can: bool = (row[4] == o.CONTROLS or row[4] == o.ASK_ABANDON) and not row[1] and not row[2]
+		assert_eq(hud.can_abandon(), can, "row %s: can_abandon follows the state" % [row])
+		assert_eq(tree.paused, row[4] != o.NONE or row[2], "row %s: paused while an overlay or the summary is up" % [row])
+		tree.paused = false
+		HUD.title_seen = true
+
 func test_the_hub_the_title_and_the_summary_cannot_abandon() -> void:
 	var hub := _plain_hud()
 	var fired := _abandon_counter(hub)

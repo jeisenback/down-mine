@@ -184,6 +184,11 @@ dictates.
   already exist stay: the golden fingerprints hash the global generator's end state, and tests pin one draw per
   pickup and that art and camera shake stay off the global generator. No seed version number until a seed is
   deliberately broken.
+- ~~**M77 - HUD overlay as one state.**~~ Done (issue #78, from the architecture review): what the full-screen overlay shows is one
+  enum, `HUD.Overlay { NONE, TITLE, CONTROLS, ASK_ABANDON }`, instead of `_showing_title`, `_confirm_abandon` and checks of
+  `overlay.visible`. `_set_overlay` is the one way in (text, visibility and pause), `_overlay_key` is a `match` on the state
+  with the transitions it always had, and `can_abandon` is derived from it. The run summary stays its own node (it can be
+  open under the controls) and the hub only picks the text. A table-driven test lists every transition; behaviour is unchanged.
 
 ## Quality pass
 

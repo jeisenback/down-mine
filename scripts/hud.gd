@@ -99,20 +99,22 @@ var _message_time: float = 0.0
 var overlay: ColorRect
 var seed_label: Label
 var _hub_mode: bool = false
-var _confirm_abandon: bool = false
 var _debug: bool = false
 var esc_hint: Label
 var compass_label: Label
 var _seed: int = 0
 var _overlay_label: Label
-var _showing_title: bool = false
+## What the full-screen overlay is showing: the one fact the overlay code asks about (the
+## summary and the hub are separate: the summary is its own node, the hub only picks the text).
+enum Overlay { NONE, TITLE, CONTROLS, ASK_ABANDON }
+var overlay_state: Overlay = Overlay.NONE
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_build_overlay()
 	_style_labels()
 	if not title_seen:
-		_show_overlay(TITLE_TEXT % [KeyHint.label("Enter", _touch()), KeyHint.label("Esc", _touch())], true)
+		_set_overlay(Overlay.TITLE)
 
 ## Light and Health are the survival stats, so they are larger; every label gets
 ## a dark outline so it reads over bright ground as well as in the dark.
@@ -189,50 +191,54 @@ func _controls_text() -> String:
 		text += "\n\n" + ABANDON_LINE
 	return text + ("\n\nSeed %d" % _seed if _seed != 0 else "")
 
-func _show_overlay(text: String, is_title: bool) -> void:
-	_overlay_label.text = text
-	_showing_title = is_title
-	overlay.visible = true
-	get_tree().paused = true
+## Enters an overlay state: its text, whether it shows, and whether the game is paused (it is
+## behind any overlay and behind the run summary). Leaving to NONE ends the title for the session.
+func _set_overlay(state: Overlay) -> void:
+	overlay_state = state
+	match state:
+		Overlay.TITLE:
+			_overlay_label.text = TITLE_TEXT % [KeyHint.label("Enter", _touch()), KeyHint.label("Esc", _touch())]
+		Overlay.CONTROLS:
+			_overlay_label.text = _controls_text()
+		Overlay.ASK_ABANDON:
+			_overlay_label.text = TOUCH_ABANDON_ASK if _touch() else ABANDON_ASK
+		Overlay.NONE:
+			title_seen = true
+	overlay.visible = state != Overlay.NONE
+	get_tree().paused = state != Overlay.NONE or run_summary.visible
 
 ## Whether the controls overlay can end the run: open, in the mine, run not over.
 func can_abandon() -> bool:
-	return overlay.visible and not _showing_title and not _hub_mode and not run_summary.visible
+	return (overlay_state == Overlay.CONTROLS or overlay_state == Overlay.ASK_ABANDON) and not _hub_mode and not run_summary.visible
 
-## Closes the overlay; the game stays paused behind the run summary.
-func _hide_overlay() -> void:
-	overlay.visible = false
-	_showing_title = false
-	title_seen = true
-	get_tree().paused = run_summary.visible
-
-## Esc toggles controls (from the title too); Enter starts from the
-## title. Returns whether the key was used.
+## Esc toggles controls (from the title too); Enter starts from the title; X twice abandons from
+## the controls. Returns whether the key was used (an open overlay swallows every key).
 func _overlay_key(keycode: int) -> bool:
-	if keycode == KEY_X and can_abandon():
-		if _confirm_abandon:
-			_confirm_abandon = false
-			_hide_overlay()
-			abandon_requested.emit()
-		else:
-			_confirm_abandon = true
-			_overlay_label.text = TOUCH_ABANDON_ASK if _touch() else ABANDON_ASK
-		return true
-	if _confirm_abandon and overlay.visible and keycode != KEY_ESCAPE:
-		_confirm_abandon = false # any other key takes the question back
-		_overlay_label.text = _controls_text()
-		return true
-	_confirm_abandon = false
-	if keycode == KEY_ESCAPE:
-		if overlay.visible and not _showing_title:
-			_hide_overlay()
-		else:
-			_show_overlay(_controls_text(), false)
-		return true
-	if overlay.visible and keycode in [KEY_ENTER, KEY_KP_ENTER]:
-		_hide_overlay()
-		return true
-	return overlay.visible # swallow other keys while it's up
+	match overlay_state:
+		Overlay.NONE:
+			if keycode == KEY_ESCAPE:
+				_set_overlay(Overlay.CONTROLS)
+				return true
+			return false
+		Overlay.TITLE:
+			if keycode == KEY_ESCAPE:
+				_set_overlay(Overlay.CONTROLS)
+			elif keycode in [KEY_ENTER, KEY_KP_ENTER]:
+				_set_overlay(Overlay.NONE)
+		Overlay.CONTROLS:
+			if keycode == KEY_ESCAPE or keycode in [KEY_ENTER, KEY_KP_ENTER]:
+				_set_overlay(Overlay.NONE)
+			elif keycode == KEY_X and can_abandon():
+				_set_overlay(Overlay.ASK_ABANDON)
+		Overlay.ASK_ABANDON:
+			if keycode == KEY_ESCAPE:
+				_set_overlay(Overlay.NONE)
+			elif keycode == KEY_X and can_abandon():
+				_set_overlay(Overlay.NONE)
+				abandon_requested.emit()
+			else:
+				_set_overlay(Overlay.CONTROLS) # any other key takes the question back
+	return true
 
 func _process(delta: float) -> void:
 	esc_hint.visible = not _touch() # the ESC button is on screen (labelled HELP)
