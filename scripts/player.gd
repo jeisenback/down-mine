@@ -124,11 +124,11 @@ var last_hit_by: String = ""
 var _dark_timer: float = 0.0 # seconds in the dark since the last drain hit
 var _coyote_timer: float = 0.0
 var _jump_buffer_timer: float = 0.0
-var _grapple_was_pressed: bool = false
+var _grapple_key := KeyEdge.new()
 var _grapple_timer: float = 0.0
 var _grappling: bool = false
 var _grapple_target_y: float = 0.0
-var _rope_place_was_pressed: bool = false
+var _rope_key := KeyEdge.new()
 var _rope_place_timer: float = 0.0
 var _ropes_touching: Array = []
 ## GRAPPLE_RANGE after crew bonuses (Progress.apply_to).
@@ -140,8 +140,8 @@ var tool_life_multiplier: float = 1.0
 var ladder_speed_multiplier: float = 1.0
 var ladders_left: int = LADDERS_PER_RUN
 var anchors_left: int = ANCHORS_PER_RUN
-var _ladder_was_pressed: bool = false
-var _anchor_was_pressed: bool = false
+var _ladder_key := KeyEdge.new()
+var _anchor_key := KeyEdge.new()
 var _grapple_anchor: Node2D = null
 var _grapple_pull_time: float = 0.0
 ## Corner of an up-then-over pull to an anchor (movement pass), or INF.
@@ -199,25 +199,17 @@ func _physics_process(delta: float) -> void:
 	_apply_horizontal_movement(input_dir, delta)
 	_update_animation(input_dir, delta)
 
-	var place_rope_pressed := Input.is_physical_key_pressed(KEY_R)
-	if place_rope_pressed and not _rope_place_was_pressed and _rope_place_timer <= 0.0:
+	if _rope_key.pressed(Input.is_physical_key_pressed(KEY_R)) and _rope_place_timer <= 0.0:
 		_place_rope(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN))
-	_rope_place_was_pressed = place_rope_pressed
 
-	var ladder_pressed := Input.is_physical_key_pressed(KEY_T)
-	if ladder_pressed and not _ladder_was_pressed and ladders_left > 0 and _rope_place_timer <= 0.0:
+	if _ladder_key.pressed(Input.is_physical_key_pressed(KEY_T)) and ladders_left > 0 and _rope_place_timer <= 0.0:
 		_place_ladder()
-	_ladder_was_pressed = ladder_pressed
 
-	var anchor_pressed := Input.is_physical_key_pressed(KEY_G)
-	if anchor_pressed and not _anchor_was_pressed and anchors_left > 0 and is_on_floor():
+	if _anchor_key.pressed(Input.is_physical_key_pressed(KEY_G)) and anchors_left > 0 and is_on_floor():
 		_place_anchor()
-	_anchor_was_pressed = anchor_pressed
 
-	var grapple_pressed := Input.is_physical_key_pressed(KEY_Q)
-	if grapple_pressed and not _grapple_was_pressed and not _grappling and _grapple_timer <= 0.0:
+	if _grapple_key.pressed(Input.is_physical_key_pressed(KEY_Q)) and not _grappling and _grapple_timer <= 0.0:
 		_try_fire_grapple()
-	_grapple_was_pressed = grapple_pressed
 
 	if _grappling and _grapple_anchor != null:
 		_pull_toward_anchor(delta)

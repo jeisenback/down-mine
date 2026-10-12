@@ -738,8 +738,8 @@ func _drawn_art_on_screen() -> void:
 			node.player = main.player
 		if "target" in node:
 			node.target = main.run_base
-		if "main" in node:
-			node.main = main
+		if "run" in node:
+			node.run = main.run_context
 		main.mine.add_child(node)
 		node.global_position = origin + Vector2((i % 10) * 22, (i / 10) * 50)
 		if node.has_method("set_physics_process"):

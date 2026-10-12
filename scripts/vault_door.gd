@@ -8,10 +8,10 @@ const BREAK_NOISE := 60.0
 func _ready() -> void:
 	add_to_group(Groups.MINE_EVENTS)
 
-func prompt(_main: Node) -> String:
+func prompt(_run: RunContext) -> String:
 	return "E: break into the vault (very loud)"
 
-func use(main: Node) -> void:
-	main.noise_meter.add_noise(BREAK_NOISE, global_position)
+func use(run: RunContext) -> void:
+	run.noise_meter.add_noise(BREAK_NOISE, global_position)
 	Sfx.play("collapse")
 	queue_free()

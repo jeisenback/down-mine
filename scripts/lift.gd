@@ -16,19 +16,19 @@ var state: State = State.BROKEN
 func _ready() -> void:
 	add_to_group(Groups.MINE_EVENTS)
 
-func prompt(main: Node) -> String:
+func prompt(run: RunContext) -> String:
 	match state:
 		State.BROKEN:
-			if main.player.currency < REPAIR_ORE:
+			if run.player.currency < REPAIR_ORE:
 				return "Lift repair needs %d ore" % REPAIR_ORE
 			return "E: repair the lift, %d ore" % REPAIR_ORE
 		State.READY:
 			return "E: ride the lift to the surface"
 	return ""
 
-func use(main: Node) -> void:
-	if state == State.BROKEN and main.player.currency >= REPAIR_ORE:
-		main.player.currency -= REPAIR_ORE
+func use(run: RunContext) -> void:
+	if state == State.BROKEN and run.player.currency >= REPAIR_ORE:
+		run.player.currency -= REPAIR_ORE
 		Sfx.play("collapse")
 		state = State.READY
 		cage.modulate = Color(1, 1, 1) # rust-dark until repaired
@@ -36,4 +36,4 @@ func use(main: Node) -> void:
 		state = State.USED
 		cage.art.empty = true # the cage has gone up; the rails stay
 		Sfx.play("place")
-		main.ride_to_surface(global_position.x)
+		run.ride_to_surface(global_position.x)

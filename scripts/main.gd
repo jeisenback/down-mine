@@ -98,13 +98,15 @@ const MINER_COLORS := {
 @onready var hud: HUD = $HUD
 
 var run_ended: bool = false
+## What mine events may reach in this run (see RunContext).
+var run_context := RunContext.new()
 var max_depth_reached: int = 0
-var _extract_key_was_pressed: bool = false
-var _fortify_key_was_pressed: bool = false
-var _plant_key_was_pressed: bool = false
+var _extract_key := KeyEdge.new()
+var _fortify_key := KeyEdge.new()
+var _plant_key := KeyEdge.new()
 var base_planted: bool = false
 var lamps_left: int = LAMPS_PER_RUN
-var _lamp_key_was_pressed: bool = false
+var _lamp_key := KeyEdge.new()
 var _snuffer_timer: float = 0.0
 ## Layers whose Stalker has woken (first descent), by layer index.
 var _stalkers_woken: Dictionary = {}
@@ -151,8 +153,14 @@ var crew_jobs: CrewJobs
 var stations: Dictionary = {}
 
 func _ready() -> void:
+	run_context.player = player
+	run_context.hud = hud
+	run_context.noise_meter = noise_meter
+	run_context.mine = mine
+	run_context.bind(take_heart, ride_to_surface, read_journal_page,
+			func(count: int): lamps_left += count, on_nest_destroyed)
 	# The E that went down the mine from the hub is still held: that press is not an extraction.
-	_extract_key_was_pressed = Input.is_physical_key_pressed(KEY_E)
+	_extract_key.hold(Input.is_physical_key_pressed(KEY_E))
 	player.mine = mine
 	noise_meter.quiet_at = func(pos: Vector2): return mine.is_quiet_at(pos)
 	noise_meter.base_position = func(): return run_base.global_position
@@ -215,11 +223,11 @@ func _spawn_events() -> void:
 		if event is Camp:
 			event.layer = mine.layer_index_at_world(mine.cell_to_world(room.cell))
 		if event is Outpost:
-			event.main = self
+			event.run = run_context
 		if event is Nest:
-			event.main = self
+			event.run = run_context
 		if event is Gallery:
-			event.main = self
+			event.run = run_context
 			event.rect = room.rect
 		event.global_position = mine.cell_to_world(room.cell)
 		mine.add_child(event)
@@ -537,8 +545,8 @@ func _action_prompts() -> Array:
 		prompts.append("E: extract")
 	else:
 		var event := _nearest_event()
-		if event and event.prompt(self) != "":
-			prompts.append(event.prompt(self))
+		if event and event.prompt(run_context) != "":
+			prompts.append(event.prompt(run_context))
 	return prompts
 
 func _near_base() -> bool:
@@ -556,14 +564,12 @@ func _can_plant() -> bool:
 ## P moves the run base - flag, light, repair, walls, Burrower target -
 ## to where the player stands. Walls left behind wear away as usual.
 func _check_plant() -> void:
-	var pressed := Input.is_physical_key_pressed(KEY_P)
-	if pressed and not _plant_key_was_pressed and _can_plant():
+	if _plant_key.pressed(Input.is_physical_key_pressed(KEY_P)) and _can_plant():
 		base_planted = true
 		run_base.global_position = player.global_position - Vector2(0, BASE_FLAG_HEIGHT_ABOVE_PLAYER)
 		run_base.repair_progress = 0.0
 		_place_crew_at_base()
 		noise_meter.add_noise(BASE_PLANT_NOISE, player.global_position)
-	_plant_key_was_pressed = pressed
 
 ## Number keys build (milestone 32), paid from this run's ore: 1 a
 ## support beam where you stand, 2 a beacon and 3 an alarm bell at the
@@ -615,15 +621,13 @@ func _check_bell() -> void:
 
 ## L sets a lamp down where the player stands.
 func _check_lamp() -> void:
-	var pressed := Input.is_physical_key_pressed(KEY_L)
-	if pressed and not _lamp_key_was_pressed and lamps_left > 0 and player.is_on_floor():
+	if _lamp_key.pressed(Input.is_physical_key_pressed(KEY_L)) and lamps_left > 0 and player.is_on_floor():
 		lamps_left -= 1
 		Sfx.play("place")
 		var lamp: Lamp = LampScene.instantiate()
 		lamp.global_position = player.global_position
 		mine.add_child(lamp)
 		noise_meter.add_noise(LAMP_PLACE_NOISE, lamp.global_position)
-	_lamp_key_was_pressed = pressed
 
 func _check_snuffer_spawn(delta: float) -> void:
 	if get_tree().get_nodes_in_group(Groups.LAMPS).is_empty() or not get_tree().get_nodes_in_group(Groups.SNUFFERS).is_empty():
@@ -671,8 +675,7 @@ func _check_repair(delta: float) -> void:
 ## Pressing B at the base reinforces the rock around it, nearest tiles
 ## first: one batch per press, as many as this run's ore covers.
 func _check_fortify() -> void:
-	var pressed := Input.is_physical_key_pressed(KEY_B)
-	if pressed and not _fortify_key_was_pressed and _near_base():
+	if _fortify_key.pressed(Input.is_physical_key_pressed(KEY_B)) and _near_base():
 		var base_cell := mine.world_to_cell(run_base.global_position)
 		var cells := mine.unreinforced_cells_around(base_cell, run_base.FORTIFY_RADIUS_TILES)
 		var count: int = min(cells.size(), run_base.FORTIFY_BATCH_TILES, player.currency / run_base.wall_cost())
@@ -681,16 +684,13 @@ func _check_fortify() -> void:
 		if count > 0:
 			player.currency -= count * run_base.wall_cost()
 			noise_meter.add_noise(count * run_base.WALL_NOISE, run_base.global_position)
-	_fortify_key_was_pressed = pressed
 
 func _check_extraction() -> void:
-	var extract_pressed := Input.is_physical_key_pressed(KEY_E)
-	if extract_pressed and not _extract_key_was_pressed:
+	if _extract_key.pressed(Input.is_physical_key_pressed(KEY_E)):
 		if _at_surface():
 			_extract()
 		elif _nearest_event():
-			_nearest_event().use(self)
-	_extract_key_was_pressed = extract_pressed
+			_nearest_event().use(run_context)
 
 func _extract() -> void:
 	run_ended = true

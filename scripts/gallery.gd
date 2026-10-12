@@ -13,14 +13,14 @@ const COLLAPSE_NOISE := 30.0
 const BURY_DAMAGE := 1
 const OrePickupScene := preload("res://scenes/OrePickup.tscn")
 
-var main: Node
+var run: RunContext
 var rect: Rect2i
 var collapsed: bool = false
 var _time_left: float = -1.0 # below 0 until the player steps in
 var _ore: Array[OrePickup] = []
 
 func _ready() -> void:
-	var mine: MineGrid = main.mine
+	var mine: MineGrid = run.mine
 	var floor_row := rect.end.y - 1
 	var value: int = mine.ore_value_at(global_position) * ORE_MULTIPLIER
 	for i in range(ORE_COUNT):
@@ -34,19 +34,19 @@ func _process(delta: float) -> void:
 	if collapsed:
 		return
 	if _time_left < 0.0:
-		if rect.has_point(main.mine.world_to_cell(main.player.global_position)):
+		if rect.has_point(run.mine.world_to_cell(run.player.global_position)):
 			_time_left = COLLAPSE_SECONDS
 			Sfx.play("collapse", -12.0)
 		return
 	_time_left -= delta
-	main.hud.show_message("The gallery ceiling is failing: %ds" % ceili(_time_left))
+	run.hud.show_message("The gallery ceiling is failing: %ds" % ceili(_time_left))
 	if _time_left <= 0.0:
 		collapse()
 
 func collapse() -> void:
 	collapsed = true
-	var mine: MineGrid = main.mine
-	var player_cell := mine.world_to_cell(main.player.global_position)
+	var mine: MineGrid = run.mine
+	var player_cell := mine.world_to_cell(run.player.global_position)
 	var filled: Dictionary = {}
 	for x in range(rect.position.x, rect.end.x):
 		for y in range(rect.position.y, rect.end.y):
@@ -61,7 +61,7 @@ func collapse() -> void:
 		if is_instance_valid(pickup) and filled.has(mine.world_to_cell(pickup.global_position)):
 			pickup.queue_free()
 	if rect.has_point(player_cell):
-		main.player.take_hit(BURY_DAMAGE, "burial")
-		main.hud.show_message("Buried! Dig out.")
-	main.noise_meter.add_noise(COLLAPSE_NOISE, global_position)
+		run.player.take_hit(BURY_DAMAGE, "burial")
+		run.hud.show_message("Buried! Dig out.")
+	run.noise_meter.add_noise(COLLAPSE_NOISE, global_position)
 	Sfx.play("collapse")
