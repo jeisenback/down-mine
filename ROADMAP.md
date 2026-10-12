@@ -145,6 +145,13 @@ dictates.
   instead of generating it again; a mine costs about a second. The unit suite went from about 5:45 to 4:00 locally
   (`test_world` 206 s to 99 s). `test_main` (about 100 s, one Main scene per test) is the next cost, and the
   structural fix is the pure `MineGenerator` of #74. Tests only: no gameplay change.
+- ~~**M71 - Pure mine generator.**~~ Done (issue #74, stage 1 of 2; spec and plan in `docs/superpowers/`): seed-to-layout
+  generation moved out of `MineGrid` into `MineGenerator.generate(seed)`, which returns a node-free `MineLayout`;
+  `MineGrid` builds the tileset, applies the layout and copies it into the fields the game already reads, so no caller
+  changed and `mine.gd` went from 951 to about 635 lines. A golden fingerprint test (31 seeds, recorded from the old
+  code before anything moved) proves every seed still builds the same mine, tiles, decor, rooms, pickups and torches.
+  The slowest generation tests now read the layout with no scene. Suite time is about level for now (generation is
+  still about 0.9 s a mine, and the golden net adds about 40 s); stage 2 rewrites the smoothing, the 0.65 s of it.
 
 ## Quality pass
 

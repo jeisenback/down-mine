@@ -232,7 +232,65 @@ func _ready() -> void:
 	assert(LAYERS.size() == LAYER_COUNT, "LAYER_COUNT must match the LAYERS table")
 	_build_tileset()
 	add_layer(-1) # DECOR_LAYER
-	_generate_layout()
+	_resolve_seed()
+	_apply(MineGenerator.generate(mine_seed))
+
+## Picks this mine's seed: a launch option on the first mine, else next_seed,
+## else a random one.
+func _resolve_seed() -> void:
+	if not _launch_seed_read: # a launch seed applies to the first mine only
+		_launch_seed_read = true
+		var launch_seed := LaunchOptions.value("seed")
+		if launch_seed.is_valid_int():
+			next_seed = int(launch_seed)
+	mine_seed = next_seed if next_seed != 0 else randi_range(1, 999999)
+	next_seed = 0
+
+## Builds the mine from a generated layout: tiles, decor, pickups and torches,
+## and the fields the rest of the game reads (copies: runtime code claims
+## floor cells and spare cells, and two mines must not share them).
+func _apply(layout: MineLayout) -> void:
+	for x in range(GRID_WIDTH):
+		for y in range(GRID_HEIGHT):
+			var kind := layout.kinds[x * GRID_HEIGHT + y]
+			if kind == MineLayout.Kind.EMPTY:
+				continue
+			var coords: Vector2i
+			match kind:
+				MineLayout.Kind.BEDROCK: coords = BEDROCK_ATLAS_COORDS
+				MineLayout.Kind.VAULT: coords = VAULT_ATLAS_COORDS
+				MineLayout.Kind.PLANK: coords = PLANK_ATLAS_COORDS
+				MineLayout.Kind.DEBRIS: coords = DEBRIS_ATLAS_COORDS
+				MineLayout.Kind.GAS: coords = gas_atlas(_layer_index_for_row(y))
+				_: coords = layer_atlas(_layer_index_for_row(y))
+			set_cell(0, Vector2i(x, y), source_id, coords)
+	for cell in layout.decor:
+		set_cell(DECOR_LAYER, cell, source_id, FRAME_ATLAS_COORDS if layout.decor[cell] == MineLayout.Decor.FRAME else POST_ATLAS_COORDS)
+	shaft_end_row = layout.shaft_end_row
+	old_ladder_rows = layout.old_ladder_rows.duplicate()
+	drifts = layout.drifts.duplicate(true)
+	event_rooms = layout.event_rooms.duplicate(true)
+	torches = layout.torches.duplicate(true)
+	_room_cells = layout.room_cells.duplicate()
+	_reserved_floors = layout.reserved_floors.duplicate()
+	_plank_cells = layout.plank_cells.duplicate()
+	_debris_cells = layout.debris_cells.duplicate()
+	_vault_cells = layout.vault_cells.duplicate()
+	_spare_floor_cells = layout.spare_floor_cells.duplicate()
+	lost_miner_cell = layout.lost_miner_cell
+	for cell in layout.fuel_cells:
+		var pickup := FuelPickupScene.instantiate()
+		pickup.position = map_to_local(cell)
+		add_child(pickup)
+	for ore in layout.ore_cells:
+		var pickup := OrePickupScene.instantiate()
+		pickup.value = ore.value
+		pickup.position = map_to_local(ore.cell)
+		add_child(pickup)
+	for t in torches:
+		var torch: Torch = TorchScene.instantiate()
+		torch.position = map_to_local(t.cell)
+		add_child(torch)
 
 func _build_tileset() -> void:
 	var atlas_width := PLANK_ATLAS_COORDS.x + 1
@@ -304,167 +362,31 @@ func _build_tileset() -> void:
 
 	tile_set = new_tileset
 
-func _generate_layout() -> void:
-	var rng := RandomNumberGenerator.new()
-	if not _launch_seed_read: # a launch seed applies to the first mine only
-		_launch_seed_read = true
-		var launch_seed := LaunchOptions.value("seed")
-		if launch_seed.is_valid_int():
-			next_seed = int(launch_seed)
-	mine_seed = next_seed if next_seed != 0 else randi_range(1, 999999)
-	next_seed = 0
-	rng.seed = mine_seed
-	seed(mine_seed) # shuffles and picks elsewhere in generation use the global RNG
+## First and last row (inclusive) of a depth layer.
+func _layer_rows(layer: int) -> Vector2i:
+	return MineGenerator.layer_rows(layer)
 
-	var solid := _make_grid(false)
-	for x in range(GRID_WIDTH):
-		for y in range(GRID_HEIGHT):
-			if y < SURFACE_ROWS:
-				solid[x][y] = false
-			elif y == SURFACE_ROWS:
-				solid[x][y] = true # a crust the player always has to dig through
-			else:
-				solid[x][y] = rng.randf() < LAYERS[_layer_index_for_row(y)].fill
-	_reinforce_boundaries(solid)
+## Equal depth bands below the surface rows.
+func _layer_index_for_row(y: int) -> int:
+	return MineGenerator.layer_index_for_row(y)
 
-	for i in range(CA_ITERATIONS):
-		solid = _smooth(solid)
-		_reinforce_boundaries(solid)
-		for x in range(GRID_WIDTH):
-			solid[x][SURFACE_ROWS] = true
-	_carve_old_mine(solid)
-	_carve_event_rooms(solid, rng)
+## Last row of the deepest quiet layer: the floor of the lonely zone.
+func quiet_floor_row() -> int:
+	return MineGenerator.quiet_floor_row()
 
-	for x in range(GRID_WIDTH):
-		for y in range(GRID_HEIGHT):
-			if not solid[x][y]:
-				continue
-			if _is_boundary(x, y):
-				set_cell(0, Vector2i(x, y), source_id, BEDROCK_ATLAS_COORDS)
-			elif _vault_cells.has(Vector2i(x, y)):
-				set_cell(0, Vector2i(x, y), source_id, VAULT_ATLAS_COORDS)
-			elif _plank_cells.has(Vector2i(x, y)):
-				set_cell(0, Vector2i(x, y), source_id, PLANK_ATLAS_COORDS)
-			elif is_in_shaft(Vector2i(x, y)) or _debris_cells.has(Vector2i(x, y)):
-				set_cell(0, Vector2i(x, y), source_id, DEBRIS_ATLAS_COORDS)
-			else:
-				set_cell(0, Vector2i(x, y), source_id, layer_atlas(_layer_index_for_row(y)))
-	_place_gas_pockets(rng)
+func shaft_column() -> int:
+	return MineGenerator.shaft_column()
 
-	var floor_cells := _find_floor_cells(solid).filter(func(c): return not _room_cells.has(c))
-	floor_cells.shuffle()
-	_scatter_fuel_deposits(floor_cells)
-	_scatter_ore_deposits(floor_cells)
-	_spare_floor_cells = floor_cells.slice(min(FUEL_DEPOSIT_COUNT + ORE_DEPOSIT_COUNT, floor_cells.size()))
-	_pick_lost_miner_cell()
-	_place_torches()
+## First and last open row of the shaft, above its collapse.
+func shaft_open_rows() -> Vector2i:
+	return MineGenerator.shaft_open_rows(shaft_end_row)
 
-## Opens the shaft from just below the crust, fills its last
-## SHAFT_COLLAPSE_ROWS rows with rock, and keeps both clear of pickups, gas
-## and crumbling.
-func _carve_old_mine(solid: Array) -> void:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = mine_seed + 51
-	var stone := _layer_rows(2)
-	shaft_end_row = rng.randi_range(stone.x, stone.x + (stone.y - stone.x) / 2)
-	var open := shaft_open_rows()
-	var left := shaft_column() - SHAFT_WIDTH / 2
-	for x in range(left, left + SHAFT_WIDTH):
-		for y in range(open.x, shaft_end_row + 1):
-			var cell := Vector2i(x, y)
-			solid[x][y] = y > open.y
-			_room_cells[cell] = true
-			if y > open.y:
-				_reserved_floors[cell] = true
-	# Timber up both sides of the open shaft.
-	for y in range(open.x, open.y + 1):
-		set_cell(DECOR_LAYER, Vector2i(left, y), source_id, FRAME_ATLAS_COORDS)
-		set_cell(DECOR_LAYER, Vector2i(left + SHAFT_WIDTH - 1, y), source_id, FRAME_ATLAS_COORDS)
-	# The old ladder, in pieces, some missing.
-	old_ladder_rows.clear()
-	for row in range(open.x, open.y + 1, OLD_LADDER_PIECE_ROWS):
-		if rng.randf() >= OLD_LADDER_MISSING_CHANCE:
-			old_ladder_rows.append(row)
-	_carve_drifts(solid, rng)
-	_place_lift(solid, rng)
+func _shaft_rect() -> Rect2i:
+	return MineGenerator.shaft_rect(shaft_end_row)
 
-## One gallery per worked layer (Topsoil, Clay, Stone) off the shaft: a
-## two-tile tunnel on a random side at a random row, posted every
-## DRIFT_POST_SPACING tiles, floored with planks where it crosses a cave.
-## A layer the shaft's open part does not reach gets none.
-func _carve_drifts(solid: Array, rng: RandomNumberGenerator) -> void:
-	drifts.clear()
-	var open := shaft_open_rows()
-	for layer in range(3):
-		var rows := _layer_rows(layer)
-		var lo: int = maxi(rows.x, open.x + 3)
-		var hi: int = mini(rows.y - 3, open.y - 3)
-		if lo > hi:
-			continue
-		var row := rng.randi_range(lo, hi)
-		var side := rng.randi_range(0, 1) * 2 - 1
-		var length := rng.randi_range(DRIFT_MIN_LENGTH, DRIFT_MAX_LENGTH)
-		var x0 := shaft_column() + side * (SHAFT_WIDTH / 2 + 1)
-		var drift := {"layer": layer, "side": side, "row": row, "x0": x0, "x1": x0 + side * (length - 1),
-			"features": {"collapse": Rect2i(), "end": "miner" if layer == 2 else "camp"}}
-		drifts.append(drift)
-		# Step from the shaft's edge onto the drift's floor.
-		var landing := Vector2i(shaft_column() + side, row + 1)
-		_plank_cells[landing] = true
-		solid[landing.x][landing.y] = true
-		_room_cells[landing] = true
-		_reserved_floors[landing] = true
-		for i in range(length):
-			var x := x0 + side * i
-			for y in [row - 1, row]:
-				solid[x][y] = false
-				_room_cells[Vector2i(x, y)] = true
-			var floor_cell := Vector2i(x, row + 1)
-			if not solid[x][row + 1]:
-				solid[x][row + 1] = true
-				_plank_cells[floor_cell] = true
-			_room_cells[floor_cell] = true
-			_reserved_floors[floor_cell] = true
-			if i > 0 and i % DRIFT_POST_SPACING == 0:
-				set_cell(DECOR_LAYER, Vector2i(x, row), source_id, POST_ATLAS_COORDS)
-				set_cell(DECOR_LAYER, Vector2i(x, row - 1), source_id, POST_ATLAS_COORDS)
-		if layer >= 1:
-			_collapse_drift(solid, drift, length, rng)
-		if drift.features.end == "camp":
-			var end_cell := Vector2i(drift.x1, row)
-			event_rooms.append({"kind": "camp", "cell": end_cell, "rect": Rect2i(end_cell - Vector2i(0, 1), Vector2i(1, 2)), "drift": true})
-
-## The old cage: the lift stands in the shaft's edge column near the bottom
-## of Clay, on a plank floor, so the ladder column stays open (the shaft's cells are
-## already kept clear of pickups and gas). It keeps clear
-## of the Clay gallery's mouth. (Clay is quiet: repairing it is silent.)
-func _place_lift(solid: Array, rng: RandomNumberGenerator) -> void:
-	var side := rng.randi_range(0, 1) * 2 - 1
-	var row := mini(_layer_rows(1).y - LIFT_ROWS_FROM_CLAY_BOTTOM, shaft_open_rows().y - 2)
-	for d in drifts:
-		if d.layer == 1 and absi(d.row - row) <= 3:
-			row = d.row - 4
-	var cell := Vector2i(shaft_column() + side, row)
-	var floor_cell := cell + Vector2i.DOWN
-	solid[floor_cell.x][floor_cell.y] = true
-	_plank_cells[floor_cell] = true
-	_reserved_floors[floor_cell] = true
-	event_rooms.append({"kind": "lift", "cell": cell, "rect": Rect2i(cell - Vector2i(0, 1), Vector2i(1, 2)), "shaft": true})
-
-## Fills a DRIFT_COLLAPSE_MIN..MAX long stretch of both rows with rock,
-## leaving DRIFT_END_CLEAR open tiles at each end so neither the shaft mouth
-## nor the camp / miner at the far end is swallowed.
-func _collapse_drift(solid: Array, drift: Dictionary, length: int, rng: RandomNumberGenerator) -> void:
-	var size := rng.randi_range(DRIFT_COLLAPSE_MIN, DRIFT_COLLAPSE_MAX)
-	var start := rng.randi_range(DRIFT_END_CLEAR, length - DRIFT_END_CLEAR - size)
-	var first_x: int = drift.x0 + drift.side * start
-	var last_x: int = drift.x0 + drift.side * (start + size - 1)
-	for x in range(mini(first_x, last_x), maxi(first_x, last_x) + 1):
-		for y in [drift.row - 1, drift.row]:
-			solid[x][y] = true
-			_debris_cells[Vector2i(x, y)] = true
-			_reserved_floors[Vector2i(x, y)] = true
-	drift.features.collapse = Rect2i(mini(first_x, last_x), drift.row - 1, size, 2)
+## The shaft's box, then each drift's box (its two rows and the floor).
+func _old_mine_rects() -> Array[Rect2i]:
+	return MineGenerator.old_mine_rects(drifts, shaft_end_row)
 
 ## Every open cell of a drift, both rows.
 func drift_cells(drift: Dictionary) -> Array:
@@ -475,156 +397,13 @@ func drift_cells(drift: Dictionary) -> Array:
 		cells.append(Vector2i(x, drift.row))
 	return cells
 
-## The shaft's box, then each drift's box (its two rows and the floor).
-func _old_mine_rects() -> Array[Rect2i]:
-	var rects: Array[Rect2i] = [_shaft_rect()]
-	for d in drifts:
-		var left: int = mini(d.x0, d.x1)
-		rects.append(Rect2i(left, d.row - 1, absi(d.x1 - d.x0) + 1, 3))
-	return rects
-
 ## Within the shaft or any drift.
 func is_in_old_mine(cell: Vector2i) -> bool:
 	return _old_mine_rects().any(func(r): return r.has_point(cell))
 
-func shaft_column() -> int:
-	return GRID_WIDTH / 2
-
-## First and last open row of the shaft, above its collapse.
-func shaft_open_rows() -> Vector2i:
-	return Vector2i(SURFACE_ROWS + 1, shaft_end_row - SHAFT_COLLAPSE_ROWS)
-
-func _shaft_rect() -> Rect2i:
-	return Rect2i(shaft_column() - SHAFT_WIDTH / 2, SURFACE_ROWS + 1, SHAFT_WIDTH, shaft_end_row - SURFACE_ROWS)
-
 ## Within the shaft, open part or collapse.
 func is_in_shaft(cell: Vector2i) -> bool:
 	return _shaft_rect().has_point(cell)
-
-## Clears a ROOM_SIZE chamber per EVENT_ROOMS entry, on a solid floor,
-## spaced apart. A room that finds no spot is skipped.
-func _carve_event_rooms(solid: Array, rng: RandomNumberGenerator) -> void:
-	for room in EVENT_ROOMS:
-		var layer: int = room.layers[rng.randi_range(0, room.layers.size() - 1)]
-		var rows := _layer_rows(layer)
-		if room.get("bottom", false):
-			rows.x = rows.y - ROOM_SIZE.y - 12
-		for i in range(ROOM_PLACE_TRIES):
-			var top_left := Vector2i(rng.randi_range(2, GRID_WIDTH - 2 - ROOM_SIZE.x),
-				rng.randi_range(max(rows.x, SURFACE_ROWS + 2), rows.y - ROOM_SIZE.y - 1))
-			var center := top_left + Vector2i(ROOM_SIZE.x / 2, ROOM_SIZE.y - 1)
-			var room_box := Rect2i(top_left, ROOM_SIZE).grow(1)
-			if _old_mine_rects().any(func(r): return room_box.intersects(r)):
-				continue # rooms keep out of the old mine
-			if event_rooms.any(func(r): return Vector2(r.cell - center).length() < ROOM_MIN_SPACING_TILES):
-				continue
-			for x in range(top_left.x, top_left.x + ROOM_SIZE.x):
-				for y in range(top_left.y, top_left.y + ROOM_SIZE.y + 1):
-					solid[x][y] = y == top_left.y + ROOM_SIZE.y # open room, solid floor row
-					_room_cells[Vector2i(x, y)] = true
-					if solid[x][y]:
-						_reserved_floors[Vector2i(x, y)] = true
-			var entry := {"kind": room.kind, "cell": center, "rect": Rect2i(top_left, ROOM_SIZE)}
-			if room.kind == "vault":
-				entry["door"] = _seal_vault(solid, top_left)
-			event_rooms.append(entry)
-			break
-
-## Rings the room at top_left in bedrock, leaving a 2-tile doorway on its
-## left at floor level (Main puts the vault door there). Returns the
-## doorway's lower cell.
-func _seal_vault(solid: Array, top_left: Vector2i) -> Vector2i:
-	var left := top_left.x - 1
-	var right := top_left.x + ROOM_SIZE.x
-	var top := top_left.y - 1
-	var bottom := top_left.y + ROOM_SIZE.y
-	var door := Vector2i(left, bottom - 1)
-	for x in range(left, right + 1):
-		for y in range(top, bottom + 1):
-			if x != left and x != right and y != top and y != bottom:
-				continue
-			var cell := Vector2i(x, y)
-			_room_cells[cell] = true
-			if cell == door or cell == door + Vector2i.UP:
-				solid[x][y] = false
-			else:
-				solid[x][y] = true
-				_vault_cells[cell] = true
-	return door
-
-## First and last row (inclusive) of a depth layer.
-func _layer_rows(layer: int) -> Vector2i:
-	var first := -1
-	var last := -1
-	for y in range(SURFACE_ROWS, GRID_HEIGHT - 1):
-		if _layer_index_for_row(y) == layer:
-			if first < 0:
-				first = y
-			last = y
-	return Vector2i(first, last)
-
-func _is_boundary(x: int, y: int) -> bool:
-	return x == 0 or x == GRID_WIDTH - 1 or y == GRID_HEIGHT - 1
-
-func _make_grid(default_value: bool) -> Array:
-	var grid: Array = []
-	grid.resize(GRID_WIDTH)
-	for x in range(GRID_WIDTH):
-		var column: Array = []
-		column.resize(GRID_HEIGHT)
-		column.fill(default_value)
-		grid[x] = column
-	return grid
-
-func _reinforce_boundaries(grid: Array) -> void:
-	for x in range(GRID_WIDTH):
-		grid[x][GRID_HEIGHT - 1] = true
-	# Full height, including surface rows, so the entrance shaft can't be
-	# walked off the side of the map before any digging happens.
-	for y in range(0, GRID_HEIGHT):
-		grid[0][y] = true
-		grid[GRID_WIDTH - 1][y] = true
-
-func _smooth(grid: Array) -> Array:
-	var new_grid := _make_grid(false)
-	for x in range(GRID_WIDTH):
-		for y in range(GRID_HEIGHT):
-			if y < SURFACE_ROWS:
-				new_grid[x][y] = false
-				continue
-			var wall_count := _count_wall_neighbors(grid, x, y)
-			if grid[x][y]:
-				new_grid[x][y] = wall_count >= 4
-			else:
-				new_grid[x][y] = wall_count >= 5
-	return new_grid
-
-func _count_wall_neighbors(grid: Array, x: int, y: int) -> int:
-	var count := 0
-	for dx in range(-1, 2):
-		for dy in range(-1, 2):
-			if dx == 0 and dy == 0:
-				continue
-			var nx := x + dx
-			var ny := y + dy
-			if nx < 0 or nx >= GRID_WIDTH or ny < 0 or ny >= GRID_HEIGHT:
-				count += 1 # treat out-of-bounds as solid, keeps caves from opening at the edges
-			elif grid[nx][ny]:
-				count += 1
-	return count
-
-## Equal depth bands below the surface rows.
-func _layer_index_for_row(y: int) -> int:
-	var relative := float(y - SURFACE_ROWS) / float(GRID_HEIGHT - SURFACE_ROWS)
-	return clampi(int(relative * LAYERS.size()), 0, LAYERS.size() - 1)
-
-## Last row of the deepest quiet layer: the floor of the lonely zone.
-func quiet_floor_row() -> int:
-	var last := SURFACE_ROWS
-	for i in range(LAYERS.size()):
-		if LAYERS[i].quiet:
-			last = _layer_rows(i).y
-	return last
 
 ## Inside a quiet layer (or above the crust): nothing hears, nothing hunts.
 func is_quiet_at(world_pos: Vector2) -> bool:
@@ -649,85 +428,6 @@ func layer_atlas(layer: int) -> Vector2i:
 
 func gas_atlas(layer: int) -> Vector2i:
 	return Vector2i(GAS_ATLAS_OFFSET + layer, 0)
-
-## Open cells with solid rock directly beneath them - valid places to stand
-## a pickup on a cave floor. Shared by fuel and ore scattering below.
-func _find_floor_cells(solid: Array) -> Array:
-	var floor_cells: Array = []
-	for x in range(1, GRID_WIDTH - 1):
-		for y in range(SURFACE_ROWS + 1, GRID_HEIGHT - 1):
-			if not solid[x][y] and solid[x][y + 1]:
-				floor_cells.append(Vector2i(x, y))
-	return floor_cells
-
-## Places fuel pickups on cave floors, the PRD's "found fuel" reward for
-## exploring caves instead of digging straight down. Takes the front slice
-## of the (already shuffled) floor_cells list; ore takes the next slice,
-## so the two pickup types never land on the same cell.
-func _scatter_fuel_deposits(floor_cells: Array) -> void:
-	var count: int = min(FUEL_DEPOSIT_COUNT, floor_cells.size())
-	for i in range(count):
-		var cell: Vector2i = floor_cells[i]
-		var pickup := FuelPickupScene.instantiate()
-		pickup.position = map_to_local(cell)
-		_reserved_floors[cell + Vector2i.DOWN] = true
-		add_child(pickup)
-
-## Ore/relic currency, banked on extraction (milestone 8). Value scales
-## with depth band so pushing deeper is worth more, not just riskier.
-func _scatter_ore_deposits(floor_cells: Array) -> void:
-	var start: int = min(FUEL_DEPOSIT_COUNT, floor_cells.size())
-	var end: int = min(start + ORE_DEPOSIT_COUNT, floor_cells.size())
-	for i in range(start, end):
-		var cell: Vector2i = floor_cells[i]
-		var pickup := OrePickupScene.instantiate()
-		pickup.value = ore_value_at(cell_to_world(cell))
-		pickup.position = map_to_local(cell)
-		_reserved_floors[cell + Vector2i.DOWN] = true
-		add_child(pickup)
-
-## Lights Topsoil and Clay (see the TORCH_ constants). Cave torches take free
-## cells out of the spare pool, so spawns cannot stand on one, and keep their
-## floors from crumbling like a pickup's.
-func _place_torches() -> void:
-	torches.clear()
-	var rng := RandomNumberGenerator.new()
-	rng.seed = mine_seed + 52
-	var clay_bottom := _layer_rows(1).y
-	var open := shaft_open_rows()
-	var lift_cells: Array = event_rooms.filter(func(r): return r.kind == "lift").map(func(r): return r.cell)
-	var side := -1
-	for y in range(open.x + TORCH_SHAFT_FIRST_ROW_OFFSET, mini(open.y, clay_bottom) + 1, TORCH_SHAFT_SPACING):
-		var cell := Vector2i(shaft_column() + side, y)
-		if is_solid(cell) or lift_cells.has(cell):
-			continue
-		torches.append({"cell": cell, "where": "shaft"})
-		side = -side
-	var candidates: Array = _spare_floor_cells.filter(func(c): return c.y <= clay_bottom)
-	var placed: Array[Vector2i] = []
-	for i in range(TORCH_CAVE_TRIES):
-		if placed.size() >= TORCH_CAVE_COUNT or candidates.is_empty():
-			break
-		var cell: Vector2i = candidates[rng.randi_range(0, candidates.size() - 1)]
-		if placed.any(func(p): return Vector2(p).distance_to(Vector2(cell)) < TORCH_CAVE_SPACING_TILES):
-			continue
-		placed.append(cell)
-		_spare_floor_cells.erase(cell)
-		_reserved_floors[cell + Vector2i.DOWN] = true
-		torches.append({"cell": cell, "where": "cave"})
-	for t in torches:
-		var torch: Torch = TorchScene.instantiate()
-		torch.position = map_to_local(t.cell)
-		add_child(torch)
-
-func _pick_lost_miner_cell() -> void:
-	for d in drifts:
-		if d.features.end == "miner": # the Stone gallery's far end
-			lost_miner_cell = Vector2i(d.x1, d.row)
-			return
-	var first := quiet_floor_row() - LOST_MINER_ROWS_ABOVE_QUIET_FLOOR
-	var last := quiet_floor_row() + LOST_MINER_ROWS_BELOW_QUIET_FLOOR
-	lost_miner_cell = _take_spare_floor_cell(func(cell): return cell.y >= first and cell.y <= last)
 
 ## A random unclaimed cave-floor cell in a depth band, for placing a
 ## stranded miner in the layer they drifted to. (-1, -1) if none.
@@ -855,22 +555,6 @@ func decay_interval(player_pos: Vector2) -> float:
 	var interval: float = lerp(DECAY_INTERVAL_START, DECAY_INTERVAL_END, min(1.0, _run_time / DECAY_RAMP_TIME))
 	interval *= LAYERS[layer_index_at_world(player_pos)].decay
 	return interval * decay_multiplier
-
-## GAS_POCKET_COUNT pockets in each gas layer, in plain rock outside rooms.
-func _place_gas_pockets(rng: RandomNumberGenerator) -> void:
-	for layer in range(LAYERS.size()):
-		if not LAYERS[layer].gas:
-			continue
-		var rows := _layer_rows(layer)
-		var placed := 0
-		var tries := 0
-		while placed < GAS_POCKET_COUNT and tries < GAS_POCKET_COUNT * 20:
-			tries += 1
-			var cell := Vector2i(rng.randi_range(1, GRID_WIDTH - 2), rng.randi_range(rows.x, rows.y))
-			if _room_cells.has(cell) or get_cell_atlas_coords(0, cell) != layer_atlas(layer):
-				continue
-			set_cell(0, cell, source_id, gas_atlas(layer))
-			placed += 1
 
 func is_gas(cell: Vector2i) -> bool:
 	var atlas := get_cell_atlas_coords(0, cell)

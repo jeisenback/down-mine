@@ -11,6 +11,9 @@ const TEST_SAVE_PATH := "user://test_save.cfg"
 ## Mines generated once and shared by tests that only read them (see shared_mine).
 static var _shared_mines: Dictionary = {}
 
+## Layouts generated once per seed, shared by tests that only read them.
+static var _shared_layouts: Dictionary = {}
+
 var tree: SceneTree
 var failures: Array[String] = []
 
@@ -46,6 +49,12 @@ func shared_mine(mine_seed: int) -> MineGrid:
 	tree.root.remove_child(mine)
 	_shared_mines[mine_seed] = mine
 	return mine
+
+## The generated layout for `mine_seed` (no scene, no tile map), once per run. READ ONLY.
+func shared_layout(mine_seed: int) -> MineLayout:
+	if not _shared_layouts.has(mine_seed):
+		_shared_layouts[mine_seed] = MineGenerator.generate(mine_seed)
+	return _shared_layouts[mine_seed]
 
 static func free_shared_mines() -> void:
 	for mine in _shared_mines.values():
