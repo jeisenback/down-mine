@@ -130,6 +130,12 @@ dictates.
   scenarios (the unit runner also clears the test save), so no test depends on what an earlier one left behind. A
   guard test fails when a new `static var` is neither reset nor explained, and `Groups` names the 12 node groups
   by constant (a second guard fails on a bare group string). Tests and structure only: no gameplay change.
+- ~~**M68 - Typed run context for mine events, shared key edge.**~~ Done (issue #73, from the architecture review): event
+  nodes (camp, lift, heart, relic, outpost, vault door, lost miner, nest, gallery) take a `RunContext` instead of an
+  untyped `Main`, so what events may reach (player, HUD, noise meter, mine, and five run actions) is written down in
+  one file; a guard test fails on a `use`/`prompt` that takes a bare `Node`. `KeyEdge` replaces the hand-rolled
+  `_was_pressed` variables for the base, lamp, plant and extract keys and the rope, ladder, anchor and grapple keys
+  (jump keeps its own, since it is only sampled off a rope). Structure only: no gameplay change.
 
 ## Quality pass
 
