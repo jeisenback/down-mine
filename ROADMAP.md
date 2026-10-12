@@ -176,6 +176,14 @@ dictates.
   event room's `in_shaft`, `at_drift_end` and `door` replace keys that were sometimes present). Each has a `to_dict()`
   that returns the old dictionary key for key, and the golden fingerprints hash that, so all 31 recorded seeds
   still match without re-recording. The save-file dictionaries are left for later, as the issue says.
+- ~~**M76 - Random numbers in generation: decision recorded.**~~ Done (issue #76, from the architecture review): generation keeps
+  using the global random generator for the floor-cell shuffle and the fuel pickups' draw, because changing it would
+  change every noted seed. `MineGenerator`'s header now lists every random source and its offset (51 old mine, 52 torches,
+  53 next free), the rule that new randomness gets its own generator at the next offset, and the procedure for a
+  deliberate layout change (re-record the golden fingerprints from the old code and say so in the PR). The pins that
+  already exist stay: the golden fingerprints hash the global generator's end state, and tests pin one draw per
+  pickup and that art and camera shake stay off the global generator. No seed version number until a seed is
+  deliberately broken.
 
 ## Quality pass
 
