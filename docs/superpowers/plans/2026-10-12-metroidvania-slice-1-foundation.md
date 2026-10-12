@@ -10,6 +10,15 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-12-metroidvania-slice-design.md` (copied into the new repository by Task 1).
 
+## Starting in the new repository
+
+Agreed with the author on 2026-10-12, for the session that executes this plan:
+
+- The new repository starts empty. Task 1 creates everything; copy the spec and the plans from Down Mine's `docs/superpowers/` first, so the paths in **Spec** above resolve.
+- Execution method: native (one implementer for every task, one fresh whole-branch review at the end). The tasks share the player's two modes and the compartment contract, so one implementer holding all of them avoids interface drift.
+- Before Task 1, install a Godot 4.5 binary on the PATH as `godot`, the way `.github/workflows/tests.yml` does in CI. A cloud session has none by default; a SessionStart hook or setup script that downloads it is the first thing to add.
+- Down Mine is the reference for conventions: its `tests/` harness is ported verbatim where this plan says so, and its `README.md` and `ROADMAP.md` are the model for the new ones.
+
 ## The three plans
 
 The spec is one slice but three deliverables, each working on its own:
