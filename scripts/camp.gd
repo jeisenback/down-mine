@@ -17,25 +17,25 @@ var _lamp: Lamp = null
 func _ready() -> void:
 	add_to_group(Groups.MINE_EVENTS)
 
-func prompt(main: Node) -> String:
+func prompt(run: RunContext) -> String:
 	if not searched:
 		return "E: search the camp"
 	if not _lantern_lit():
-		if main.player.light.fuel <= RELIGHT_FUEL:
+		if run.player.light.fuel <= RELIGHT_FUEL:
 			return "Relighting needs more light"
 		return "E: relight the camp lantern"
 	return ""
 
-func use(main: Node) -> void:
+func use(run: RunContext) -> void:
 	if not searched:
 		searched = true
-		main.player.light.add_fuel(SEARCH_FUEL)
-		main.player.currency += MineGrid.LAYERS[layer].camp_ore # deeper camps hold more
-		main.hud.show_message(main.read_journal_page())
+		run.player.light.add_fuel(SEARCH_FUEL)
+		run.player.currency += MineGrid.LAYERS[layer].camp_ore # deeper camps hold more
+		run.hud.show_message(run.read_journal_page())
 		Sfx.play("ore")
 		_light_lantern()
-	elif not _lantern_lit() and main.player.light.fuel > RELIGHT_FUEL:
-		main.player.light.fuel -= RELIGHT_FUEL
+	elif not _lantern_lit() and run.player.light.fuel > RELIGHT_FUEL:
+		run.player.light.fuel -= RELIGHT_FUEL
 		Sfx.play("fuel")
 		_light_lantern()
 

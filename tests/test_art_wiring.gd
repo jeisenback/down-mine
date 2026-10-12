@@ -8,13 +8,11 @@ const RunBaseScene := preload("res://scenes/RunBase.tscn")
 
 func _art_of(scene_path: String, kind: String) -> Node:
 	var node: Node = load(scene_path).instantiate()
-	if "main" in node:  # events that watch the player through Main
-		var stub: Node = preload("res://tests/art_main_stub.gd").new()
+	if "run" in node:  # events that watch the player through the run context
+		var stub: RunContext = preload("res://tests/art_main_stub.gd").new()
 		stub.player = _still_player(Vector2(5000, 0))
-		stub.noise_meter = NoiseMeter.new()
-		stub.add_child(stub.noise_meter)
-		add(stub) # the runner frees what the test adds
-		node.main = stub
+		stub.noise_meter = add(NoiseMeter.new()) # the runner frees what the test adds
+		node.run = stub
 	add(node)
 	node.set_physics_process(false) # creatures need a player and target before they tick
 	await tree.process_frame
@@ -251,7 +249,7 @@ func test_lift_shows_its_cage_dim_until_repaired_and_empty_once_used() -> void:
 	await tree.process_frame
 	var dim: Color = lift.cage.modulate
 	assert_true(dim.r < 1.0, "rust-dark until repaired")
-	var main: Node = add(preload("res://tests/art_main_stub.gd").new())
+	var main: RunContext = preload("res://tests/art_main_stub.gd").new()
 	var player := _still_player(Vector2.ZERO)
 	player.currency = Lift.REPAIR_ORE
 	main.player = player

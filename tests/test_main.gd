@@ -72,24 +72,24 @@ func test_camp_search_and_lift_ride() -> void:
 
 	main.player.light.fuel = 10.0
 	var pages: int = main.progress.journal_read
-	camp.use(main)
+	camp.use(main.run_context)
 	assert_eq(main.player.currency, MineGrid.LAYERS[camp.layer].camp_ore, "camp gives ore")
 	assert_true(main.player.light.fuel > 10.0, "camp gives light")
 	assert_eq(main.progress.journal_read, min(pages + 1, Progress.JOURNAL.size()), "a journal page read")
-	assert_eq(camp.prompt(main), "", "lantern lit, nothing to do")
-	camp.use(main)
+	assert_eq(camp.prompt(main.run_context), "", "lantern lit, nothing to do")
+	camp.use(main.run_context)
 	assert_eq(main.player.currency, MineGrid.LAYERS[camp.layer].camp_ore, "searched only once")
 
 	main.player.currency = Lift.REPAIR_ORE
 	main.player.global_position = lift.global_position
 	main.noise_meter.decay_rate = 0.0
 	main.noise_meter.noise = 0.0
-	lift.use(main)
+	lift.use(main.run_context)
 	assert_eq(main.player.currency, 0, "repair paid")
 	assert_eq(main.noise_meter.noise, 0.0, "Clay is quiet: nothing hears the repair")
-	lift.use(main)
+	lift.use(main.run_context)
 	assert_true(main._at_surface(), "ride ends at the surface")
-	lift.use(main)
+	lift.use(main.run_context)
 	assert_eq(lift.state, Lift.State.USED, "one ride only")
 	Progress.path_override = ""
 
@@ -104,13 +104,13 @@ func test_outpost_trades_recruits_and_is_noisy() -> void:
 	main.player.currency = Outpost.PACK_ORE * 3 + Outpost.RECRUIT_ORE
 	var ladders: int = main.player.ladders_left
 	for i in range(3):
-		outpost.use(main)
+		outpost.use(main.run_context)
 	assert_eq(outpost.stock, 0, "stock runs out")
 	assert_eq(main.player.ladders_left, ladders + Outpost.STOCK * Outpost.PACK.ladders, "packs add ladders")
 	assert_eq(main.player.currency, Outpost.PACK_ORE + Outpost.RECRUIT_ORE, "paid per pack, not past stock")
 
 	main.player.currency = Outpost.RECRUIT_ORE
-	survivor.use(main)
+	survivor.use(main.run_context)
 	assert_eq(main.player.currency, 0, "recruit paid")
 	assert_true(survivor.following and survivor in main._escorts(), "survivor joins as an escort")
 	assert_true(not survivor.is_in_group(Groups.MINE_EVENTS), "no longer an event")
@@ -136,12 +136,12 @@ func test_vault_door_is_loud_and_relic_pays() -> void:
 	main.player.global_position = door.global_position # below the quiet layers, so noise counts
 	# The base hears by distance; put it beside the sound so only the amount is under test.
 	main.run_base.global_position = door.global_position
-	door.use(main)
+	door.use(main.run_context)
 	assert_eq(main.noise_meter.noise, VaultDoor.BREAK_NOISE, "breaking in is loud")
 	await physics_frames(1)
 	assert_true(not is_instance_valid(door), "door gone")
 	main.player.currency = 0
-	relic.use(main)
+	relic.use(main.run_context)
 	assert_eq(main.player.currency, Relic.VALUE, "relic adds run ore")
 	Progress.path_override = ""
 
@@ -211,7 +211,7 @@ func test_heart_wakes_the_mine_and_wins_the_run() -> void:
 	main.player.global_position = heart.global_position # below the quiet layers, so noise counts
 	# The base hears by distance; put it beside the sound so only the amount is under test.
 	main.run_base.global_position = heart.global_position
-	heart.use(main)
+	heart.use(main.run_context)
 	assert_true(main.carrying_heart, "carrying")
 	assert_eq(main.noise_meter.noise, main.HEART_NOISE, "taking it is loud")
 	assert_eq(main.mine.decay_multiplier, decay * main.HEART_CARRY_DECAY, "mine decays faster")
@@ -492,7 +492,7 @@ func test_the_lift_prompt_does_not_call_a_quiet_repair_loud() -> void:
 	await physics_frames(5)
 	var lift: Lift = main.get_tree().get_nodes_in_group(Groups.MINE_EVENTS).filter(func(e): return e is Lift)[0]
 	main.player.currency = Lift.REPAIR_ORE
-	assert_true(not lift.prompt(main).contains("loud"), "the prompt (%s) does not say loud" % lift.prompt(main))
+	assert_true(not lift.prompt(main.run_context).contains("loud"), "the prompt (%s) does not say loud" % lift.prompt(main.run_context))
 	Progress.path_override = ""
 
 func test_debug_event_teleport_lands_on_open_ground() -> void:

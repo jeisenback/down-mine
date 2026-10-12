@@ -14,29 +14,29 @@ const NOISE_PER_SECOND := 2.0
 const RECRUIT_ORE := 40
 const SURVIVOR_OFFSET := Vector2(48, 0)
 
-var main: Node
+var run: RunContext
 var stock: int = STOCK
 
 func _ready() -> void:
 	add_to_group(Groups.MINE_EVENTS)
 
 func _process(delta: float) -> void:
-	if main and main.player.global_position.distance_to(global_position) < NOISE_RADIUS:
-		main.noise_meter.add_noise(NOISE_PER_SECOND * delta, global_position)
+	if run and run.player.global_position.distance_to(global_position) < NOISE_RADIUS:
+		run.noise_meter.add_noise(NOISE_PER_SECOND * delta, global_position)
 
-func prompt(main_node: Node) -> String:
+func prompt(run: RunContext) -> String:
 	if stock <= 0:
 		return "The outpost has nothing left to trade"
-	if main_node.player.currency < PACK_ORE:
+	if run.player.currency < PACK_ORE:
 		return "Supplies cost %d ore" % PACK_ORE
 	return "E: trade %d ore for 1 lamp, 2 ladders, 1 anchor (%d left)" % [PACK_ORE, stock]
 
-func use(main_node: Node) -> void:
-	if stock <= 0 or main_node.player.currency < PACK_ORE:
+func use(run: RunContext) -> void:
+	if stock <= 0 or run.player.currency < PACK_ORE:
 		return
 	stock -= 1
-	main_node.player.currency -= PACK_ORE
-	main_node.lamps_left += PACK.lamps
-	main_node.player.ladders_left += PACK.ladders
-	main_node.player.anchors_left += PACK.anchors
+	run.player.currency -= PACK_ORE
+	run.add_lamps(PACK.lamps)
+	run.player.ladders_left += PACK.ladders
+	run.player.anchors_left += PACK.anchors
 	Sfx.play("place")

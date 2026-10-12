@@ -64,15 +64,15 @@ func _refresh_art() -> void:
 	art.coat = shirt_color.darkened(0.2)
 	add_child(art)
 
-func prompt(main: Node) -> String:
-	if main.player.currency < recruit_cost:
+func prompt(run: RunContext) -> String:
+	if run.player.currency < recruit_cost:
 		return "%s joins for %d ore" % [miner_name, recruit_cost]
 	return "E: recruit %s (%s), %d ore" % [miner_name, Progress.NPC_TYPES[npc_type].label, recruit_cost]
 
-func use(main: Node) -> void:
-	if main.player.currency < recruit_cost:
+func use(run: RunContext) -> void:
+	if run.player.currency < recruit_cost:
 		return
-	main.player.currency -= recruit_cost
+	run.player.currency -= recruit_cost
 	recruit_cost = 0
 	remove_from_group(Groups.MINE_EVENTS)
 	stationary = false

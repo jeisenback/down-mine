@@ -1,12 +1,10 @@
-extends Node
+extends RunContext
 
-## A stand-in for Main in art wiring tests: the few members events touch.
-var player: Player
-var noise_meter: NoiseMeter
+## A stand-in for the run in art wiring tests: the few members events touch.
 var rode_from: float = -1.0
 
 func ride_to_surface(x: float) -> void:
 	rode_from = x
 
-func on_nest_destroyed() -> void:
+func nest_destroyed() -> void:
 	pass

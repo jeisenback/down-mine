@@ -8,9 +8,9 @@ class_name Heart
 func _ready() -> void:
 	add_to_group(Groups.MINE_EVENTS)
 
-func prompt(_main: Node) -> String:
+func prompt(_run: RunContext) -> String:
 	return "E: take the Heart of the mine (it wakes)"
 
-func use(main: Node) -> void:
-	main.take_heart()
+func use(run: RunContext) -> void:
+	run.take_heart()
 	queue_free()

@@ -36,6 +36,38 @@ func test_groups_are_named_by_constants_not_strings() -> void:
 			if pattern.search(lines[i]) != null:
 				assert_true(false, "%s:%d names a group with a string: %s" % [file, i + 1, lines[i].strip_edges()])
 
+func test_key_edge_fires_once_per_press() -> void:
+	var key := KeyEdge.new()
+	assert_true(not key.pressed(false), "up: no edge")
+	assert_true(key.pressed(true), "goes down: edge")
+	assert_true(not key.pressed(true), "held: no second edge")
+	assert_true(not key.pressed(false), "released: no edge")
+	assert_true(key.pressed(true), "pressed again: edge")
+	key.hold(true)
+	assert_true(not key.pressed(true), "a key held at the start is not a press")
+
+func test_run_context_hands_events_the_run() -> void:
+	var run := RunContext.new()
+	var seen: Array = []
+	run.bind(func(): seen.append("heart"), func(x: float): seen.append(x), func(): return "page",
+			func(n: int): seen.append(n), func(): seen.append("nest"))
+	run.take_heart()
+	run.ride_to_surface(12.5)
+	run.add_lamps(3)
+	run.nest_destroyed()
+	assert_eq(seen, ["heart", 12.5, 3, "nest"], "each action reaches what Main bound")
+	assert_eq(run.read_journal_page(), "page", "the page comes back")
+
+func test_events_take_the_run_context_not_a_bare_node() -> void:
+	var pattern := RegEx.create_from_string("func (use|prompt)\\(\\w+: Node\\)")
+	for file in DirAccess.get_files_at("res://scripts"):
+		if not file.ends_with(".gd"):
+			continue
+		var lines := FileAccess.get_file_as_string("res://scripts/" + file).split("\n")
+		for i in range(lines.size()):
+			if pattern.search(lines[i]) != null:
+				assert_true(false, "%s:%d takes an untyped Node: use RunContext" % [file, i + 1])
+
 ## "Class.name" for every `static var` in the scripts.
 func _static_vars() -> Array:
 	var found: Array = []
