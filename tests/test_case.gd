@@ -8,8 +8,6 @@ class_name TestCase
 
 const TEST_SAVE_PATH := "user://test_save.cfg"
 
-const SHARED_MINE_OFFSET := 10000000.0
-
 ## Mines generated once and shared by tests that only read them (see shared_mine).
 static var _shared_mines: Dictionary = {}
 
@@ -36,18 +34,21 @@ func physics_frames(count: int) -> void:
 ## A mine for `mine_seed`, generated once per run and shared: generation costs
 ## about a second, and many tests only read the same seeds. READ ONLY - a test
 ## that digs, decays, or compares two mines of one seed uses a fresh mine.
+## It is taken out of the tree once generated (so it costs nothing per frame
+## and its collision meets no one): queries work, group lookups do not.
 func shared_mine(mine_seed: int) -> MineGrid:
 	var cached = _shared_mines.get(mine_seed)
 	if is_instance_valid(cached):
 		return cached
-	var holder: Node = tree.root.get_node_or_null("SharedMines")
-	if holder == null: # the runner makes it first so the per-test cleanup leaves it alone
-		holder = Node.new()
-		holder.name = "SharedMines"
-		tree.root.add_child(holder)
 	MineGrid.next_seed = mine_seed
 	var mine: MineGrid = load("res://scenes/Mine.tscn").instantiate()
-	mine.position = Vector2(SHARED_MINE_OFFSET, SHARED_MINE_OFFSET) # its collision must not meet other tests' players
-	holder.add_child(mine)
+	tree.root.add_child(mine) # _ready generates the layout
+	tree.root.remove_child(mine)
 	_shared_mines[mine_seed] = mine
 	return mine
+
+static func free_shared_mines() -> void:
+	for mine in _shared_mines.values():
+		if is_instance_valid(mine):
+			mine.free()
+	_shared_mines.clear()
