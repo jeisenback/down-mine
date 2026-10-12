@@ -369,7 +369,7 @@ func test_vault_is_sealed_but_for_its_door() -> void:
 	var mine: MineGrid = add(MineScene.instantiate())
 	var vaults := mine.event_rooms.filter(func(r): return r.kind == "vault")
 	assert_eq(vaults.size(), 1, "one vault")
-	var vault: Dictionary = vaults[0]
+	var vault: EventRoom = vaults[0]
 	assert_true(mine._layer_index_for_row(vault.cell.y) in [4, 5], "vault in Deep rock or the Hollow")
 	var door: Vector2i = vault.door
 	assert_true(not mine.is_solid(door) and not mine.is_solid(door + Vector2i.UP), "doorway open")
@@ -446,7 +446,7 @@ func _mine_fingerprint(mine: MineGrid) -> Array:
 			var atlas := mine.get_cell_atlas_coords(0, Vector2i(x, y))
 			tiles.append(atlas.x * 10 + atlas.y)
 	var pickups := mine.get_children().map(func(n): return n.position)
-	return [tiles, mine.event_rooms, pickups]
+	return [tiles, mine.event_rooms.map(func(r): return r.to_dict()), pickups]
 
 func test_same_seed_builds_the_same_mine() -> void:
 	MineGrid.next_seed = 4242

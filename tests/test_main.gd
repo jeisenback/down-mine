@@ -257,7 +257,7 @@ func test_debug_actions_and_seed_display() -> void:
 	assert_eq(main.player.health, health, "god mode takes no damage")
 	main.debug_toggle_god()
 	main.debug_next_event()
-	var room: Dictionary = main.mine.event_rooms[0]
+	var room: EventRoom = main.mine.event_rooms[0]
 	assert_true(main.player.global_position.distance_to(main.mine.cell_to_world(room.cell)) < 40.0, "teleported to the first event")
 	main.player.global_position = main.run_base.global_position + Vector2(0, 40)
 	main.debug_next_layer()

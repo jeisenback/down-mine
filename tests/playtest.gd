@@ -519,19 +519,19 @@ func _shaft_end_with_ladder() -> void:
 
 # --- the old galleries (milestone 51b) ---------------------------------------
 
-func _drift_of(layer: int) -> Dictionary:
+func _drift_of(layer: int) -> Drift:
 	for d in main.mine.drifts:
 		if d.layer == layer:
 			return d
-	return {}
+	return null
 
 ## The walk key that goes along a drift away from the shaft.
-func _walk_key(drift: Dictionary) -> int:
+func _walk_key(drift: Drift) -> int:
 	return KEY_D if drift.side > 0 else KEY_A
 
 ## Walks along a drift until the player's cell reaches target_x (or the
 ## frames run out), then stops: walking on would pass its end into a cave.
-func _walk_to(drift: Dictionary, target_x: int, max_frames: int) -> void:
+func _walk_to(drift: Drift, target_x: int, max_frames: int) -> void:
 	key_event(_walk_key(drift), true)
 	for i in range(max_frames):
 		await physics_frame
@@ -541,15 +541,15 @@ func _walk_to(drift: Dictionary, target_x: int, max_frames: int) -> void:
 	await frames(10)
 
 ## Frames to walk a drift's length at 120 px/s, with a third to spare.
-func _walk_frames(drift: Dictionary) -> int:
+func _walk_frames(drift: Drift) -> int:
 	return int((absi(drift.x1 - drift.x0) + 1) * 16.0 / 120.0 * 60.0 * 1.35)
 
 ## Walks the Topsoil gallery to its camp and searches it.
 func _drift_to_camp() -> void:
 	await _in_shaft()
 	var d := _drift_of(0)
-	check(not d.is_empty(), "seed %d has a Topsoil gallery" % SEED)
-	if d.is_empty():
+	check(d != null, "seed %d has a Topsoil gallery" % SEED)
+	if d == null:
 		return
 	await _place(Vector2i(d.x0, d.row))
 	await shot("mouth")
@@ -564,8 +564,8 @@ func _drift_to_camp() -> void:
 func _drift_collapse() -> void:
 	await _in_shaft()
 	var d := _drift_of(1)
-	check(not d.is_empty(), "seed %d has a Clay gallery" % SEED)
-	if d.is_empty():
+	check(d != null, "seed %d has a Clay gallery" % SEED)
+	if d == null:
 		return
 	var box: Rect2i = d.collapse
 	var mouth_edge: int = box.position.x if d.side > 0 else box.end.x - 1
