@@ -21,3 +21,7 @@ static func note_joypad() -> void:
 static func note_key(event: InputEventKey) -> void:
 	if event.pressed and not TouchKeys.is_down(event.physical_keycode):
 		pad_last = false
+
+## A finger going down: the on-screen buttons are what the player is using now.
+static func note_touch() -> void:
+	pad_last = false

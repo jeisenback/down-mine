@@ -375,3 +375,45 @@ func test_the_overlays_name_the_pad_when_it_was_used_last() -> void:
 	ControlScheme.pad_last = false
 	hud._process(0.0)
 	assert_eq(hud.esc_hint.text, "Esc: controls", "a keyboard keeps Esc")
+
+# --- found by the final review -------------------------------------------------------
+
+func test_the_touch_controls_never_let_go_of_the_pads_keys() -> void:
+	var touch: TouchControls = add(load("res://scenes/TouchControls.tscn").instantiate())
+	TouchKeys.release_all()
+	TouchKeys.set_key(KEY_SPACE, true, "pad") # X held to dig
+	touch.release_all()
+	assert_true(TouchKeys.is_down(KEY_SPACE), "the touch controls letting go (a focus change, a mode change) leave the pad's key alone")
+	tree.paused = true # Start opens the controls: the touch layer sees the pause change
+	await tree.process_frame
+	await tree.process_frame
+	assert_true(TouchKeys.is_down(KEY_SPACE), "and so does a pause")
+	tree.paused = false
+	TouchKeys.set_key(KEY_W, true, "touch")
+	touch.release_all()
+	assert_true(not TouchKeys.is_down(KEY_W), "while its own keys are let go")
+	TouchKeys.release_all()
+
+func test_a_touch_press_takes_the_scheme_back_from_the_pad() -> void:
+	var touch: TouchControls = add(load("res://scenes/TouchControls.tscn").instantiate())
+	ControlScheme.pad_last = true
+	var lift := InputEventScreenTouch.new()
+	lift.index = 0
+	lift.position = Vector2(5, 5)
+	lift.pressed = false
+	touch._input(lift)
+	assert_eq(ControlScheme.current(), "pad", "a finger lifting is not a press")
+	var emulated := InputEventScreenTouch.new() # a mouse click standing in for a finger
+	emulated.device = InputEvent.DEVICE_ID_EMULATION
+	emulated.pressed = true
+	touch._input(emulated)
+	assert_eq(ControlScheme.current(), "pad", "nor is a mouse click pretending to be one")
+	var press := InputEventScreenTouch.new()
+	press.index = 0
+	press.position = Vector2(5, 5)
+	press.pressed = true
+	touch._input(press)
+	assert_true(ControlScheme.current() != "pad", "a finger going down is: the text follows the last thing used")
+	touch.release_all()
+	ControlScheme.pad_last = false
+	TouchControls.seen_touch = false
