@@ -349,6 +349,25 @@ func test_decay_collapses_dark_tunnels_but_spares_lit_ones() -> void:
 	assert_true(mine.is_solid(dark_cell), "dark tunnel collapsed")
 	assert_true(not mine.is_solid(lit_cell), "lit tunnel spared")
 
+func test_collapse_tunnel_picks_only_dark_open_dug_cells() -> void:
+	var mine: MineGrid = add(MineScene.instantiate())
+	var lit_cell := Vector2i(40, 150)
+	mine.set_cell(0, lit_cell, mine.source_id, Vector2i(1, 0))
+	mine.dig_cells([lit_cell])
+	_still_player(mine.cell_to_world(lit_cell), 1.0)
+	assert_eq(mine._collapse_tunnel(), Vector2i(-1, -1), "a lit cell is never refilled")
+	var dark: Array[Vector2i] = []
+	for i in range(30):
+		var cell := Vector2i(5 + i, 250)
+		mine.set_cell(0, cell, mine.source_id, Vector2i(1, 0))
+		dark.append(cell)
+	mine.dig_cells(dark)
+	for i in range(30):
+		var picked := mine._collapse_tunnel()
+		assert_true(picked in dark, "only a dark dug cell is picked")
+		assert_true(mine.is_solid(picked), "the picked cell is refilled")
+	assert_eq(mine._collapse_tunnel(), Vector2i(-1, -1), "nothing left to refill but the lit cell")
+
 func test_mine_carves_event_rooms() -> void:
 	var mine: MineGrid = add(MineScene.instantiate())
 	assert_eq(mine.event_rooms.filter(func(r): return r.kind == "camp").size(), MineGrid.LAYERS.size(), "a camp per layer")

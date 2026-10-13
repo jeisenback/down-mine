@@ -381,14 +381,6 @@ func shaft_open_rows() -> Vector2i:
 func _shaft_rect() -> Rect2i:
 	return MineGenerator.shaft_rect(shaft_end_row)
 
-## The shaft's box, then each drift's box (its two rows and the floor).
-func _old_mine_rects() -> Array[Rect2i]:
-	return MineGenerator.old_mine_rects(drifts, shaft_end_row)
-
-## Within the shaft or any drift.
-func is_in_old_mine(cell: Vector2i) -> bool:
-	return _old_mine_rects().any(func(r): return r.has_point(cell))
-
 ## Within the shaft, open part or collapse.
 func is_in_shaft(cell: Vector2i) -> bool:
 	return _shaft_rect().has_point(cell)
@@ -548,16 +540,19 @@ func is_gas(cell: Vector2i) -> bool:
 	var atlas := get_cell_atlas_coords(0, cell)
 	return atlas.y == 0 and atlas.x >= GAS_ATLAS_OFFSET and atlas.x < GAS_ATLAS_OFFSET + LAYERS.size()
 
-## Refills one dark dug cell; returns it, or (-1, -1) if none.
+## Refills one dark dug cell; returns it, or (-1, -1) if none. Tries the dug
+## cells in random order and stops at the first eligible one: each test scans
+## the light and support groups, so filtering every cell cost tens of ms a tick.
 func _collapse_tunnel() -> Vector2i:
-	var candidates := _dug_cells.filter(func(c): return not is_solid(c) and not is_lit(cell_to_world(c)) \
-		and not Support.protects(get_tree(), cell_to_world(c)))
-	if candidates.is_empty():
-		return Vector2i(-1, -1)
-	var cell: Vector2i = candidates.pick_random()
-	_dug_cells.erase(cell)
-	fill_cell(cell)
-	return cell
+	var order := _dug_cells.duplicate()
+	order.shuffle()
+	for cell: Vector2i in order:
+		if is_solid(cell) or is_lit(cell_to_world(cell)) or Support.protects(get_tree(), cell_to_world(cell)):
+			continue
+		_dug_cells.erase(cell)
+		fill_cell(cell)
+		return cell
+	return Vector2i(-1, -1)
 
 ## Drops one dark cave floor near the player; returns it, or (-1, -1).
 func _crumble_floor(player_pos: Vector2) -> Vector2i:

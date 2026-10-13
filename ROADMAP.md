@@ -189,6 +189,11 @@ dictates.
   `overlay.visible`. `_set_overlay` is the one way in (text, visibility and pause), `_overlay_key` is a `match` on the state
   with the transitions it always had, and `can_abandon` is derived from it. The run summary stays its own node (it can be
   open under the controls) and the hub only picks the text. A table-driven test lists every transition; behaviour is unchanged.
+- ~~**M78 - Cheaper mine decay tick.**~~ Done (issue #79, measured first): the tunnel-collapse step filtered every dug cell through
+  the light and support group scans, 11 to 126 ms a tick (500 to 2000 dug cells, 28 to 87 lights), a few dropped frames every
+  1.5 to 8 s. It now tries the dug cells in random order and stops at the first eligible one: 0.05 to 0.11 ms, same uniform pick.
+  The light count was not the main cost (per-cell overhead was). Dead helpers `is_in_old_mine` and `_old_mine_rects` removed.
+  Left on the watch list: a lint step and a Godot download cache in CI, until style drift or CI time asks for them.
 
 ## Quality pass
 
