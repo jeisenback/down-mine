@@ -39,7 +39,7 @@ func test_drifts_rooms_and_torches_are_typed_data() -> void:
 func test_a_drift_keeps_its_collapses_in_a_list() -> void:
 	var layout := shared_layout(1001)
 	for d in layout.drifts:
-		assert_true(d.from_shaft, "layer %d: the shaft feeds every drift for now" % d.layer)
+		assert_eq(d.from_shaft, d.layer <= 2, "layer %d: only the top three layers are fed from the shaft" % d.layer)
 		if d.layer == 0:
 			assert_true(d.collapses.is_empty(), "Topsoil has no collapse")
 			assert_eq(d.to_dict()["features"]["collapse"], Rect2i(), "and the fingerprint key is empty")
@@ -69,7 +69,8 @@ func test_layout_invariants_hold_for_many_seeds() -> void:
 		if miner.x >= 0:
 			assert_true(not layout.is_solid(miner), "seed %d: the lost miner is in open space" % s)
 		for d in layout.drifts:
-			assert_eq(layout.kind_at(Vector2i(layout.shaft_column() + d.side, d.row + 1)), MineLayout.Kind.PLANK, "seed %d: a plank landing beside the shaft" % s)
+			if d.from_shaft:
+				assert_eq(layout.kind_at(Vector2i(layout.shaft_column() + d.side, d.row + 1)), MineLayout.Kind.PLANK, "seed %d: a plank landing beside the shaft" % s)
 
 # --- spines (long, decayed galleries) -------------------------------------------
 
@@ -90,6 +91,8 @@ func test_spines_leave_the_shaft_at_the_landing_and_stay_in_the_map() -> void:
 	for s in GoldenTest.SEEDS:
 		var layout := shared_layout(s)
 		for d in layout.drifts:
+			if not d.from_shaft:
+				continue
 			assert_eq(d.x0, layout.shaft_column() + d.side * (MineGrid.SHAFT_WIDTH / 2 + 1), "seed %d: starts beside the shaft" % s)
 			assert_eq(layout.kind_at(Vector2i(layout.shaft_column() + d.side, d.row + 1)), MineLayout.Kind.PLANK, "seed %d: a plank landing" % s)
 			assert_true(mini(d.x0, d.x1) >= MineGrid.WORKING_EDGE_MARGIN and maxi(d.x0, d.x1) <= MineGrid.GRID_WIDTH - 1 - MineGrid.WORKING_EDGE_MARGIN, "seed %d: inside the margins" % s)
@@ -102,6 +105,50 @@ func test_the_stone_spine_takes_the_side_facing_the_heart() -> void:
 		if stone.is_empty():
 			continue
 		assert_eq(stone[0].side, 1 if heart.cell.x > layout.shaft_column() else -1, "seed %d: Stone heads for the Heart" % s)
+
+func test_every_layer_has_a_working() -> void:
+	for s in GoldenTest.SEEDS:
+		var layers: Array = shared_layout(s).drifts.map(func(d): return d.layer)
+		layers.sort()
+		# Stone's spine hangs off the shaft's open part, which does not always reach it (as before).
+		layers.erase(2)
+		assert_eq(layers, [0, 1, 3, 4, 5], "seed %d: a spine in every layer the shaft or the deep workings reach" % s)
+
+func test_deep_spines_are_free_standing_and_walkable() -> void:
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		for d in layout.drifts.filter(func(d): return d.layer >= 3):
+			assert_true(not d.from_shaft and d.end_kind == "", "seed %d layer %d: free-standing, no end feature" % [s, d.layer])
+			assert_true(d.length() >= MineGrid.SPINE_MIN_LENGTH and d.length() <= MineGrid.SPINE_MAX_LENGTH, "seed %d layer %d: length %d" % [s, d.layer, d.length()])
+			assert_eq(MineGenerator.layer_index_for_row(d.row), d.layer, "seed %d: in its layer" % s)
+			assert_eq(GalleryChecks.passage_problems(layout, d), [], "seed %d layer %d passage" % [s, d.layer])
+			assert_eq(GalleryChecks.collapse_problems(d), [], "seed %d layer %d collapses" % [s, d.layer])
+			assert_true(mini(d.x0, d.x1) >= MineGrid.WORKING_EDGE_MARGIN and maxi(d.x0, d.x1) <= MineGrid.GRID_WIDTH - 1 - MineGrid.WORKING_EDGE_MARGIN, "seed %d: inside the margins" % s)
+			assert_true(not MineGenerator.shaft_rect(layout.shaft_end_row).intersects(Rect2i(mini(d.x0, d.x1), d.row - 1, d.length(), 3)), "seed %d: clear of the shaft" % s)
+
+func test_deep_spines_head_toward_the_heart_and_stop_short_of_it() -> void:
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		var heart: EventRoom = layout.event_rooms.filter(func(r): return r.kind == "heart")[0]
+		for d in layout.drifts.filter(func(d): return d.layer >= 3):
+			assert_true(GalleryChecks.heads_toward(d, heart.rect), "seed %d layer %d: heads for the Heart" % [s, d.layer])
+		for d in layout.drifts:
+			assert_true(not heart.rect.grow(1).intersects(Rect2i(mini(d.x0, d.x1), d.row - 1, d.length(), 3)), "seed %d layer %d: clear of the Heart room" % [s, d.layer])
+		var last: Drift = layout.drifts.filter(func(d): return d.layer == 5)[0]
+		var gap: int = (heart.rect.position.x - last.x1 - 1) if last.side > 0 else (last.x1 - (heart.rect.end.x - 1) - 1)
+		assert_true(gap >= MineGrid.HEART_STANDOFF_TILES, "seed %d: the layer 5 spine stops %d tiles short (>= %d)" % [s, gap, MineGrid.HEART_STANDOFF_TILES])
+
+func test_spine_span_keeps_clear_of_an_anchor_and_the_margins() -> void:
+	var heart := Rect2i(3, 440, 9, 4) # a Heart against the left side
+	var left := MineGenerator.spine_span(-1, heart, 100, 0)
+	assert_eq(left.x, MineGrid.GRID_WIDTH - 1 - MineGrid.WORKING_EDGE_MARGIN, "starts at the right margin and runs left")
+	assert_true(left.y >= heart.end.x + MineGrid.HEART_STANDOFF_TILES, "and stops short of the Heart")
+	var right := MineGenerator.spine_span(1, Rect2i(140, 440, 9, 4), 100, 5)
+	assert_eq(right.x, MineGrid.WORKING_EDGE_MARGIN + 5, "the start offset moves it inside the margin")
+	assert_true(Rect2i(140, 440, 9, 4).position.x - right.y - 1 >= MineGrid.HEART_STANDOFF_TILES, "right-hand Heart: stops short")
+	assert_eq(MineGenerator.spine_span(1, Rect2i(40, 440, 9, 4), 100, 0), Vector2i(-1, -1), "no span of at least the minimum fits: none")
+	var free := MineGenerator.spine_span(1, Rect2i(), 80, 0)
+	assert_eq(free, Vector2i(MineGrid.WORKING_EDGE_MARGIN, MineGrid.WORKING_EDGE_MARGIN + 79), "without an anchor only the margins limit it")
 
 func test_the_shaft_and_ladder_keep_their_values() -> void:
 	# Recorded from the code before the workings: they draw before the drifts, from the same stream.
@@ -135,7 +182,8 @@ func test_each_worked_layer_gets_a_drift_of_the_right_shape() -> void:
 			assert_eq(MineGenerator.layer_index_for_row(d.row), d.layer, "seed %d: the drift sits in its layer" % s)
 			var length: int = absi(d.x1 - d.x0) + 1
 			assert_true(length >= MineGrid.SPINE_MIN_LENGTH and length <= MineGrid.SPINE_MAX_LENGTH, "seed %d: length %d" % [s, length])
-			assert_eq(d.x0, layout.shaft_column() + d.side * (MineGrid.SHAFT_WIDTH / 2 + 1), "seed %d: starts beside the shaft" % s)
+			if d.from_shaft:
+				assert_eq(d.x0, layout.shaft_column() + d.side * (MineGrid.SHAFT_WIDTH / 2 + 1), "seed %d: starts beside the shaft" % s)
 			for cell in d.cells():
 				assert_true(not layout.is_solid(cell) or layout.kind_at(cell) == MineLayout.Kind.DEBRIS, "seed %d: open at %s" % [s, cell])
 			for x in range(mini(d.x0, d.x1), maxi(d.x0, d.x1) + 1):

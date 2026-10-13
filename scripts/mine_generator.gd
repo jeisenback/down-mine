@@ -238,6 +238,7 @@ func _carve_old_mine() -> void:
 		if rng.randf() >= MineGrid.OLD_LADDER_MISSING_CHANCE:
 			_layout.old_ladder_rows.append(row)
 	_carve_workings()
+	_carve_deep_workings()
 	_place_lift(rng)
 
 ## The spines of the old workings (Topsoil, Clay, Stone) off the shaft: a long two-tile tunnel on
@@ -269,23 +270,7 @@ func _carve_workings() -> void:
 		_solid[landing.x][landing.y] = true
 		_layout.room_cells[landing] = true
 		_layout.reserved_floors[landing] = true
-		var next_post := _work_rng.randi_range(MineGrid.SPINE_POST_GAP_MIN, MineGrid.SPINE_POST_GAP_MAX)
-		for i in range(length):
-			var x := x0 + side * i
-			for y in [row - 1, row]:
-				_solid[x][y] = false
-				_layout.room_cells[Vector2i(x, y)] = true
-			var floor_cell := Vector2i(x, row + 1)
-			if not _solid[x][row + 1]:
-				_solid[x][row + 1] = true
-				_layout.plank_cells[floor_cell] = true
-			_layout.room_cells[floor_cell] = true
-			_layout.reserved_floors[floor_cell] = true
-			if i == next_post:
-				if _work_rng.randf() >= MineGrid.SPINE_POST_MISSING_CHANCE:
-					_layout.decor[Vector2i(x, row)] = MineLayout.Decor.POST
-					_layout.decor[Vector2i(x, row - 1)] = MineLayout.Decor.POST
-				next_post += _work_rng.randi_range(MineGrid.SPINE_POST_GAP_MIN, MineGrid.SPINE_POST_GAP_MAX)
+		_carve_spine(drift)
 		if layer >= 1:
 			_decay_spine(drift)
 		if drift.end_kind == "camp":
@@ -293,6 +278,65 @@ func _carve_workings() -> void:
 			var camp := EventRoom.new("camp", end_cell, Rect2i(end_cell - Vector2i(0, 1), Vector2i(1, 2)))
 			camp.at_drift_end = true
 			_layout.event_rooms.append(camp)
+
+## Opens a spine's two rows, floors it (planks where it crosses a cave) and posts it at uneven
+## gaps with some posts gone. Posts are never placed at the mouth.
+func _carve_spine(drift: Drift) -> void:
+	var next_post := _work_rng.randi_range(MineGrid.SPINE_POST_GAP_MIN, MineGrid.SPINE_POST_GAP_MAX)
+	for i in range(drift.length()):
+		var x: int = drift.x0 + drift.side * i
+		for y in [drift.row - 1, drift.row]:
+			_solid[x][y] = false
+			_layout.room_cells[Vector2i(x, y)] = true
+		var floor_cell := Vector2i(x, drift.row + 1)
+		if not _solid[x][drift.row + 1]:
+			_solid[x][drift.row + 1] = true
+			_layout.plank_cells[floor_cell] = true
+		_layout.room_cells[floor_cell] = true
+		_layout.reserved_floors[floor_cell] = true
+		if i == next_post:
+			if _work_rng.randf() >= MineGrid.SPINE_POST_MISSING_CHANCE:
+				_layout.decor[Vector2i(x, drift.row)] = MineLayout.Decor.POST
+				_layout.decor[Vector2i(x, drift.row - 1)] = MineLayout.Decor.POST
+			next_post += _work_rng.randi_range(MineGrid.SPINE_POST_GAP_MIN, MineGrid.SPINE_POST_GAP_MAX)
+
+## The free-standing spines of the deep layers (3 to 5): cut off from the shaft, found by digging.
+## Each starts on the side of the map away from the Heart and runs toward it; the layer 5 spine
+## stops HEART_STANDOFF_TILES short of the Heart's room. A layer where no span of at least
+## SPINE_MIN_LENGTH fits gets none.
+func _carve_deep_workings() -> void:
+	var heading := 1 if _heart != null and _heart.cell.x >= MineGrid.GRID_WIDTH / 2 else -1
+	for layer in range(3, MineGrid.LAYERS.size()):
+		var rows := layer_rows(layer)
+		var row := _work_rng.randi_range(rows.x + 3, rows.y - 3)
+		var length := _work_rng.randi_range(MineGrid.SPINE_MIN_LENGTH, MineGrid.SPINE_MAX_LENGTH)
+		var start_offset := _work_rng.randi_range(0, 10)
+		var anchor := _heart.rect if layer == MineGrid.LAYERS.size() - 1 and _heart != null else Rect2i()
+		var span := spine_span(heading, anchor, length, start_offset)
+		if span.x < 0:
+			span = spine_span(heading, anchor, length, 0) # a Heart near the middle: start at the margin
+		if span.x < 0:
+			continue
+		var drift := Drift.new(layer, heading, row, span.x, span.y, "")
+		drift.from_shaft = false
+		_layout.drifts.append(drift)
+		_carve_spine(drift)
+		_decay_spine(drift)
+
+## First and last x (in travel order) of a spine that starts start_offset tiles inside the margin on
+## the side opposite `heading` and runs `heading` for `length` tiles, shortened to stay inside the
+## far margin and, when `anchor` is a room, HEART_STANDOFF_TILES short of it. (-1, -1) when fewer
+## than SPINE_MIN_LENGTH tiles remain.
+static func spine_span(heading: int, anchor: Rect2i, length: int, start_offset: int) -> Vector2i:
+	var first := MineGrid.WORKING_EDGE_MARGIN + start_offset if heading > 0 else MineGrid.GRID_WIDTH - 1 - MineGrid.WORKING_EDGE_MARGIN - start_offset
+	var last_allowed := MineGrid.GRID_WIDTH - 1 - MineGrid.WORKING_EDGE_MARGIN if heading > 0 else MineGrid.WORKING_EDGE_MARGIN
+	if anchor != Rect2i():
+		last_allowed = mini(last_allowed, anchor.position.x - MineGrid.HEART_STANDOFF_TILES - 1) if heading > 0 else maxi(last_allowed, anchor.end.x + MineGrid.HEART_STANDOFF_TILES)
+	var available := (last_allowed - first) * heading + 1
+	length = mini(length, available)
+	if length < MineGrid.SPINE_MIN_LENGTH:
+		return Vector2i(-1, -1)
+	return Vector2i(first, first + heading * (length - 1))
 
 ## The old cage: the lift stands in the shaft's edge column near the bottom
 ## of Clay, on a plank floor, so the ladder column stays open (the shaft's cells are

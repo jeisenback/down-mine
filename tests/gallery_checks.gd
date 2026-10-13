@@ -49,3 +49,9 @@ static func collapse_problems(drift: Drift) -> Array[String]:
 	if drift.length() - 1 - prev_end < MineGrid.DRIFT_END_CLEAR:
 		problems.append("a collapse is too close to the far end")
 	return problems
+
+## Whether a spine runs toward the Heart's column from the far side of the map: it starts on the
+## side away from the Heart and its far end is nearer to the Heart's column than its start.
+static func heads_toward(drift: Drift, heart: Rect2i) -> bool:
+	var heart_x: int = heart.position.x + heart.size.x / 2
+	return absi(drift.x1 - heart_x) < absi(drift.x0 - heart_x) and drift.side == (1 if drift.x1 > drift.x0 else -1)
