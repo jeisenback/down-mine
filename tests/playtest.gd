@@ -61,6 +61,7 @@ func _run() -> void:
 		["torches_light_the_early_mine", _torches_light_the_early_mine],
 		["abandon_a_run", _abandon_a_run],
 		["clues_in_the_old_workings", _clues_in_the_old_workings],
+		["gamepad_play", _gamepad_play],
 	]
 	var failed := 0
 	for entry in scenarios:
@@ -1074,3 +1075,44 @@ func _clues_in_the_old_workings() -> void:
 			check(flask.get_node("Glint").energy > 0.0, "the flask carries a glint")
 			await shot("a_flask_glints_in_the_dark")
 			return
+
+## A run on a gamepad (controller support), through the named methods only: walk with the stick,
+## jump with A, throw a rope with the tool cycle and Y, open the controls with Start and close them
+## with B. The pictures show the pad's tool line and its help.
+func _gamepad_play() -> void:
+	await _in_shaft()
+	var pad: GamepadControls = main.gamepad_controls
+	ControlScheme.pad_last = true # as the first joypad event would set it
+	var start_x: float = main.player.global_position.x
+	pad.axis(JOY_AXIS_LEFT_X, 1.0)
+	await frames(45)
+	pad.axis(JOY_AXIS_LEFT_X, 0.0)
+	check(main.player.global_position.x > start_x + 4.0, "the stick walks the miner")
+	var floor_y: float = main.player.global_position.y
+	var highest := floor_y
+	pad.button(JOY_BUTTON_A, true)
+	for i in range(20):
+		await physics_frame
+		highest = minf(highest, main.player.global_position.y)
+	pad.button(JOY_BUTTON_A, false)
+	check(highest < floor_y - 4.0, "A jumps")
+	await _place(Vector2i(main.mine.shaft_column(), 40))
+	check(main.hud.lamp_label.visible and main.hud.lamp_label.text.contains("Tool: Rope"), "the tool line names the picked tool (%s)" % main.hud.lamp_label.text)
+	await shot("pad_tool_line")
+	var ropes_before: int = main.find_children("*", "Rope", true, false).size()
+	pad.button(JOY_BUTTON_Y, true)
+	await frames(6)
+	pad.button(JOY_BUTTON_Y, false)
+	await frames(10)
+	check(main.find_children("*", "Rope", true, false).size() > ropes_before, "Y throws the picked tool: a rope")
+	pad.button(JOY_BUTTON_START, true)
+	pad.button(JOY_BUTTON_START, false)
+	await frames(8)
+	check(paused, "Start opens the controls and pauses")
+	check(main.hud._overlay_label.text.contains("Start") and main.hud._overlay_label.text.contains("LB / RB"), "the help names the pad's buttons")
+	await shot("pad_controls")
+	pad.button(JOY_BUTTON_B, true)
+	pad.button(JOY_BUTTON_B, false)
+	await frames(8)
+	check(not paused, "B closes it")
+	ControlScheme.pad_last = false
