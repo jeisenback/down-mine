@@ -35,6 +35,17 @@ func test_drifts_rooms_and_torches_are_typed_data() -> void:
 	assert_eq(stone.end_kind, "miner", "the Stone gallery ends at the lost miner")
 	assert_eq(stone.cells().size(), (absi(stone.x1 - stone.x0) + 1) * 2, "a drift lists its two rows of open cells")
 
+func test_a_drift_keeps_its_collapses_in_a_list() -> void:
+	var layout := shared_layout(1001)
+	for d in layout.drifts:
+		assert_true(d.from_shaft, "layer %d: the shaft feeds every drift for now" % d.layer)
+		if d.layer == 0:
+			assert_true(d.collapses.is_empty(), "Topsoil has no collapse")
+			assert_eq(d.to_dict()["features"]["collapse"], Rect2i(), "and the fingerprint key is empty")
+		else:
+			assert_eq(d.collapses.size(), 1, "layer %d has one collapse" % d.layer)
+			assert_eq(d.to_dict()["features"]["collapse"], d.collapses[0], "the fingerprint key holds it")
+
 func test_generate_is_a_pure_function_of_the_seed() -> void:
 	var a := MineGenerator.generate(4242)
 	var b := MineGenerator.generate(4242)

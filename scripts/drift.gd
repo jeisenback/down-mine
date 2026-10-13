@@ -11,8 +11,10 @@ var row: int
 ## The first cell beside the shaft, and the far end.
 var x0: int
 var x1: int
-## The collapsed stretch (Clay and Stone drifts); an empty Rect2i in Topsoil.
-var collapse := Rect2i()
+## The collapsed stretches (every drift below Topsoil); empty in Topsoil.
+var collapses: Array[Rect2i] = []
+## Whether the old shaft feeds this drift (its mouth is beside the shaft).
+var from_shaft := true
 ## What stands at the far end: "camp", or "miner" for the Stone gallery.
 var end_kind: String
 
@@ -39,4 +41,4 @@ func cells() -> Array[Vector2i]:
 ## The dictionary this class replaced, key for key (the golden mine fingerprints hash it).
 func to_dict() -> Dictionary:
 	return {"layer": layer, "side": side, "row": row, "x0": x0, "x1": x1,
-		"features": {"collapse": collapse, "end": end_kind}}
+		"features": {"collapse": collapses[0] if not collapses.is_empty() else Rect2i(), "end": end_kind}}

@@ -314,7 +314,7 @@ func _collapse_drift(drift: Drift, length: int, rng: RandomNumberGenerator) -> v
 			_solid[x][y] = true
 			_layout.debris_cells[Vector2i(x, y)] = true
 			_layout.reserved_floors[Vector2i(x, y)] = true
-	drift.collapse = Rect2i(mini(first_x, last_x), drift.row - 1, size, 2)
+	drift.collapses.append(Rect2i(mini(first_x, last_x), drift.row - 1, size, 2))
 
 ## Carves the EVENT_ROOMS entries after the Heart (see _carve_event_room).
 func _carve_event_rooms() -> void:

@@ -567,7 +567,7 @@ func _drift_collapse() -> void:
 	check(d != null, "seed %d has a Clay gallery" % SEED)
 	if d == null:
 		return
-	var box: Rect2i = d.collapse
+	var box: Rect2i = d.collapses[0]
 	var mouth_edge: int = box.position.x if d.side > 0 else box.end.x - 1
 	await _place(Vector2i(mouth_edge - d.side * 3, d.row))
 	await shot("before")
