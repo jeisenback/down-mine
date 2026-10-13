@@ -334,3 +334,44 @@ func test_main_tells_the_hud_the_tool_only_while_the_pad_is_in_use() -> void:
 	assert_eq(main.hud.pad_tool_text, "Rope", "a pad player sees the selected tool")
 	ControlScheme.pad_last = false
 	Progress.path_override = ""
+
+# --- text for the pad scheme ------------------------------------------------------------
+
+func test_key_hints_name_the_pads_buttons() -> void:
+	assert_eq(KeyHint.label("E", "pad"), "B", "E is B")
+	assert_eq(KeyHint.label("Enter", "pad"), "A", "Enter is A")
+	assert_eq(KeyHint.label("Esc", "pad"), "Start", "Esc is Start")
+	assert_eq(KeyHint.label("P", "pad"), "LB/RB then Y", "a tool or base action is picked with the bumpers, then Y")
+	assert_eq(KeyHint.label("Z", "pad"), "Z", "an unknown key is left alone")
+	assert_eq(KeyHint.prompt("E: extract", "pad"), "B: extract", "a prompt's key becomes the button")
+	assert_eq(KeyHint.prompt("P: plant base here", "pad"), "LB/RB then Y: plant base here", "the base action")
+	assert_eq(KeyHint.prompt("1: buy", "pad", true), "X: buy", "the hub's first buy is X")
+	assert_eq(KeyHint.prompt("2: buy", "pad", true), "Y: buy", "the second is Y")
+	assert_eq(KeyHint.prompt("3: buy", "pad", true), "RB: buy", "the third is RB")
+	assert_eq(KeyHint.prompt("1: buy", "keys", true), "1: buy", "a keyboard keeps its digits")
+	assert_eq(KeyHint.prompt("Nothing to see", "pad"), "Nothing to see", "text with no key is left alone")
+	assert_eq(KeyHint.label("E", true), "Use", "a bool still means touch")
+	assert_eq(KeyHint.label("E", false), "E", "and false means keys")
+
+func test_the_overlays_name_the_pad_when_it_was_used_last() -> void:
+	var hud: HUD = add(load("res://scenes/HUD.tscn").instantiate())
+	ControlScheme.pad_last = true
+	var mine := hud._controls_text()
+	assert_true(mine.contains("Start") and mine.contains("LB / RB") and not mine.contains("Space"), "the mine's help names the pad's buttons")
+	assert_true(mine.contains("X  abandon"), "and the abandon line (X in the menu)")
+	hud.set_hub_mode()
+	var hub := hud._controls_text()
+	assert_true(hub.contains("X / Y / RB") and hub.contains("buy"), "the hub's help names the buy buttons")
+	hud._hub_mode = false
+	hud._set_overlay(HUD.Overlay.TITLE)
+	assert_true(hud._overlay_label.text.contains("A: start") and hud._overlay_label.text.contains("Start: controls"), "the title names A and Start")
+	hud._set_overlay(HUD.Overlay.ASK_ABANDON)
+	assert_true(hud._overlay_label.text.contains("X again") and hud._overlay_label.text.contains("B to cancel"), "the abandon prompt names X and B")
+	hud._set_overlay(HUD.Overlay.NONE)
+	tree.paused = false
+	hud._process(0.0)
+	assert_eq(hud.esc_hint.text, "Start: controls", "the corner hint names Start")
+	assert_true(hud.esc_hint.visible, "and shows")
+	ControlScheme.pad_last = false
+	hud._process(0.0)
+	assert_eq(hud.esc_hint.text, "Esc: controls", "a keyboard keeps Esc")
