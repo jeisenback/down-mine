@@ -114,6 +114,7 @@ func _run(mine_seed: int) -> MineLayout:
 	_layout.event_rooms.append(_heart)
 	_carve_event_rooms()
 	_carve_connectors()
+	_mark_mouths()
 
 	var shaft := shaft_rect(_layout.shaft_end_row)
 	for x in range(MineGrid.GRID_WIDTH):
@@ -140,6 +141,7 @@ func _run(mine_seed: int) -> MineLayout:
 	_layout.spare_floor_cells = floor_cells.slice(used)
 	_pick_lost_miner_cell()
 	_place_torches()
+	_place_gallery_torches()
 	return _layout
 
 func _make_grid(default_value: bool) -> Array:
@@ -467,6 +469,57 @@ func _plan_connector(spine: Drift, room: EventRoom, dir: int, xs: int, taken: Di
 	if not room.rect.has_point(cells[n - 1] + Vector2i(dir, 0)):
 		return null
 	return Connector.new(room, layer_index_for_row(room.cell.y), dir, cells, Vector2i(xs, spine.row))
+
+## Frames each connector's mouth: a pair of posts (both rows) on either side of the two-column pit
+## in its spine's floor, so a side branch reads from the spine. Skipped where the spine ends or
+## the column is in a collapse.
+func _mark_mouths() -> void:
+	for c in _layout.connectors:
+		var spine: Drift = _layout.drifts.filter(func(d): return d.layer == c.layer)[0]
+		var low := mini(spine.x0, spine.x1)
+		var high := maxi(spine.x0, spine.x1)
+		for column in [c.mouth.x - c.dir, c.mouth.x + 2 * c.dir]:
+			if column < low or column > high or spine.collapses.any(func(b: Rect2i): return b.has_point(Vector2i(column, spine.row))):
+				continue
+			_layout.decor[Vector2i(column, spine.row)] = MineLayout.Decor.POST
+			_layout.decor[Vector2i(column, spine.row - 1)] = MineLayout.Decor.POST
+
+## Lit torches along each spine, one per SPINE_TORCH_SPACING tiles, spread evenly: a worked passage
+## shows from beyond the lantern's reach. Each stands on an open standing cell (never in a collapse,
+## over a junction pit, or on a pickup or another torch), found within a few tiles of its even spot.
+## No random numbers: the spots are fixed by the spine.
+func _place_gallery_torches() -> void:
+	var taken := {}
+	for cell in _layout.fuel_cells:
+		taken[cell] = true
+	for ore in _layout.ore_cells:
+		taken[ore.cell] = true
+	for t in _layout.torches:
+		taken[t.cell] = true
+	for d in _layout.drifts:
+		var count: int = d.length() / MineGrid.SPINE_TORCH_SPACING
+		for k in range(count):
+			var cell := _torch_cell_near(d, int((k + 0.5) * d.length() / count), taken)
+			if cell.x < 0:
+				continue
+			taken[cell] = true
+			_layout.torches.append(TorchSite.new(cell, "gallery"))
+
+## The standing cell nearest `offset` along the spine (searching up to 9 tiles either way) where a
+## torch can stand, or (-1, -1).
+func _torch_cell_near(d: Drift, offset: int, taken: Dictionary) -> Vector2i:
+	for reach in range(10):
+		for sign in ([1, -1] if reach > 0 else [1]):
+			var i: int = offset + sign * reach
+			if i < 1 or i > d.length() - 2:
+				continue
+			var cell := Vector2i(d.x0 + d.side * i, d.row)
+			if _solid[cell.x][cell.y] or not _solid[cell.x][cell.y + 1] or taken.has(cell):
+				continue
+			if d.collapses.any(func(box: Rect2i): return box.has_point(cell)):
+				continue
+			return cell
+	return Vector2i(-1, -1)
 
 ## Opens a planned connector: two rows per cell, a floor under each (planks over a cave), all of it
 ## kept clear of pickups and gas, and its floors from crumbling.

@@ -89,6 +89,8 @@ const SPINE_POST_MISSING_CHANCE := 0.25
 const GALLERY_FUEL_TILES := 12
 const GALLERY_ORE_TILES := 25
 # Connectors (spine to room): a chance per eligible room, and the longest allowed (a drop of 36 rows).
+# One lit torch per this many tiles of spine: a worked gallery shows from a distance (old workings, clues).
+const SPINE_TORCH_SPACING := 30
 const CONNECTOR_CHANCE := 0.8
 const CONNECTOR_MAX_LENGTH := 70
 const HEART_STANDOFF_TILES := 10 # the deepest spine stops this far short of the Heart's room
