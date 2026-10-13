@@ -57,6 +57,6 @@ func test_every_golden_seed_matches() -> void:
 		mine.free()
 
 func test_the_fingerprint_covers_every_layout_field() -> void:
-	for field in ["mine_seed", "shaft_end_row", "lost_miner_cell", "old_ladder_rows", "drifts", "event_rooms", "torches",
+	for field in ["mine_seed", "shaft_end_row", "lost_miner_cell", "old_ladder_rows", "drifts", "connectors", "event_rooms", "torches",
 			"_room_cells", "_reserved_floors", "_plank_cells", "_debris_cells", "_vault_cells", "_spare_floor_cells"]:
 		assert_true(MineFingerprint.FIELDS.has(field), "%s is fingerprinted" % field)

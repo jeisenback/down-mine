@@ -5,7 +5,7 @@ class_name MineFingerprint
 
 ## The MineGrid members the fingerprint covers; a test checks this list stays complete.
 const FIELDS := [
-	"mine_seed", "shaft_end_row", "lost_miner_cell", "old_ladder_rows", "drifts", "event_rooms", "torches",
+	"mine_seed", "shaft_end_row", "lost_miner_cell", "old_ladder_rows", "drifts", "connectors", "event_rooms", "torches",
 	"_room_cells", "_reserved_floors", "_plank_cells", "_debris_cells", "_vault_cells", "_spare_floor_cells",
 ]
 
@@ -41,7 +41,7 @@ static func _sorted_cells(cells: Array) -> Array:
 	sorted.sort_custom(func(a: Vector2i, b: Vector2i): return a.x < b.x or (a.x == b.x and a.y < b.y))
 	return sorted
 
-## Arrays of typed data objects (Drift, EventRoom, TorchSite) as the dictionaries they replaced, so
+## Arrays of typed data objects (Drift, Connector, EventRoom, TorchSite) as the dictionaries they replaced, so
 ## the recorded fingerprints stay valid: same keys, same order.
 static func _plain(value):
 	if value is Array:

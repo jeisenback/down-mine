@@ -113,6 +113,7 @@ func _run(mine_seed: int) -> MineLayout:
 	_carve_old_mine()
 	_layout.event_rooms.append(_heart)
 	_carve_event_rooms()
+	_carve_connectors()
 
 	var shaft := shaft_rect(_layout.shaft_end_row)
 	for x in range(MineGrid.GRID_WIDTH):
@@ -255,6 +256,7 @@ func _carve_workings() -> void:
 		var hi: int = mini(rows.y - 3, open.y - 3)
 		if lo > hi:
 			continue
+		hi = mini(hi, lo + (rows.y - rows.x) / MineGrid.SPINE_ROW_FRACTION) # upper part of the layer: most rooms lie below
 		var row := _work_rng.randi_range(lo, hi)
 		var side := _work_rng.randi_range(0, 1) * 2 - 1
 		if layer == 2 and _heart != null:
@@ -309,7 +311,7 @@ func _carve_deep_workings() -> void:
 	var heading := 1 if _heart != null and _heart.cell.x >= MineGrid.GRID_WIDTH / 2 else -1
 	for layer in range(3, MineGrid.LAYERS.size()):
 		var rows := layer_rows(layer)
-		var row := _work_rng.randi_range(rows.x + 3, rows.y - 3)
+		var row := _work_rng.randi_range(rows.x + 3, rows.x + 3 + (rows.y - rows.x) / MineGrid.SPINE_ROW_FRACTION)
 		var length := _work_rng.randi_range(MineGrid.SPINE_MIN_LENGTH, MineGrid.SPINE_MAX_LENGTH)
 		var start_offset := _work_rng.randi_range(0, 10)
 		var anchor := _heart.rect if layer == MineGrid.LAYERS.size() - 1 and _heart != null else Rect2i()
@@ -384,6 +386,106 @@ func _decay_spine(drift: Drift) -> void:
 				_layout.debris_cells[Vector2i(x, y)] = true
 				_layout.reserved_floors[Vector2i(x, y)] = true
 		drift.collapses.append(Rect2i(mini(first_x, last_x), drift.row - 1, span.y - span.x + 1, 2))
+
+## The cells of a connector's staircase for a drop of `dy` rows to a room's standing row: a two-column
+## pit two rows under the spine, then two columns for each further level. A flat run may follow.
+static func connector_length(dy: int) -> int:
+	return 2 * dy - 2
+
+## The junction column of a connector running `dir` to a room whose near interior column is
+## `near_x`, `dy` rows below the spine that spans columns low..high: the spine column nearest the
+## room that still leaves room for the staircase, or -1 when none fits (the pit needs the junction
+## column and the next one on the spine). Whatever distance is left over is a flat run.
+static func connector_origin(near_x: int, dy: int, dir: int, low: int, high: int) -> int:
+	var stairs := connector_length(dy)
+	var xs := mini(high - 1, near_x - stairs) if dir > 0 else maxi(low + 1, near_x + stairs)
+	return xs if xs >= low and xs <= high else -1
+
+## After the rooms exist: a passage from each layer's spine down to each eligible room beside it
+## (not the vault, the Heart, the lift or a drift's own camp), with chance CONNECTOR_CHANCE drawn
+## once per room from _work_rng, in event room order. The shorter side wins; a passage that would touch the shaft, another room, another spine, another
+## connector, or a collapse is dropped.
+func _carve_connectors() -> void:
+	_layout.connectors.clear()
+	var taken := {} # cells of connectors already carved, with their floors
+	for room in _layout.event_rooms.duplicate():
+		if room.kind in ["vault", "heart", "lift"] or room.at_drift_end or room.in_shaft:
+			continue
+		var layer := layer_index_for_row(room.cell.y)
+		var spines: Array = _layout.drifts.filter(func(d): return d.layer == layer)
+		if spines.is_empty():
+			continue
+		var spine: Drift = spines[0]
+		if _work_rng.randf() >= MineGrid.CONNECTOR_CHANCE:
+			continue
+		var dy: int = room.cell.y - spine.row
+		if dy < 2 or connector_length(dy) > MineGrid.CONNECTOR_MAX_LENGTH:
+			continue
+		var best: Connector = null
+		for dir in [1, -1]:
+			var near_x: int = room.rect.position.x if dir > 0 else room.rect.end.x - 1
+			var xs := connector_origin(near_x, dy, dir, mini(spine.x0, spine.x1), maxi(spine.x0, spine.x1))
+			if xs < 0 or absi(near_x - xs) > MineGrid.CONNECTOR_MAX_LENGTH:
+				continue
+			var candidate := _plan_connector(spine, room, dir, xs, taken)
+			if candidate != null and (best == null or candidate.cells.size() < best.cells.size()):
+				best = candidate # the shorter way wins
+		if best != null:
+			_cut_connector(best, taken)
+			_layout.connectors.append(best)
+
+## The connector from `spine` to `room` running `dir` from column `xs`, or null when it does not fit.
+func _plan_connector(spine: Drift, room: EventRoom, dir: int, xs: int, taken: Dictionary) -> Connector:
+	var near_x: int = room.rect.position.x if dir > 0 else room.rect.end.x - 1
+	var n := absi(near_x - xs)
+	var last_level := room.cell.y - spine.row - 2
+	var low := mini(spine.x0, spine.x1)
+	var high := maxi(spine.x0, spine.x1)
+	for junction in [xs, xs + dir]: # the pit opens two columns of the spine's floor
+		if junction < low or junction > high or spine.collapses.any(func(b: Rect2i): return junction >= b.position.x - 1 and junction <= b.end.x):
+			return null
+	var cells: Array[Vector2i] = []
+	var shaft := shaft_rect(_layout.shaft_end_row).grow(1)
+	for i in range(n):
+		var cell := Vector2i(xs + dir * i, spine.row + 2 + mini(i / 2, last_level))
+		if cell.x < MineGrid.WORKING_EDGE_MARGIN or cell.x > MineGrid.GRID_WIDTH - 1 - MineGrid.WORKING_EDGE_MARGIN or cell.y + 1 > MineGrid.GRID_HEIGHT - 2:
+			return null
+		var box := Rect2i(cell.x, cell.y - 1, 1, 3) # two open rows and the floor
+		if shaft.intersects(box):
+			return null
+		for other in _layout.event_rooms:
+			if other != room and other.rect.grow(2).intersects(box):
+				return null
+		for d in _layout.drifts:
+			if (d != spine or i >= 2) and Rect2i(mini(d.x0, d.x1), d.row - 1, d.length(), 3).grow(1 if d != spine else 0).intersects(box):
+				return null
+		for dx in [-1, 0, 1]:
+			for dy in range(-2, 3):
+				if taken.has(cell + Vector2i(dx, dy)):
+					return null
+		cells.append(cell)
+	if not room.rect.has_point(cells[n - 1] + Vector2i(dir, 0)):
+		return null
+	return Connector.new(room, layer_index_for_row(room.cell.y), dir, cells, Vector2i(xs, spine.row))
+
+## Opens a planned connector: two rows per cell, a floor under each (planks over a cave), all of it
+## kept clear of pickups and gas, and its floors from crumbling.
+func _cut_connector(c: Connector, taken: Dictionary) -> void:
+	for cell in c.cells:
+		for y in [cell.y - 1, cell.y]:
+			var open := Vector2i(cell.x, y)
+			_solid[open.x][open.y] = false
+			_layout.room_cells[open] = true
+			_layout.plank_cells.erase(open)
+			_layout.reserved_floors.erase(open)
+			taken[open] = true
+		var floor_cell := cell + Vector2i.DOWN
+		if not _solid[floor_cell.x][floor_cell.y]:
+			_solid[floor_cell.x][floor_cell.y] = true
+			_layout.plank_cells[floor_cell] = true
+		_layout.room_cells[floor_cell] = true
+		_layout.reserved_floors[floor_cell] = true
+		taken[floor_cell] = true
 
 ## Carves the EVENT_ROOMS entries after the Heart (see _carve_event_room).
 func _carve_event_rooms() -> void:
@@ -479,7 +581,7 @@ func _gallery_pickups() -> Dictionary:
 		var usable: Array[Vector2i] = []
 		for i in range(1, d.length() - 1):
 			var cell := Vector2i(d.x0 + d.side * i, d.row)
-			if not d.collapses.any(func(box: Rect2i): return box.has_point(cell)):
+			if _solid[cell.x][cell.y + 1] and not d.collapses.any(func(box: Rect2i): return box.has_point(cell)):
 				usable.append(cell)
 		for kind in ["fuel", "ore"]:
 			var wanted: int = d.length() / (MineGrid.GALLERY_FUEL_TILES if kind == "fuel" else MineGrid.GALLERY_ORE_TILES)
