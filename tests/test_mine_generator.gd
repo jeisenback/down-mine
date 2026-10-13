@@ -4,6 +4,7 @@ extends TestCase
 ## MineLayout with no scene and no tile map. The same seeds as the old MineGrid tests.
 
 const TORCH_SEEDS := [1001, 1, 2, 3, 31, 35, 44, 98]
+const GoldenTest := preload("res://tests/test_mine_golden.gd")
 
 func _in_shaft(layout: MineLayout, cell: Vector2i) -> bool:
 	return MineGenerator.shaft_rect(layout.shaft_end_row).has_point(cell)
@@ -43,8 +44,8 @@ func test_a_drift_keeps_its_collapses_in_a_list() -> void:
 			assert_true(d.collapses.is_empty(), "Topsoil has no collapse")
 			assert_eq(d.to_dict()["features"]["collapse"], Rect2i(), "and the fingerprint key is empty")
 		else:
-			assert_eq(d.collapses.size(), 1, "layer %d has one collapse" % d.layer)
-			assert_eq(d.to_dict()["features"]["collapse"], d.collapses[0], "the fingerprint key holds it")
+			assert_true(d.collapses.size() >= MineGrid.SPINE_COLLAPSES_MIN, "layer %d has several collapses" % d.layer)
+			assert_eq(d.to_dict()["features"]["collapse"], d.collapses[0], "the fingerprint key holds the first, nearest the mouth")
 
 func test_generate_is_a_pure_function_of_the_seed() -> void:
 	var a := MineGenerator.generate(4242)
@@ -70,6 +71,45 @@ func test_layout_invariants_hold_for_many_seeds() -> void:
 		for d in layout.drifts:
 			assert_eq(layout.kind_at(Vector2i(layout.shaft_column() + d.side, d.row + 1)), MineLayout.Kind.PLANK, "seed %d: a plank landing beside the shaft" % s)
 
+# --- spines (long, decayed galleries) -------------------------------------------
+
+func test_spines_are_long() -> void:
+	for s in GoldenTest.SEEDS:
+		for d in shared_layout(s).drifts:
+			if d.from_shaft:
+				assert_true(d.length() >= MineGrid.SPINE_MIN_LENGTH and d.length() <= MineGrid.SPINE_MAX_LENGTH, "seed %d layer %d: length %d" % [s, d.layer, d.length()])
+
+func test_spines_are_walkable_and_decayed() -> void:
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		for d in layout.drifts:
+			assert_eq(GalleryChecks.passage_problems(layout, d), [], "seed %d layer %d passage" % [s, d.layer])
+			assert_eq(GalleryChecks.collapse_problems(d), [], "seed %d layer %d collapses" % [s, d.layer])
+
+func test_spines_leave_the_shaft_at_the_landing_and_stay_in_the_map() -> void:
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		for d in layout.drifts:
+			assert_eq(d.x0, layout.shaft_column() + d.side * (MineGrid.SHAFT_WIDTH / 2 + 1), "seed %d: starts beside the shaft" % s)
+			assert_eq(layout.kind_at(Vector2i(layout.shaft_column() + d.side, d.row + 1)), MineLayout.Kind.PLANK, "seed %d: a plank landing" % s)
+			assert_true(mini(d.x0, d.x1) >= MineGrid.WORKING_EDGE_MARGIN and maxi(d.x0, d.x1) <= MineGrid.GRID_WIDTH - 1 - MineGrid.WORKING_EDGE_MARGIN, "seed %d: inside the margins" % s)
+
+func test_the_stone_spine_takes_the_side_facing_the_heart() -> void:
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		var heart: EventRoom = layout.event_rooms.filter(func(r): return r.kind == "heart")[0]
+		var stone: Array = layout.drifts.filter(func(d): return d.layer == 2)
+		if stone.is_empty():
+			continue
+		assert_eq(stone[0].side, 1 if heart.cell.x > layout.shaft_column() else -1, "seed %d: Stone heads for the Heart" % s)
+
+func test_the_shaft_and_ladder_keep_their_values() -> void:
+	# Recorded from the code before the workings: they draw before the drifts, from the same stream.
+	var expected := {1001: 163, 1: 180, 2: 171}
+	for s in expected:
+		assert_eq(shared_layout(s).shaft_end_row, expected[s], "seed %d: the shaft ends where it did" % s)
+	assert_eq(shared_layout(1001).old_ladder_rows, [5, 13, 29, 45, 53, 61, 69, 77, 85, 101, 109, 117, 141, 149], "seed 1001: the same ladder pieces")
+
 # --- the old mine -----------------------------------------------------------------
 
 func test_about_thirty_percent_of_old_ladder_pieces_are_missing() -> void:
@@ -94,7 +134,7 @@ func test_each_worked_layer_gets_a_drift_of_the_right_shape() -> void:
 		for d in layout.drifts:
 			assert_eq(MineGenerator.layer_index_for_row(d.row), d.layer, "seed %d: the drift sits in its layer" % s)
 			var length: int = absi(d.x1 - d.x0) + 1
-			assert_true(length >= MineGrid.DRIFT_MIN_LENGTH and length <= MineGrid.DRIFT_MAX_LENGTH, "seed %d: length %d" % [s, length])
+			assert_true(length >= MineGrid.SPINE_MIN_LENGTH and length <= MineGrid.SPINE_MAX_LENGTH, "seed %d: length %d" % [s, length])
 			assert_eq(d.x0, layout.shaft_column() + d.side * (MineGrid.SHAFT_WIDTH / 2 + 1), "seed %d: starts beside the shaft" % s)
 			for cell in d.cells():
 				assert_true(not layout.is_solid(cell) or layout.kind_at(cell) == MineLayout.Kind.DEBRIS, "seed %d: open at %s" % [s, cell])
@@ -103,18 +143,27 @@ func test_each_worked_layer_gets_a_drift_of_the_right_shape() -> void:
 				assert_true(layout.is_solid(Vector2i(x, d.row + 1)), "seed %d: floor at x=%d" % [s, x])
 				assert_true(floor_kind != MineLayout.Kind.BEDROCK and floor_kind != MineLayout.Kind.VAULT, "seed %d: and it digs" % s)
 
-func test_drifts_floor_caves_with_planks_and_post_every_six_tiles() -> void:
+func test_drifts_floor_caves_with_planks_and_post_in_uneven_pairs() -> void:
 	var planks := 0
+	var gaps := {}
 	for s in range(1, 13):
 		var layout := shared_layout(s)
 		for d in layout.drifts:
-			for i in range(absi(d.x1 - d.x0) + 1):
+			var last_post := 0
+			for i in range(d.length()):
 				var x: int = d.x0 + d.side * i
 				if layout.kind_at(Vector2i(x, d.row + 1)) == MineLayout.Kind.PLANK:
 					planks += 1
-				var posted: bool = layout.decor.get(Vector2i(x, d.row), -1) == MineLayout.Decor.POST
-				assert_eq(posted, i > 0 and i % MineGrid.DRIFT_POST_SPACING == 0, "seed %d: post at step %d" % [s, i])
+				var low: bool = layout.decor.get(Vector2i(x, d.row), -1) == MineLayout.Decor.POST
+				var high: bool = layout.decor.get(Vector2i(x, d.row - 1), -1) == MineLayout.Decor.POST
+				assert_eq(low, high, "seed %d: a post is a pair at step %d" % [s, i])
+				if low:
+					assert_true(i > 0, "seed %d: no post at the mouth" % s)
+					assert_true(i - last_post >= MineGrid.SPINE_POST_GAP_MIN or last_post == 0, "seed %d: posts at least %d apart (%d)" % [s, MineGrid.SPINE_POST_GAP_MIN, i - last_post])
+					gaps[i - last_post] = true
+					last_post = i
 	assert_true(planks > 0, "across 12 seeds some drift crosses a cave and gets planks")
+	assert_true(gaps.size() > 2, "post gaps are uneven (%s)" % str(gaps.keys()))
 
 func test_the_lift_stands_in_the_shaft_at_the_bottom_of_clay() -> void:
 	# 31 and 98 move the lift off a Clay gallery; 35 caps it at the shaft's open end and then moves it.

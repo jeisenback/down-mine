@@ -758,7 +758,7 @@ func test_clay_and_stone_drifts_have_a_collapsed_section_and_topsoil_does_not() 
 				assert_true(d.collapses.is_empty(), "seed %d: Topsoil's drift is clear" % s)
 				continue
 			var box: Rect2i = d.collapses[0]
-			assert_true(box.size.x >= MineGrid.DRIFT_COLLAPSE_MIN and box.size.x <= MineGrid.DRIFT_COLLAPSE_MAX, "seed %d: layer %d collapse is %d long" % [s, d.layer, box.size.x])
+			assert_true(box.size.x >= MineGrid.SPINE_COLLAPSE_MIN and box.size.x <= MineGrid.SPINE_COLLAPSE_MAX, "seed %d: layer %d collapse is %d long" % [s, d.layer, box.size.x])
 			assert_eq(box.size.y, 2, "seed %d: it fills both rows" % s)
 			for cell in _cells_of(box):
 				assert_eq(mine.get_cell_atlas_coords(0, cell), MineGrid.DEBRIS_ATLAS_COORDS, "seed %d: debris at %s" % [s, cell])
