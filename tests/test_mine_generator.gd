@@ -198,6 +198,7 @@ func test_the_pickup_totals_are_unchanged() -> void:
 
 func test_a_short_gallery_leaves_the_shortfall_to_the_caves() -> void:
 	var gen := MineGenerator.new()
+	gen._solid = gen._make_grid(true) # every standing cell has a floor
 	var drift := Drift.new(3, 1, 100, 10, 49, "") # 40 tiles: wants 3 fuel and 1 ore
 	drift.collapses = [Rect2i(11, 99, 35, 2)] # only x = 46, 47, 48 are usable
 	gen._layout.drifts = [drift]
@@ -206,6 +207,75 @@ func test_a_short_gallery_leaves_the_shortfall_to_the_caves() -> void:
 	assert_eq(found.ore.size(), 0, "so the ore is left to the caves")
 	for cell in found.fuel:
 		assert_true(cell.x >= 46 and cell.x <= 48 and cell.y == 100, "and only usable cells: %s" % cell)
+
+# --- connectors (passages from the spines to the rooms) ----------------------------
+
+func _spine_for(layout: MineLayout, c: Connector) -> Drift:
+	return layout.drifts.filter(func(d): return d.layer == c.layer)[0]
+
+func test_connector_length_and_origin() -> void:
+	assert_eq(MineGenerator.connector_length(2), 2, "a drop of 2 is just the junction pit")
+	assert_eq(MineGenerator.connector_length(5), 8, "two columns per level")
+	assert_eq(MineGenerator.connector_length(36), MineGrid.CONNECTOR_MAX_LENGTH, "70 tiles of staircase is the cap")
+	assert_eq(MineGenerator.connector_origin(100, 5, 1, 40, 200), 92, "running right it starts the staircase's length left of the room")
+	assert_eq(MineGenerator.connector_origin(100, 5, -1, 40, 200), 108, "running left, to its right")
+	assert_eq(MineGenerator.connector_origin(100, 5, 1, 40, 90), 89, "a spine that ends short: start at its end and run flat")
+	assert_eq(MineGenerator.connector_origin(100, 5, 1, 95, 120), -1, "no spine column leaves room for the stairs: none")
+
+func test_connectors_are_walkable_and_meet_their_rooms() -> void:
+	var total := 0
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		for c in layout.connectors:
+			total += 1
+			var spine := _spine_for(layout, c)
+			assert_eq(GalleryChecks.connector_problems(layout, c, spine), [], "seed %d layer %d connector to a %s" % [s, c.layer, c.room.kind])
+			var rows := MineGenerator.layer_rows(c.layer)
+			assert_true(GalleryChecks.reachable(layout, c.mouth, c.room.cell, Vector2i(rows.x - 2, rows.y + 8)),
+					"seed %d: the %s is reachable on foot from its connector's mouth" % [s, c.room.kind])
+	assert_true(total >= 10, "across %d seeds some rooms get a connector (%d)" % [GoldenTest.SEEDS.size(), total])
+
+func test_connectors_skip_the_vault_the_heart_and_the_lift() -> void:
+	for s in GoldenTest.SEEDS:
+		for c in shared_layout(s).connectors:
+			assert_true(not c.room.kind in ["vault", "heart", "lift"] and not c.room.at_drift_end, "seed %d: no connector to a %s" % [s, c.room.kind])
+
+func test_connectors_do_not_cross_anything() -> void:
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		var taken := {}
+		for c in layout.connectors:
+			var spine := _spine_for(layout, c)
+			for i in range(c.cells.size()):
+				var cell: Vector2i = c.cells[i]
+				assert_true(not taken.has(cell), "seed %d: two connectors share %s" % [s, cell])
+				taken[cell] = true
+				assert_true(not MineGenerator.shaft_rect(layout.shaft_end_row).grow(1).has_point(cell), "seed %d: clear of the shaft" % s)
+				for room in layout.event_rooms:
+					if room != c.room:
+						assert_true(not room.rect.grow(1).has_point(cell), "seed %d: clear of the %s room" % [s, room.kind])
+				for d in layout.drifts:
+					if d != spine:
+						assert_true(not Rect2i(mini(d.x0, d.x1), d.row - 1, d.length(), 3).has_point(cell), "seed %d: clear of the layer %d spine" % [s, d.layer])
+			for box in spine.collapses:
+				assert_true(not box.grow(1).has_point(c.mouth), "seed %d: the junction is not in or beside a collapse" % s)
+		for room in layout.event_rooms.filter(func(r): return r.kind == "vault"):
+			for cell in layout.vault_cells:
+				assert_true(not taken.has(cell), "seed %d: the vault shell is untouched" % s)
+
+func test_the_connector_skip_rate_is_reported() -> void:
+	var eligible := 0
+	var connected := 0
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		for room in layout.event_rooms:
+			if room.kind in ["vault", "heart", "lift"] or room.at_drift_end or room.in_shaft:
+				continue
+			if layout.drifts.any(func(d): return d.layer == MineGenerator.layer_index_for_row(room.cell.y)):
+				eligible += 1
+		connected += layout.connectors.size()
+	print("connectors: %d of %d eligible rooms (%d%%) across %d seeds" % [connected, eligible, 100 * connected / maxi(eligible, 1), GoldenTest.SEEDS.size()])
+	assert_true(connected > 0, "some rooms are connected")
 
 func test_the_shaft_and_ladder_keep_their_values() -> void:
 	# Recorded from the code before the workings: they draw before the drifts, from the same stream.
@@ -245,7 +315,7 @@ func test_each_worked_layer_gets_a_drift_of_the_right_shape() -> void:
 				assert_true(not layout.is_solid(cell) or layout.kind_at(cell) == MineLayout.Kind.DEBRIS, "seed %d: open at %s" % [s, cell])
 			for x in range(mini(d.x0, d.x1), maxi(d.x0, d.x1) + 1):
 				var floor_kind := layout.kind_at(Vector2i(x, d.row + 1))
-				assert_true(layout.is_solid(Vector2i(x, d.row + 1)), "seed %d: floor at x=%d" % [s, x])
+				assert_true(layout.is_solid(Vector2i(x, d.row + 1)) or GalleryChecks.in_a_junction_pit(layout, d, x), "seed %d: floor at x=%d" % [s, x])
 				assert_true(floor_kind != MineLayout.Kind.BEDROCK and floor_kind != MineLayout.Kind.VAULT, "seed %d: and it digs" % s)
 
 func test_drifts_floor_caves_with_planks_and_post_in_uneven_pairs() -> void:

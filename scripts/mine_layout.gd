@@ -14,6 +14,7 @@ var kinds := PackedByteArray()
 ## Decor-layer cells (shaft timber, drift posts): cell -> Decor.
 var decor: Dictionary = {}
 var drifts: Array[Drift] = []
+var connectors: Array[Connector] = []
 var event_rooms: Array[EventRoom] = []
 var torches: Array[TorchSite] = []
 ## Sets of cells (cell -> true), as MineGrid keeps them.

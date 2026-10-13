@@ -211,6 +211,15 @@ dictates.
   (`mine_seed + 53`). **Every layout changed on purpose** and the 31 golden fingerprints were re-recorded; "Seed 1001" is a different
   mine. Bots, after: round trip identical to M79; the Heart bot claims the Heart on 4 of 6 seeds (was 5 of 6), seeds 1001 and 2
   stick under refilled rock on a rope (the bot's own weakness, not light). Next: connectors to rooms (phase 2), then clues (phase 3).
+- ~~**M81 - Old workings, phase 2: connectors to rooms.**~~ Done (issue #26): after the rooms exist, a passage runs from a layer's spine down to
+  a room in that layer. It drops out of the spine through a two-column pit in its floor, descends one tile every two columns (always below
+  the spine's own floor, so the spine stays whole), then runs flat to the room's door. Only rooms at least two rows below their spine get
+  one, at most 70 tiles long, with chance 0.8 per room; the vault, the Heart, the lift and a spine's own camp never do. A layout-only
+  flood fill walks each one from its mouth to its room. Spines now sit in the upper third of their layer so most rooms lie below them.
+  Measured over the 31 golden seeds: 42 of 209 eligible rooms (20%) are connected; 11% lie at or above their spine, 30% are too deep for
+  the cap (the staircase would be wider than the map, so a longer cap does not help), 23% lose the chance roll, the rest meet the shaft,
+  a collapse or another room. Goldens re-recorded again. Bots: round trip identical; the Heart bot claims the Heart on 5 of 6 seeds
+  (seed 1 sticks under refilled rock on a rope, the bot's own weakness). Next: clues (phase 3).
 
 ## Quality pass
 

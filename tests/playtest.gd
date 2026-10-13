@@ -500,6 +500,9 @@ func _shaft_end_from_stone() -> void:
 	await _place(Vector2i(col, open.y))
 	check(main.mine.is_solid(Vector2i(col, open.y + 1)), "the collapse is rock under the open shaft")
 	await shot("above_the_collapse")
+	# The dug column is left behind in the dark, where decay may refill it at random; this scenario is
+	# about digging, so decay waits (otherwise it passes or fails with whatever the earlier scenarios drew).
+	main.mine.decay_multiplier = 1000.0
 	await hold([KEY_S], 240)
 	check(_cell().y > main.mine.shaft_end_row, "dug through the collapse (row %d, collapse ends row %d)" % [_cell().y, main.mine.shaft_end_row])
 	check(not main.mine.is_solid(Vector2i(col, main.mine.shaft_end_row)), "the debris in the dug column is gone")

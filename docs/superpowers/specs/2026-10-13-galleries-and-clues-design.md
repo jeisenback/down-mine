@@ -93,3 +93,11 @@ Each is one PR from this spec. I play after each.
 - **Connector length.** A 70-tile cap on a one-tile-per-two-tiles staircase covers a rise or fall of about 35 rows. Rooms farther away than that in one layer get no connector. Check the skip rate over the 31 seeds; raise the cap if too many rooms are left alone.
 - **Free-standing workings can be missed** (that is the point: found by digging), but if the clues are too faint the player never finds them. Phase 3 is where that gets judged.
 - **Generation order.** Moving the Heart earlier must not change other rooms' placement: no other code draws from the room generator between the fill and the rooms. A test confirms it by checking that, with the workings off, the fingerprint of rooms equals the old one.
+
+## Implementation notes (phase 2)
+
+Building the connectors changed three things from the text above; the plan's ledger has the reasons.
+
+- A connector cannot share columns with a horizontal spine without cutting its floor. It leaves through a two-column pit and descends below the spine's floor, so only rooms at least two rows under their spine are served, and a flat run covers any remaining distance.
+- Spines sit in the upper third of their layer so that most rooms lie below them. Even so only about 20% of eligible rooms are connected (11% at or above the spine, 30% too deep for the 70-tile cap, 23% lose the 0.8 chance roll, the rest meet an obstacle).
+- Connectors have no collapses of their own (the spec said "may").

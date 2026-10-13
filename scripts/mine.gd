@@ -73,6 +73,9 @@ const PLANK_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 6, 0)
 # shaft has only the room beside it, so its length is clamped to that (about 73 tiles).
 const SPINE_MIN_LENGTH := 60
 const SPINE_MAX_LENGTH := 100
+# A spine sits in the top 1/SPINE_ROW_FRACTION of its layer, so most of the layer's rooms are below it
+# (connectors only run down from a spine).
+const SPINE_ROW_FRACTION := 3
 const WORKING_EDGE_MARGIN := 4 # tiles kept clear between a working and the map's side
 const SPINE_COLLAPSES_MIN := 2
 const SPINE_COLLAPSES_MAX := 4
@@ -85,6 +88,9 @@ const SPINE_POST_MISSING_CHANCE := 0.25
 # replace cave pickups, so the mine's totals (FUEL_DEPOSIT_COUNT, ORE_DEPOSIT_COUNT) do not change.
 const GALLERY_FUEL_TILES := 12
 const GALLERY_ORE_TILES := 25
+# Connectors (spine to room): a chance per eligible room, and the longest allowed (a drop of 36 rows).
+const CONNECTOR_CHANCE := 0.8
+const CONNECTOR_MAX_LENGTH := 70
 const HEART_STANDOFF_TILES := 10 # the deepest spine stops this far short of the Heart's room
 # The lift (milestone 51c): the old cage in the shaft, this many rows above
 # the bottom of Clay (capped to the shaft's open part).
@@ -219,6 +225,8 @@ var _reserved_floors: Dictionary = {}
 var event_rooms: Array[EventRoom] = []
 ## The old galleries, one Drift per worked layer.
 var drifts: Array[Drift] = []
+## The passages from the spines down to rooms.
+var connectors: Array[Connector] = []
 ## Collapsed-section cells (solid rock with timber over it, like the shaft's).
 var _debris_cells: Dictionary = {}
 ## Floor cells a drift laid over a cave.
@@ -278,6 +286,7 @@ func _apply(layout: MineLayout) -> void:
 	shaft_end_row = layout.shaft_end_row
 	old_ladder_rows = layout.old_ladder_rows.duplicate()
 	drifts = layout.drifts.duplicate()
+	connectors = layout.connectors.duplicate()
 	event_rooms = layout.event_rooms.duplicate()
 	torches = layout.torches.duplicate()
 	_room_cells = layout.room_cells.duplicate()
