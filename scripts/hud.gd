@@ -96,6 +96,8 @@ var _noise_warning: bool = false
 var _noise_value: float = 0.0
 var _message: String = ""
 var _message_time: float = 0.0
+## The tool the gamepad's Y would use, shown on the tool line while a pad is the last input in use.
+var pad_tool_text: String = ""
 var overlay: ColorRect
 var seed_label: Label
 var _hub_mode: bool = false
@@ -327,6 +329,8 @@ func update_tools(counts: Dictionary, snuffer_hunting: bool) -> void:
 	for tool_name in counts:
 		if counts[tool_name] >= 0:
 			parts.append("%s %d" % [tool_name, counts[tool_name]])
+	if pad_tool_text != "":
+		parts.append("Tool: %s" % pad_tool_text)
 	if snuffer_hunting:
 		parts.append("SNUFFER HUNTING")
 	lamp_label.text = "  ".join(parts)

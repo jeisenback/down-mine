@@ -34,6 +34,8 @@ var board_label: Label
 var board_panel: ColorRect
 ## The on-screen controls for phones; hidden unless touch is wanted.
 var touch_controls: TouchControls
+## The gamepad, as the same keys (controller support).
+var gamepad_controls: GamepadControls
 var change_scene: Callable = func(path: String): Engine.get_main_loop().change_scene_to_file(path)
 
 func _ready() -> void:
@@ -60,6 +62,9 @@ func _ready() -> void:
 	touch_controls = TouchControlsScene.instantiate()
 	add_child(touch_controls)
 	touch_controls.set_mode("hub")
+	gamepad_controls = GamepadControls.new()
+	add_child(gamepad_controls)
+	gamepad_controls.set_mode("hub")
 	Sfx.warm_up()
 
 func _build_ground() -> void:

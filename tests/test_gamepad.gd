@@ -284,3 +284,53 @@ func test_a_joypad_event_switches_the_scheme() -> void:
 	drift.axis_value = 0.1
 	pad._input(drift)
 	assert_eq(ControlScheme.current(), "keys", "stick noise is not a pad being used")
+
+# --- wired into the scenes ----------------------------------------------------------
+
+func test_main_builds_a_gamepad_controls_in_mine_mode() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var fresh := Progress.new()
+	fresh.save_path = TEST_SAVE_PATH
+	fresh.save()
+	var main: Main = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	assert_true(main.gamepad_controls is GamepadControls, "Main has a gamepad")
+	assert_eq(main.gamepad_controls.mode, "mine", "in the mine's mode")
+	assert_eq(main.gamepad_controls.selected_tool(), "tool_rope", "Rope is the first of the tools on offer")
+	Progress.path_override = ""
+
+func test_the_hub_has_a_gamepad_controls_in_hub_mode() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var hub: Hub = add(load("res://scenes/Hub.tscn").instantiate())
+	await physics_frames(3)
+	assert_true(hub.gamepad_controls is GamepadControls, "the hub has a gamepad")
+	assert_eq(hub.gamepad_controls.mode, "hub", "in the hub's mode")
+	Progress.path_override = ""
+
+func test_the_tool_line_names_the_selected_tool_on_the_pad() -> void:
+	var hud: HUD = add(load("res://scenes/HUD.tscn").instantiate())
+	hud.update_tools({"Lamps": 2}, false)
+	assert_eq(hud.lamp_label.text, "Lamps 2", "without a pad the line is as it was")
+	hud.pad_tool_text = "Rope"
+	hud.update_tools({"Lamps": 2}, false)
+	assert_eq(hud.lamp_label.text, "Lamps 2  Tool: Rope", "the pad adds the selected tool")
+	hud.update_tools({}, false)
+	assert_eq(hud.lamp_label.text, "Tool: Rope", "even with no counted tools")
+	assert_true(hud.lamp_label.visible, "and the line shows")
+	hud.pad_tool_text = ""
+	hud.update_tools({}, false)
+	assert_true(not hud.lamp_label.visible, "nothing to say: hidden as before")
+
+func test_main_tells_the_hud_the_tool_only_while_the_pad_is_in_use() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var fresh := Progress.new()
+	fresh.save_path = TEST_SAVE_PATH
+	fresh.save()
+	var main: Main = add(load("res://scenes/Main.tscn").instantiate())
+	await physics_frames(5)
+	assert_eq(main.hud.pad_tool_text, "", "a keyboard player sees no tool line")
+	ControlScheme.pad_last = true
+	await physics_frames(3)
+	assert_eq(main.hud.pad_tool_text, "Rope", "a pad player sees the selected tool")
+	ControlScheme.pad_last = false
+	Progress.path_override = ""

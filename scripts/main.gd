@@ -143,6 +143,8 @@ var _bell_ringing: bool = false
 var progress: Progress
 ## The on-screen controls for phones; hidden unless touch is wanted.
 var touch_controls: TouchControls
+## The gamepad, as the same keys (controller support).
+var gamepad_controls: GamepadControls
 ## How a scene is changed; tests swap it so the runner's scene is left alone.
 var change_scene: Callable = func(path: String): Engine.get_main_loop().change_scene_to_file(path)
 var lost_miners: Array[LostMiner] = []
@@ -197,6 +199,9 @@ func _ready() -> void:
 	add_child(touch_controls)
 	touch_controls.set_mode("mine")
 	touch_controls.abandon_check = hud.can_abandon
+	gamepad_controls = GamepadControls.new()
+	add_child(gamepad_controls)
+	gamepad_controls.set_mode("mine")
 	Sfx.warm_up()
 
 ## The old mine's ladder (milestone 51): each surviving 8-row piece is a run
@@ -393,6 +398,7 @@ func _process(delta: float) -> void:
 	if debug_enabled:
 		_check_debug_keys()
 	_check_snuffer_spawn(delta)
+	hud.pad_tool_text = GamepadMap.tool_label(gamepad_controls.selected_tool()) if ControlScheme.current() == "pad" else ""
 	hud.update_tools({
 		"Lamps": lamps_left if progress.has_unlock("lamps") or lamps_left > 0 else -1,
 		"Ladders": player.ladders_left if progress.has_unlock("ladders") or player.ladders_left > 0 else -1,
@@ -407,6 +413,9 @@ func _process(delta: float) -> void:
 	touch_controls.set_can_plant(_can_plant())
 	player.assist_dig = touch_controls.is_active()
 	touch_controls.set_tools_available(_touch_tools())
+	gamepad_controls.set_base_nearby(_near_base())
+	gamepad_controls.set_can_plant(_can_plant())
+	gamepad_controls.set_tools_available(_touch_tools())
 	max_depth_reached = max(max_depth_reached, _current_depth())
 	_check_extraction()
 
