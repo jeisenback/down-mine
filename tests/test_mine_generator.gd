@@ -4,12 +4,16 @@ extends TestCase
 ## MineLayout with no scene and no tile map. The same seeds as the old MineGrid tests.
 
 const TORCH_SEEDS := [1001, 1, 2, 3, 31, 35, 44, 98]
+const GoldenTest := preload("res://tests/test_mine_golden.gd")
 
 func _in_shaft(layout: MineLayout, cell: Vector2i) -> bool:
 	return MineGenerator.shaft_rect(layout.shaft_end_row).has_point(cell)
 
 func _pickup_cells(layout: MineLayout) -> Array:
 	return layout.fuel_cells + layout.ore_cells.map(func(o): return o.cell)
+
+func _on_a_spine(layout: MineLayout, cell: Vector2i) -> bool:
+	return layout.drifts.any(func(d: Drift): return cell.y == d.row and cell.x >= mini(d.x0, d.x1) and cell.x <= maxi(d.x0, d.x1))
 
 func _torches(layout: MineLayout, where: String) -> Array:
 	return layout.torches.filter(func(t): return t.where == where)
@@ -35,6 +39,17 @@ func test_drifts_rooms_and_torches_are_typed_data() -> void:
 	assert_eq(stone.end_kind, "miner", "the Stone gallery ends at the lost miner")
 	assert_eq(stone.cells().size(), (absi(stone.x1 - stone.x0) + 1) * 2, "a drift lists its two rows of open cells")
 
+func test_a_drift_keeps_its_collapses_in_a_list() -> void:
+	var layout := shared_layout(1001)
+	for d in layout.drifts:
+		assert_eq(d.from_shaft, d.layer <= 2, "layer %d: only the top three layers are fed from the shaft" % d.layer)
+		if d.layer == 0:
+			assert_true(d.collapses.is_empty(), "Topsoil has no collapse")
+			assert_eq(d.to_dict()["features"]["collapse"], Rect2i(), "and the fingerprint key is empty")
+		else:
+			assert_true(d.collapses.size() >= MineGrid.SPINE_COLLAPSES_MIN, "layer %d has several collapses" % d.layer)
+			assert_eq(d.to_dict()["features"]["collapse"], d.collapses[0], "the fingerprint key holds the first, nearest the mouth")
+
 func test_generate_is_a_pure_function_of_the_seed() -> void:
 	var a := MineGenerator.generate(4242)
 	var b := MineGenerator.generate(4242)
@@ -51,13 +66,153 @@ func test_layout_invariants_hold_for_many_seeds() -> void:
 		var stone := MineGenerator.layer_rows(2)
 		assert_true(layout.shaft_end_row >= stone.x and layout.shaft_end_row <= stone.x + (stone.y - stone.x) / 2, "seed %d: the shaft ends in the upper half of Stone" % s)
 		for cell in _pickup_cells(layout):
-			assert_true(not layout.room_cells.has(cell), "seed %d: a pickup in a room or the old mine at %s" % [s, cell])
+			assert_true(not layout.room_cells.has(cell) or _on_a_spine(layout, cell), "seed %d: a pickup in a room or the old mine, off the galleries, at %s" % [s, cell])
 			assert_true(not layout.is_solid(cell) and layout.is_solid(cell + Vector2i.DOWN), "seed %d: a pickup stands on a floor at %s" % [s, cell])
 		var miner := layout.lost_miner_cell
 		if miner.x >= 0:
 			assert_true(not layout.is_solid(miner), "seed %d: the lost miner is in open space" % s)
 		for d in layout.drifts:
-			assert_eq(layout.kind_at(Vector2i(layout.shaft_column() + d.side, d.row + 1)), MineLayout.Kind.PLANK, "seed %d: a plank landing beside the shaft" % s)
+			if d.from_shaft:
+				assert_eq(layout.kind_at(Vector2i(layout.shaft_column() + d.side, d.row + 1)), MineLayout.Kind.PLANK, "seed %d: a plank landing beside the shaft" % s)
+
+# --- spines (long, decayed galleries) -------------------------------------------
+
+func test_spines_are_long() -> void:
+	for s in GoldenTest.SEEDS:
+		for d in shared_layout(s).drifts:
+			if d.from_shaft:
+				assert_true(d.length() >= MineGrid.SPINE_MIN_LENGTH and d.length() <= MineGrid.SPINE_MAX_LENGTH, "seed %d layer %d: length %d" % [s, d.layer, d.length()])
+
+func test_spines_are_walkable_and_decayed() -> void:
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		for d in layout.drifts:
+			assert_eq(GalleryChecks.passage_problems(layout, d), [], "seed %d layer %d passage" % [s, d.layer])
+			assert_eq(GalleryChecks.collapse_problems(d), [], "seed %d layer %d collapses" % [s, d.layer])
+
+func test_spines_leave_the_shaft_at_the_landing_and_stay_in_the_map() -> void:
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		for d in layout.drifts:
+			if not d.from_shaft:
+				continue
+			assert_eq(d.x0, layout.shaft_column() + d.side * (MineGrid.SHAFT_WIDTH / 2 + 1), "seed %d: starts beside the shaft" % s)
+			assert_eq(layout.kind_at(Vector2i(layout.shaft_column() + d.side, d.row + 1)), MineLayout.Kind.PLANK, "seed %d: a plank landing" % s)
+			assert_true(mini(d.x0, d.x1) >= MineGrid.WORKING_EDGE_MARGIN and maxi(d.x0, d.x1) <= MineGrid.GRID_WIDTH - 1 - MineGrid.WORKING_EDGE_MARGIN, "seed %d: inside the margins" % s)
+
+func test_the_stone_spine_takes_the_side_facing_the_heart() -> void:
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		var heart: EventRoom = layout.event_rooms.filter(func(r): return r.kind == "heart")[0]
+		var stone: Array = layout.drifts.filter(func(d): return d.layer == 2)
+		if stone.is_empty():
+			continue
+		assert_eq(stone[0].side, 1 if heart.cell.x > layout.shaft_column() else -1, "seed %d: Stone heads for the Heart" % s)
+
+func test_every_layer_has_a_working() -> void:
+	for s in GoldenTest.SEEDS:
+		var layers: Array = shared_layout(s).drifts.map(func(d): return d.layer)
+		layers.sort()
+		# Stone's spine hangs off the shaft's open part, which does not always reach it (as before).
+		layers.erase(2)
+		assert_eq(layers, [0, 1, 3, 4, 5], "seed %d: a spine in every layer the shaft or the deep workings reach" % s)
+
+func test_deep_spines_are_free_standing_and_walkable() -> void:
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		for d in layout.drifts.filter(func(d): return d.layer >= 3):
+			assert_true(not d.from_shaft and d.end_kind == "", "seed %d layer %d: free-standing, no end feature" % [s, d.layer])
+			assert_true(d.length() >= MineGrid.SPINE_MIN_LENGTH and d.length() <= MineGrid.SPINE_MAX_LENGTH, "seed %d layer %d: length %d" % [s, d.layer, d.length()])
+			assert_eq(MineGenerator.layer_index_for_row(d.row), d.layer, "seed %d: in its layer" % s)
+			assert_eq(GalleryChecks.passage_problems(layout, d), [], "seed %d layer %d passage" % [s, d.layer])
+			assert_eq(GalleryChecks.collapse_problems(d), [], "seed %d layer %d collapses" % [s, d.layer])
+			assert_true(mini(d.x0, d.x1) >= MineGrid.WORKING_EDGE_MARGIN and maxi(d.x0, d.x1) <= MineGrid.GRID_WIDTH - 1 - MineGrid.WORKING_EDGE_MARGIN, "seed %d: inside the margins" % s)
+			assert_true(not MineGenerator.shaft_rect(layout.shaft_end_row).intersects(Rect2i(mini(d.x0, d.x1), d.row - 1, d.length(), 3)), "seed %d: clear of the shaft" % s)
+
+func test_deep_spines_head_toward_the_heart_and_stop_short_of_it() -> void:
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		var heart: EventRoom = layout.event_rooms.filter(func(r): return r.kind == "heart")[0]
+		for d in layout.drifts.filter(func(d): return d.layer >= 3):
+			assert_true(GalleryChecks.heads_toward(d, heart.rect), "seed %d layer %d: heads for the Heart" % [s, d.layer])
+		for d in layout.drifts:
+			assert_true(not heart.rect.grow(1).intersects(Rect2i(mini(d.x0, d.x1), d.row - 1, d.length(), 3)), "seed %d layer %d: clear of the Heart room" % [s, d.layer])
+		var last: Drift = layout.drifts.filter(func(d): return d.layer == 5)[0]
+		var gap: int = (heart.rect.position.x - last.x1 - 1) if last.side > 0 else (last.x1 - (heart.rect.end.x - 1) - 1)
+		assert_true(gap >= MineGrid.HEART_STANDOFF_TILES, "seed %d: the layer 5 spine stops %d tiles short (>= %d)" % [s, gap, MineGrid.HEART_STANDOFF_TILES])
+
+func test_spine_span_keeps_clear_of_an_anchor_and_the_margins() -> void:
+	var heart := Rect2i(3, 440, 9, 4) # a Heart against the left side
+	var left := MineGenerator.spine_span(-1, heart, 100, 0)
+	assert_eq(left.x, MineGrid.GRID_WIDTH - 1 - MineGrid.WORKING_EDGE_MARGIN, "starts at the right margin and runs left")
+	assert_true(left.y >= heart.end.x + MineGrid.HEART_STANDOFF_TILES, "and stops short of the Heart")
+	var right := MineGenerator.spine_span(1, Rect2i(140, 440, 9, 4), 100, 5)
+	assert_eq(right.x, MineGrid.WORKING_EDGE_MARGIN + 5, "the start offset moves it inside the margin")
+	assert_true(Rect2i(140, 440, 9, 4).position.x - right.y - 1 >= MineGrid.HEART_STANDOFF_TILES, "right-hand Heart: stops short")
+	assert_eq(MineGenerator.spine_span(1, Rect2i(40, 440, 9, 4), 100, 0), Vector2i(-1, -1), "no span of at least the minimum fits: none")
+	var free := MineGenerator.spine_span(1, Rect2i(), 80, 0)
+	assert_eq(free, Vector2i(MineGrid.WORKING_EDGE_MARGIN, MineGrid.WORKING_EDGE_MARGIN + 79), "without an anchor only the margins limit it")
+
+# --- pickups along the galleries --------------------------------------------------
+
+func _spine_cells(drift: Drift) -> Dictionary:
+	var cells := {}
+	for i in range(drift.length()):
+		cells[Vector2i(drift.x0 + drift.side * i, drift.row)] = i
+	return cells
+
+func test_gallery_pickups_sit_on_gallery_floors() -> void:
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		var fuel_wanted := 0
+		var ore_wanted := 0
+		var on_spines := {}
+		for d in layout.drifts:
+			fuel_wanted += d.length() / MineGrid.GALLERY_FUEL_TILES
+			ore_wanted += d.length() / MineGrid.GALLERY_ORE_TILES
+			var cells := _spine_cells(d)
+			for cell in cells:
+				on_spines[cell] = d
+		var fuel_here := layout.fuel_cells.filter(func(c): return on_spines.has(c))
+		var ore_here := layout.ore_cells.filter(func(o): return on_spines.has(o.cell))
+		assert_eq(fuel_here.size(), fuel_wanted, "seed %d: one fuel per %d tiles of spine" % [s, MineGrid.GALLERY_FUEL_TILES])
+		assert_eq(ore_here.size(), ore_wanted, "seed %d: one ore per %d tiles of spine" % [s, MineGrid.GALLERY_ORE_TILES])
+		for cell in fuel_here + ore_here.map(func(o): return o.cell):
+			var d: Drift = on_spines[cell]
+			var i: int = _spine_cells(d)[cell]
+			assert_true(i > 0 and i < d.length() - 1, "seed %d: not at a spine's mouth or far end" % s)
+			assert_true(not d.collapses.any(func(box): return box.has_point(cell)), "seed %d: not inside a collapse" % s)
+			assert_true(layout.is_solid(cell + Vector2i.DOWN), "seed %d: standing on a floor" % s)
+		for o in ore_here:
+			assert_eq(o.value, MineGrid.LAYERS[MineGenerator.layer_index_for_row(o.cell.y)].ore, "seed %d: ore is worth its layer's value" % s)
+
+func test_the_pickup_totals_are_unchanged() -> void:
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		assert_eq(layout.fuel_cells.size(), MineGrid.FUEL_DEPOSIT_COUNT, "seed %d: the same amount of fuel in the mine" % s)
+		assert_eq(layout.ore_cells.size(), MineGrid.ORE_DEPOSIT_COUNT, "seed %d: the same amount of ore" % s)
+		var seen := {}
+		for cell in _pickup_cells(layout):
+			assert_true(not seen.has(cell), "seed %d: two pickups on %s" % [s, cell])
+			seen[cell] = true
+
+func test_a_short_gallery_leaves_the_shortfall_to_the_caves() -> void:
+	var gen := MineGenerator.new()
+	var drift := Drift.new(3, 1, 100, 10, 49, "") # 40 tiles: wants 3 fuel and 1 ore
+	drift.collapses = [Rect2i(11, 99, 35, 2)] # only x = 46, 47, 48 are usable
+	gen._layout.drifts = [drift]
+	var found := gen._gallery_pickups()
+	assert_eq(found.fuel.size(), 3, "the fuel takes every usable cell")
+	assert_eq(found.ore.size(), 0, "so the ore is left to the caves")
+	for cell in found.fuel:
+		assert_true(cell.x >= 46 and cell.x <= 48 and cell.y == 100, "and only usable cells: %s" % cell)
+
+func test_the_shaft_and_ladder_keep_their_values() -> void:
+	# Recorded from the code before the workings: they draw before the drifts, from the same stream.
+	var expected := {1001: 163, 1: 180, 2: 171}
+	for s in expected:
+		assert_eq(shared_layout(s).shaft_end_row, expected[s], "seed %d: the shaft ends where it did" % s)
+	assert_eq(shared_layout(1001).old_ladder_rows, [5, 13, 29, 45, 53, 61, 69, 77, 85, 101, 109, 117, 141, 149], "seed 1001: the same ladder pieces")
 
 # --- the old mine -----------------------------------------------------------------
 
@@ -83,8 +238,9 @@ func test_each_worked_layer_gets_a_drift_of_the_right_shape() -> void:
 		for d in layout.drifts:
 			assert_eq(MineGenerator.layer_index_for_row(d.row), d.layer, "seed %d: the drift sits in its layer" % s)
 			var length: int = absi(d.x1 - d.x0) + 1
-			assert_true(length >= MineGrid.DRIFT_MIN_LENGTH and length <= MineGrid.DRIFT_MAX_LENGTH, "seed %d: length %d" % [s, length])
-			assert_eq(d.x0, layout.shaft_column() + d.side * (MineGrid.SHAFT_WIDTH / 2 + 1), "seed %d: starts beside the shaft" % s)
+			assert_true(length >= MineGrid.SPINE_MIN_LENGTH and length <= MineGrid.SPINE_MAX_LENGTH, "seed %d: length %d" % [s, length])
+			if d.from_shaft:
+				assert_eq(d.x0, layout.shaft_column() + d.side * (MineGrid.SHAFT_WIDTH / 2 + 1), "seed %d: starts beside the shaft" % s)
 			for cell in d.cells():
 				assert_true(not layout.is_solid(cell) or layout.kind_at(cell) == MineLayout.Kind.DEBRIS, "seed %d: open at %s" % [s, cell])
 			for x in range(mini(d.x0, d.x1), maxi(d.x0, d.x1) + 1):
@@ -92,18 +248,27 @@ func test_each_worked_layer_gets_a_drift_of_the_right_shape() -> void:
 				assert_true(layout.is_solid(Vector2i(x, d.row + 1)), "seed %d: floor at x=%d" % [s, x])
 				assert_true(floor_kind != MineLayout.Kind.BEDROCK and floor_kind != MineLayout.Kind.VAULT, "seed %d: and it digs" % s)
 
-func test_drifts_floor_caves_with_planks_and_post_every_six_tiles() -> void:
+func test_drifts_floor_caves_with_planks_and_post_in_uneven_pairs() -> void:
 	var planks := 0
+	var gaps := {}
 	for s in range(1, 13):
 		var layout := shared_layout(s)
 		for d in layout.drifts:
-			for i in range(absi(d.x1 - d.x0) + 1):
+			var last_post := 0
+			for i in range(d.length()):
 				var x: int = d.x0 + d.side * i
 				if layout.kind_at(Vector2i(x, d.row + 1)) == MineLayout.Kind.PLANK:
 					planks += 1
-				var posted: bool = layout.decor.get(Vector2i(x, d.row), -1) == MineLayout.Decor.POST
-				assert_eq(posted, i > 0 and i % MineGrid.DRIFT_POST_SPACING == 0, "seed %d: post at step %d" % [s, i])
+				var low: bool = layout.decor.get(Vector2i(x, d.row), -1) == MineLayout.Decor.POST
+				var high: bool = layout.decor.get(Vector2i(x, d.row - 1), -1) == MineLayout.Decor.POST
+				assert_eq(low, high, "seed %d: a post is a pair at step %d" % [s, i])
+				if low:
+					assert_true(i > 0, "seed %d: no post at the mouth" % s)
+					assert_true(i - last_post >= MineGrid.SPINE_POST_GAP_MIN or last_post == 0, "seed %d: posts at least %d apart (%d)" % [s, MineGrid.SPINE_POST_GAP_MIN, i - last_post])
+					gaps[i - last_post] = true
+					last_post = i
 	assert_true(planks > 0, "across 12 seeds some drift crosses a cave and gets planks")
+	assert_true(gaps.size() > 2, "post gaps are uneven (%s)" % str(gaps.keys()))
 
 func test_the_lift_stands_in_the_shaft_at_the_bottom_of_clay() -> void:
 	# 31 and 98 move the lift off a Clay gallery; 35 caps it at the shaft's open end and then moves it.
@@ -166,7 +331,7 @@ func test_event_rooms_and_pickups_keep_out_of_the_drifts() -> void:
 				for cell in d.cells():
 					assert_true(not rect.has_point(cell), "seed %d: room %s overlaps a drift" % [s, room.kind])
 		for cell in _pickup_cells(layout):
-			assert_true(not old_mine.any(func(r): return r.has_point(cell)), "seed %d: pickup in the old mine" % s)
+			assert_true(not old_mine.any(func(r): return r.has_point(cell)) or _on_a_spine(layout, cell), "seed %d: pickup in the old mine off the galleries" % s)
 
 # --- torches ----------------------------------------------------------------------
 

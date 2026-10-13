@@ -699,7 +699,7 @@ func test_shaft_runs_from_below_the_crust_to_a_collapse_in_upper_stone() -> void
 	assert_true(mine.is_solid(Vector2i(col, MineGrid.SURFACE_ROWS)), "the crust over the shaft holds: the start is not a fall")
 	var open := mine.shaft_open_rows()
 	assert_eq(open.x, MineGrid.SURFACE_ROWS + 1, "opens just under the crust")
-	var landings: Array = mine.drifts.map(func(d): return Vector2i(col + d.side, d.row + 1)) # a drift's step off the shaft
+	var landings: Array = mine.drifts.filter(func(d): return d.from_shaft).map(func(d): return Vector2i(col + d.side, d.row + 1)) # a drift's step off the shaft
 	for room in mine.event_rooms:
 		if room.in_shaft:
 			landings.append(room.cell + Vector2i.DOWN) # the lift's cage floor
@@ -754,11 +754,11 @@ func test_clay_and_stone_drifts_have_a_collapsed_section_and_topsoil_does_not() 
 	for s in [1001, 1, 2, 3, 4, 5]:
 		var mine := shared_mine(s)
 		for d in mine.drifts:
-			var box: Rect2i = d.collapse
 			if d.layer == 0:
-				assert_eq(box.size, Vector2i.ZERO, "seed %d: Topsoil's drift is clear" % s)
+				assert_true(d.collapses.is_empty(), "seed %d: Topsoil's drift is clear" % s)
 				continue
-			assert_true(box.size.x >= MineGrid.DRIFT_COLLAPSE_MIN and box.size.x <= MineGrid.DRIFT_COLLAPSE_MAX, "seed %d: layer %d collapse is %d long" % [s, d.layer, box.size.x])
+			var box: Rect2i = d.collapses[0]
+			assert_true(box.size.x >= MineGrid.SPINE_COLLAPSE_MIN and box.size.x <= MineGrid.SPINE_COLLAPSE_MAX, "seed %d: layer %d collapse is %d long" % [s, d.layer, box.size.x])
 			assert_eq(box.size.y, 2, "seed %d: it fills both rows" % s)
 			for cell in _cells_of(box):
 				assert_eq(mine.get_cell_atlas_coords(0, cell), MineGrid.DEBRIS_ATLAS_COORDS, "seed %d: debris at %s" % [s, cell])
@@ -783,7 +783,7 @@ func test_camps_of_the_worked_layers_stand_at_the_drift_ends() -> void:
 func test_each_drift_has_a_plank_landing_beside_the_shaft() -> void:
 	for s in [1001, 1, 2, 3, 44, 89]:
 		var mine := shared_mine(s)
-		for d in mine.drifts:
+		for d in mine.drifts.filter(func(d): return d.from_shaft):
 			var landing := Vector2i(mine.shaft_column() + d.side, d.row + 1)
 			assert_true(mine.is_solid(landing), "seed %d layer %d: the shaft's edge has a floor to step onto" % [s, d.layer])
 			assert_eq(mine.get_cell_atlas_coords(0, landing), MineGrid.PLANK_ATLAS_COORDS, "seed %d layer %d: and it is a plank" % [s, d.layer])

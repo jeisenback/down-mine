@@ -69,11 +69,23 @@ const FRAME_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 4, 0)
 # floor where a drift crosses a cave.
 const POST_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 5, 0)
 const PLANK_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 6, 0)
-const DRIFT_MIN_LENGTH := 24
-const DRIFT_MAX_LENGTH := 40
-const DRIFT_POST_SPACING := 6
-const DRIFT_COLLAPSE_MIN := 4
-const DRIFT_COLLAPSE_MAX := 8
+# Spines (the old workings' long galleries): length, decay and timber. A spine fed from the
+# shaft has only the room beside it, so its length is clamped to that (about 73 tiles).
+const SPINE_MIN_LENGTH := 60
+const SPINE_MAX_LENGTH := 100
+const WORKING_EDGE_MARGIN := 4 # tiles kept clear between a working and the map's side
+const SPINE_COLLAPSES_MIN := 2
+const SPINE_COLLAPSES_MAX := 4
+const SPINE_COLLAPSE_MIN := 3
+const SPINE_COLLAPSE_MAX := 8
+const SPINE_POST_GAP_MIN := 5
+const SPINE_POST_GAP_MAX := 8
+const SPINE_POST_MISSING_CHANCE := 0.25
+# Pickups along the spines: one fuel per GALLERY_FUEL_TILES tiles, one ore per GALLERY_ORE_TILES. They
+# replace cave pickups, so the mine's totals (FUEL_DEPOSIT_COUNT, ORE_DEPOSIT_COUNT) do not change.
+const GALLERY_FUEL_TILES := 12
+const GALLERY_ORE_TILES := 25
+const HEART_STANDOFF_TILES := 10 # the deepest spine stops this far short of the Heart's room
 # The lift (milestone 51c): the old cage in the shaft, this many rows above
 # the bottom of Clay (capped to the shaft's open part).
 const LIFT_ROWS_FROM_CLAY_BOTTOM := 1
