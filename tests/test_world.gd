@@ -33,6 +33,14 @@ func test_repair_needs_ore_and_takes_time() -> void:
 	assert_true(base.tick_repair(0.2, 100), "done after REPAIR_TIME")
 	assert_eq(base.health, 2, "one point restored")
 
+func test_the_lantern_burns_at_half_the_old_rate() -> void:
+	var player: Player = add(PlayerScene.instantiate())
+	player.set_physics_process(false)
+	assert_eq(player.light.burn_rate, Player.LANTERN_BURN_RATE, "the player's lantern uses the named rate")
+	var before := player.light.fuel
+	player.light._process(10.0)
+	assert_eq(before - player.light.fuel, 5.0, "ten seconds burn five fuel, so the base lantern lasts 120 s")
+
 func test_stalker_held_off_by_healthy_lantern() -> void:
 	var player := _still_player(Vector2(1000, 1000), 0.5)
 	var stalker: Stalker = add(StalkerScene.instantiate())
