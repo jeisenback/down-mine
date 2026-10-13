@@ -81,6 +81,10 @@ const SPINE_COLLAPSE_MAX := 8
 const SPINE_POST_GAP_MIN := 5
 const SPINE_POST_GAP_MAX := 8
 const SPINE_POST_MISSING_CHANCE := 0.25
+# Pickups along the spines: one fuel per GALLERY_FUEL_TILES tiles, one ore per GALLERY_ORE_TILES. They
+# replace cave pickups, so the mine's totals (FUEL_DEPOSIT_COUNT, ORE_DEPOSIT_COUNT) do not change.
+const GALLERY_FUEL_TILES := 12
+const GALLERY_ORE_TILES := 25
 const HEART_STANDOFF_TILES := 10 # the deepest spine stops this far short of the Heart's room
 # The lift (milestone 51c): the old cage in the shaft, this many rows above
 # the bottom of Clay (capped to the shaft's open part).

@@ -134,8 +134,9 @@ func _run(mine_seed: int) -> MineLayout:
 
 	var floor_cells := _find_floor_cells().filter(func(c): return not _layout.room_cells.has(c))
 	floor_cells.shuffle()
-	_scatter_pickups(floor_cells)
-	_layout.spare_floor_cells = floor_cells.slice(min(MineGrid.FUEL_DEPOSIT_COUNT + MineGrid.ORE_DEPOSIT_COUNT, floor_cells.size()))
+	var gallery := _gallery_pickups()
+	var used := _scatter_pickups(floor_cells, gallery)
+	_layout.spare_floor_cells = floor_cells.slice(used)
 	_pick_lost_miner_cell()
 	_place_torches()
 	return _layout
@@ -467,21 +468,46 @@ func _find_floor_cells() -> Array:
 				floor_cells.append(Vector2i(x, y))
 	return floor_cells
 
-## Fuel pickups take the front slice of the (already shuffled) floor cells,
-## ore the next, so the two never land on the same cell. Ore is worth more the
-## deeper it lies.
-func _scatter_pickups(floor_cells: Array) -> void:
-	var fuel_count: int = min(MineGrid.FUEL_DEPOSIT_COUNT, floor_cells.size())
+## Where the spines carry pickups: about one fuel per GALLERY_FUEL_TILES tiles and one ore per
+## GALLERY_ORE_TILES, on standing cells outside the collapses, never at a spine's mouth or far
+## end (the camp or miner stands there). Fuel is drawn first, so a spine with few usable cells
+## gives up ore before fuel; whatever it cannot hold stays in the caves (see _scatter_pickups).
+## Draws only from _work_rng, picking by index (Array.shuffle would use the global generator).
+func _gallery_pickups() -> Dictionary:
+	var found := {"fuel": [] as Array[Vector2i], "ore": [] as Array[Vector2i]}
+	for d in _layout.drifts:
+		var usable: Array[Vector2i] = []
+		for i in range(1, d.length() - 1):
+			var cell := Vector2i(d.x0 + d.side * i, d.row)
+			if not d.collapses.any(func(box: Rect2i): return box.has_point(cell)):
+				usable.append(cell)
+		for kind in ["fuel", "ore"]:
+			var wanted: int = d.length() / (MineGrid.GALLERY_FUEL_TILES if kind == "fuel" else MineGrid.GALLERY_ORE_TILES)
+			for n in range(mini(wanted, usable.size())):
+				var pick := _work_rng.randi_range(0, usable.size() - 1)
+				found[kind].append(usable[pick])
+				usable.remove_at(pick)
+	return found
+
+## Gallery pickups first, then the front slice of the (already shuffled) cave floor cells for the
+## rest of the fuel, then the next slice for the rest of the ore, so no two land on one cell. Ore
+## is worth more the deeper it lies. Returns how many cave cells were used.
+func _scatter_pickups(floor_cells: Array, gallery: Dictionary) -> int:
+	for cell in gallery.fuel:
+		_layout.fuel_cells.append(cell)
+	for cell in gallery.ore:
+		_layout.ore_cells.append({"cell": cell, "value": MineGrid.LAYERS[layer_index_for_row(cell.y)].ore})
+	var fuel_count: int = min(MineGrid.FUEL_DEPOSIT_COUNT - gallery.fuel.size(), floor_cells.size())
 	for i in range(fuel_count):
 		var cell: Vector2i = floor_cells[i]
 		_layout.reserved_floors[cell + Vector2i.DOWN] = true
 		_layout.fuel_cells.append(cell)
-	var start: int = min(MineGrid.FUEL_DEPOSIT_COUNT, floor_cells.size())
-	var end: int = min(start + MineGrid.ORE_DEPOSIT_COUNT, floor_cells.size())
-	for i in range(start, end):
+	var end: int = min(fuel_count + MineGrid.ORE_DEPOSIT_COUNT - gallery.ore.size(), floor_cells.size())
+	for i in range(fuel_count, end):
 		var cell: Vector2i = floor_cells[i]
 		_layout.reserved_floors[cell + Vector2i.DOWN] = true
 		_layout.ore_cells.append({"cell": cell, "value": MineGrid.LAYERS[layer_index_for_row(cell.y)].ore})
+	return end
 
 func _pick_lost_miner_cell() -> void:
 	for d in _layout.drifts:

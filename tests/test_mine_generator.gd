@@ -12,6 +12,9 @@ func _in_shaft(layout: MineLayout, cell: Vector2i) -> bool:
 func _pickup_cells(layout: MineLayout) -> Array:
 	return layout.fuel_cells + layout.ore_cells.map(func(o): return o.cell)
 
+func _on_a_spine(layout: MineLayout, cell: Vector2i) -> bool:
+	return layout.drifts.any(func(d: Drift): return cell.y == d.row and cell.x >= mini(d.x0, d.x1) and cell.x <= maxi(d.x0, d.x1))
+
 func _torches(layout: MineLayout, where: String) -> Array:
 	return layout.torches.filter(func(t): return t.where == where)
 
@@ -63,7 +66,7 @@ func test_layout_invariants_hold_for_many_seeds() -> void:
 		var stone := MineGenerator.layer_rows(2)
 		assert_true(layout.shaft_end_row >= stone.x and layout.shaft_end_row <= stone.x + (stone.y - stone.x) / 2, "seed %d: the shaft ends in the upper half of Stone" % s)
 		for cell in _pickup_cells(layout):
-			assert_true(not layout.room_cells.has(cell), "seed %d: a pickup in a room or the old mine at %s" % [s, cell])
+			assert_true(not layout.room_cells.has(cell) or _on_a_spine(layout, cell), "seed %d: a pickup in a room or the old mine, off the galleries, at %s" % [s, cell])
 			assert_true(not layout.is_solid(cell) and layout.is_solid(cell + Vector2i.DOWN), "seed %d: a pickup stands on a floor at %s" % [s, cell])
 		var miner := layout.lost_miner_cell
 		if miner.x >= 0:
@@ -149,6 +152,60 @@ func test_spine_span_keeps_clear_of_an_anchor_and_the_margins() -> void:
 	assert_eq(MineGenerator.spine_span(1, Rect2i(40, 440, 9, 4), 100, 0), Vector2i(-1, -1), "no span of at least the minimum fits: none")
 	var free := MineGenerator.spine_span(1, Rect2i(), 80, 0)
 	assert_eq(free, Vector2i(MineGrid.WORKING_EDGE_MARGIN, MineGrid.WORKING_EDGE_MARGIN + 79), "without an anchor only the margins limit it")
+
+# --- pickups along the galleries --------------------------------------------------
+
+func _spine_cells(drift: Drift) -> Dictionary:
+	var cells := {}
+	for i in range(drift.length()):
+		cells[Vector2i(drift.x0 + drift.side * i, drift.row)] = i
+	return cells
+
+func test_gallery_pickups_sit_on_gallery_floors() -> void:
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		var fuel_wanted := 0
+		var ore_wanted := 0
+		var on_spines := {}
+		for d in layout.drifts:
+			fuel_wanted += d.length() / MineGrid.GALLERY_FUEL_TILES
+			ore_wanted += d.length() / MineGrid.GALLERY_ORE_TILES
+			var cells := _spine_cells(d)
+			for cell in cells:
+				on_spines[cell] = d
+		var fuel_here := layout.fuel_cells.filter(func(c): return on_spines.has(c))
+		var ore_here := layout.ore_cells.filter(func(o): return on_spines.has(o.cell))
+		assert_eq(fuel_here.size(), fuel_wanted, "seed %d: one fuel per %d tiles of spine" % [s, MineGrid.GALLERY_FUEL_TILES])
+		assert_eq(ore_here.size(), ore_wanted, "seed %d: one ore per %d tiles of spine" % [s, MineGrid.GALLERY_ORE_TILES])
+		for cell in fuel_here + ore_here.map(func(o): return o.cell):
+			var d: Drift = on_spines[cell]
+			var i: int = _spine_cells(d)[cell]
+			assert_true(i > 0 and i < d.length() - 1, "seed %d: not at a spine's mouth or far end" % s)
+			assert_true(not d.collapses.any(func(box): return box.has_point(cell)), "seed %d: not inside a collapse" % s)
+			assert_true(layout.is_solid(cell + Vector2i.DOWN), "seed %d: standing on a floor" % s)
+		for o in ore_here:
+			assert_eq(o.value, MineGrid.LAYERS[MineGenerator.layer_index_for_row(o.cell.y)].ore, "seed %d: ore is worth its layer's value" % s)
+
+func test_the_pickup_totals_are_unchanged() -> void:
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		assert_eq(layout.fuel_cells.size(), MineGrid.FUEL_DEPOSIT_COUNT, "seed %d: the same amount of fuel in the mine" % s)
+		assert_eq(layout.ore_cells.size(), MineGrid.ORE_DEPOSIT_COUNT, "seed %d: the same amount of ore" % s)
+		var seen := {}
+		for cell in _pickup_cells(layout):
+			assert_true(not seen.has(cell), "seed %d: two pickups on %s" % [s, cell])
+			seen[cell] = true
+
+func test_a_short_gallery_leaves_the_shortfall_to_the_caves() -> void:
+	var gen := MineGenerator.new()
+	var drift := Drift.new(3, 1, 100, 10, 49, "") # 40 tiles: wants 3 fuel and 1 ore
+	drift.collapses = [Rect2i(11, 99, 35, 2)] # only x = 46, 47, 48 are usable
+	gen._layout.drifts = [drift]
+	var found := gen._gallery_pickups()
+	assert_eq(found.fuel.size(), 3, "the fuel takes every usable cell")
+	assert_eq(found.ore.size(), 0, "so the ore is left to the caves")
+	for cell in found.fuel:
+		assert_true(cell.x >= 46 and cell.x <= 48 and cell.y == 100, "and only usable cells: %s" % cell)
 
 func test_the_shaft_and_ladder_keep_their_values() -> void:
 	# Recorded from the code before the workings: they draw before the drifts, from the same stream.
@@ -274,7 +331,7 @@ func test_event_rooms_and_pickups_keep_out_of_the_drifts() -> void:
 				for cell in d.cells():
 					assert_true(not rect.has_point(cell), "seed %d: room %s overlaps a drift" % [s, room.kind])
 		for cell in _pickup_cells(layout):
-			assert_true(not old_mine.any(func(r): return r.has_point(cell)), "seed %d: pickup in the old mine" % s)
+			assert_true(not old_mine.any(func(r): return r.has_point(cell)) or _on_a_spine(layout, cell), "seed %d: pickup in the old mine off the galleries" % s)
 
 # --- torches ----------------------------------------------------------------------
 
