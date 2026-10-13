@@ -31,6 +31,10 @@ const ASSIST_DIG_DELAY := 0.25
 # Milestone 49: with the lantern at zero and no other light on you, health
 # drains and you can't dig. Any other light suspends it.
 const DARK_DRAIN_SECONDS := 12.0
+# Fuel burned per second by the player's lantern (the base, lamps and torches keep their own
+# rates). Half the old 1.0: the base lantern lasts 120 s and a level-3 one 210 s, so a run has
+# room to wander instead of needing a perfect line.
+const LANTERN_BURN_RATE := 0.5
 
 # Jump forgiveness: a press just before landing still fires on touchdown
 # (buffer), and a press just after walking off a ledge still fires as if
@@ -150,6 +154,7 @@ var _was_on_floor: bool = true
 
 func _ready() -> void:
 	add_to_group(Groups.PLAYER)
+	light.burn_rate = LANTERN_BURN_RATE
 	rope_detector.area_entered.connect(_on_rope_area_entered)
 	rope_detector.area_exited.connect(_on_rope_area_exited)
 
