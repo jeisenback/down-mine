@@ -227,7 +227,7 @@ func release_all() -> void:
 	_fingers.clear()
 	_held.clear()
 	_tap_frames.clear()
-	TouchKeys.release_all()
+	TouchKeys.release_all(TouchKeys.DEFAULT_SOURCE) # only this layer's keys: a held pad button is not ours
 
 func _press(widget: String, position: Vector2) -> void:
 	if widget == "pad":
@@ -369,6 +369,8 @@ func _input(event: InputEvent) -> void:
 		# must not reveal them on its own.
 		if event.device != InputEvent.DEVICE_ID_EMULATION:
 			seen_touch = true
+			if event.pressed:
+				ControlScheme.note_touch() # the text follows whatever was used last
 		touch(event.index, event.position, event.pressed)
 	elif event is InputEventScreenDrag:
 		drag(event.index, event.position)

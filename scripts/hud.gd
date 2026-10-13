@@ -53,6 +53,25 @@ Pad  left and right walk, up jumps
 1 2 3  buy at the building you stand beside
 Use  join or leave the crew beside a miner, open the notice board, or go down the mine at the entrance"""
 
+# The same overlays for a gamepad (controller support): the buttons, not the keys.
+const GAMEPAD_CONTROLS_TEXT := """CONTROLS  (Start to close)
+
+Stick / D-pad  move (up: jump)        A  jump
+Stick down  dig down (with a side: stairs)        X  dig forward (hold; stick up: dig up)
+RT  flare the light        B  use a camp, lift, outpost, vault or relic - or extract at the surface
+LB / RB  pick a tool (rope, grapple, beam, ladder, lamp, anchor; at the base: repair, fortify, grow; plant the base)
+Y  use the picked tool (hold to repair)"""
+const GAMEPAD_HUB_CONTROLS_TEXT := """CONTROLS  (Start to close)
+
+Stick / D-pad  walk        A  jump
+X / Y / RB  buy at the building you stand beside (1 2 3)
+B  join or leave the crew beside a miner, open the notice board, or go down the mine"""
+const GAMEPAD_ABANDON_ASK := """Abandon this run?
+
+The ore you carry is lost, as if you had died.
+
+Press X again to confirm, B to cancel."""
+
 const ABANDON_LINE := "X  abandon this run (asks first)"
 const ABANDON_ASK := """Abandon this run?
 
@@ -96,6 +115,8 @@ var _noise_warning: bool = false
 var _noise_value: float = 0.0
 var _message: String = ""
 var _message_time: float = 0.0
+## The tool the gamepad's Y would use, shown on the tool line while a pad is the last input in use.
+var pad_tool_text: String = ""
 var overlay: ColorRect
 var seed_label: Label
 var _hub_mode: bool = false
@@ -178,13 +199,19 @@ func show_seed(mine_seed: int, debug: bool) -> void:
 
 ## Whether text should name the touch buttons rather than keys.
 func _touch() -> bool:
-	return TouchControls.wanted()
+	return _scheme() == "touch"
+
+## "keys", "touch" or "pad": what the player is using now.
+func _scheme() -> String:
+	return ControlScheme.current()
 
 ## The controls overlay for what is on screen now: keyboard or touch, mine or hub.
 func _controls_text() -> String:
 	var text := CONTROLS_TEXT + (DEBUG_TEXT if _debug else "")
-	if _touch():
+	if _scheme() == "touch":
 		text = TOUCH_HUB_CONTROLS_TEXT if _hub_mode else TOUCH_CONTROLS_TEXT
+	elif _scheme() == "pad":
+		text = GAMEPAD_HUB_CONTROLS_TEXT if _hub_mode else GAMEPAD_CONTROLS_TEXT + "\n\n" + ABANDON_LINE
 	elif _hub_mode:
 		text = HUB_CONTROLS_TEXT
 	else:
@@ -197,11 +224,11 @@ func _set_overlay(state: Overlay) -> void:
 	overlay_state = state
 	match state:
 		Overlay.TITLE:
-			_overlay_label.text = TITLE_TEXT % [KeyHint.label("Enter", _touch()), KeyHint.label("Esc", _touch())]
+			_overlay_label.text = TITLE_TEXT % [KeyHint.label("Enter", _scheme()), KeyHint.label("Esc", _scheme())]
 		Overlay.CONTROLS:
 			_overlay_label.text = _controls_text()
 		Overlay.ASK_ABANDON:
-			_overlay_label.text = TOUCH_ABANDON_ASK if _touch() else ABANDON_ASK
+			_overlay_label.text = {"touch": TOUCH_ABANDON_ASK, "pad": GAMEPAD_ABANDON_ASK}.get(_scheme(), ABANDON_ASK)
 		Overlay.NONE:
 			title_seen = true
 	overlay.visible = state != Overlay.NONE
@@ -242,6 +269,7 @@ func _overlay_key(keycode: int) -> bool:
 
 func _process(delta: float) -> void:
 	esc_hint.visible = not _touch() # the ESC button is on screen (labelled HELP)
+	esc_hint.text = "Start: controls" if _scheme() == "pad" else "Esc: controls"
 	prompt_label.modulate.a = 0.0 if get_tree().paused else 1.0 # not under the Continue button
 	var shift := TOUCH_PROMPT_SHIFT if _touch() else 0.0
 	prompt_label.offset_left = -300.0 + shift
@@ -311,7 +339,7 @@ func update_wave(text: String, urgent: bool) -> void:
 ## bottom of the screen, hidden when there is nothing to do. A message
 ## (show_message) sits on the line above for a few seconds.
 func update_prompts(prompts: Array) -> void:
-	var shown := prompts.map(func(p): return KeyHint.prompt(p, _touch(), _hub_mode))
+	var shown := prompts.map(func(p): return KeyHint.prompt(p, _scheme(), _hub_mode))
 	var lines := ([_message] if _message != "" else []) + (["     ".join(shown)] if not shown.is_empty() else [])
 	prompt_label.text = "\n".join(lines)
 	prompt_label.visible = not lines.is_empty()
@@ -327,6 +355,8 @@ func update_tools(counts: Dictionary, snuffer_hunting: bool) -> void:
 	for tool_name in counts:
 		if counts[tool_name] >= 0:
 			parts.append("%s %d" % [tool_name, counts[tool_name]])
+	if pad_tool_text != "":
+		parts.append("Tool: %s" % pad_tool_text)
 	if snuffer_hunting:
 		parts.append("SNUFFER HUNTING")
 	lamp_label.text = "  ".join(parts)
@@ -370,7 +400,7 @@ func _point_arrow(arrow: Node2D, to_target: Vector2) -> void:
 ## (milestone 57); Enter goes there.
 func show_run_summary(title: String, success: bool, currency: int, depth: int, _progress: Progress, notes: Array = []) -> void:
 	var currency_line := "Ore banked: %d" % currency if success else "Ore lost: %d" % currency
-	var lines := [title, currency_line, "Depth reached: %d tiles" % depth] + notes + ["", "%s: go to the hub" % KeyHint.label("Enter", _touch())]
+	var lines := [title, currency_line, "Depth reached: %d tiles" % depth] + notes + ["", "%s: go to the hub" % KeyHint.label("Enter", _scheme())]
 	run_summary_label.text = "\n".join(lines)
 	run_summary.visible = true
 	prompt_label.visible = false # run is over; no actions to prompt

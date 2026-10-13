@@ -29,6 +29,31 @@ func test_pad_dead_zone_returns_nothing() -> void:
 	for offset in [Vector2(0.2 * r, 0), Vector2(0, 0.2 * r), Vector2(-0.2 * r, -0.2 * r), Vector2.ZERO]:
 		assert_eq(TouchPad.keys_for(offset, r), [], "inside the dead zone: %s" % offset)
 
+func test_two_sources_hold_a_key_between_them() -> void:
+	TouchKeys.release_all()
+	var before := TouchKeys.sent_count
+	TouchKeys.set_key(KEY_W, true, "touch")
+	TouchKeys.set_key(KEY_W, true, "pad")
+	assert_eq(TouchKeys.sent_count, before + 1, "the second source changed nothing: the key was already down")
+	assert_true(TouchKeys.is_down(KEY_W), "held")
+	TouchKeys.set_key(KEY_W, false, "touch")
+	assert_true(TouchKeys.is_down(KEY_W), "the pad still holds it")
+	assert_eq(TouchKeys.sent_count, before + 1, "and nothing was sent")
+	TouchKeys.set_key(KEY_W, false, "pad")
+	assert_true(not TouchKeys.is_down(KEY_W), "both let go")
+	assert_eq(TouchKeys.sent_count, before + 2, "one release was sent")
+
+func test_release_all_for_one_source_leaves_the_other() -> void:
+	TouchKeys.release_all()
+	TouchKeys.set_key(KEY_A, true, "touch")
+	TouchKeys.set_key(KEY_A, true, "pad")
+	TouchKeys.set_key(KEY_D, true, "pad")
+	TouchKeys.release_all("pad")
+	assert_true(TouchKeys.is_down(KEY_A), "touch still holds A")
+	assert_true(not TouchKeys.is_down(KEY_D), "D was only the pad's")
+	TouchKeys.release_all()
+	assert_true(not TouchKeys.is_down(KEY_A), "release_all with no source lets go of everything")
+
 func test_set_key_only_changes_state() -> void:
 	TouchKeys.release_all()
 	var before := TouchKeys.sent_count
