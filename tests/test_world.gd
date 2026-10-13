@@ -1126,6 +1126,32 @@ const TORCH_SEEDS := [1001, 1, 2, 3, 31, 35, 44, 98]
 func _torches(mine: MineGrid, where: String) -> Array:
 	return mine.torches.filter(func(t): return t.where == where)
 
+func test_the_fuel_glint_is_a_small_twinkling_light_that_spares_nothing() -> void:
+	var pickup: FuelPickup = add(load("res://scenes/FuelPickup.tscn").instantiate())
+	var glint := pickup.get_node_or_null("Glint") as PointLight2D
+	assert_true(glint != null and glint.energy > 0.0, "a pickup carries a light of its own")
+	if glint == null:
+		return
+	assert_true(not glint.is_in_group(Groups.MINE_LIGHTS) and not pickup.is_in_group(Groups.MINE_LIGHTS), "it is not a MineLight: it does not spare tunnels or hold off the dark")
+	assert_true(glint.texture != null and glint.texture.get_width() * 0.5 * glint.texture_scale <= FuelPickup.GLINT_RADIUS + 0.5, "and it is small: a point, not a lamp")
+	var first := glint.energy
+	pickup._process(0.4)
+	assert_true(glint.energy != first, "it twinkles")
+	for i in range(20):
+		pickup._process(0.1)
+		assert_true(glint.energy > 0.0 and glint.energy <= FuelPickup.GLINT_ENERGY, "within its range")
+
+func test_the_fuel_glint_draws_no_random_numbers() -> void:
+	seed(7)
+	randf() # the pickup's own (kept) draw
+	var expected := randf()
+	seed(7)
+	var pickup: FuelPickup = load("res://scenes/FuelPickup.tscn").instantiate()
+	add(pickup)
+	for i in range(10):
+		pickup._process(0.1)
+	assert_eq(randf(), expected, "building and animating a pickup takes exactly one number, as before")
+
 func test_a_torch_never_burns_down_and_is_not_a_lamp() -> void:
 	var torch: Node2D = add(TorchScene.instantiate())
 	var light: MineLight = torch.get_node("MineLight")

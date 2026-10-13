@@ -60,6 +60,7 @@ func _run() -> void:
 		["touch_hub_buy", _touch_hub_buy],
 		["torches_light_the_early_mine", _torches_light_the_early_mine],
 		["abandon_a_run", _abandon_a_run],
+		["clues_in_the_old_workings", _clues_in_the_old_workings],
 	]
 	var failed := 0
 	for entry in scenarios:
@@ -1040,3 +1041,36 @@ func _touch_hub_buy() -> void:
 	check(seen == ["res://scenes/Main.tscn"], "Use at the entrance starts a run")
 	TouchKeys.release_all()
 	TouchControls.force = false
+
+## The old workings' clues (galleries, phase 3): a lit torch on a deep spine, a connector's framed
+## mouth, and a fuel flask's glint in the dark beyond the lantern's reach. Seed 1001 has all three.
+func _clues_in_the_old_workings() -> void:
+	await _in_shaft()
+	var mine: MineGrid = main.mine
+	var deep_torches: Array = mine.torches.filter(func(t): return t.where == "gallery" and mine._layer_index_for_row(t.cell.y) >= 3)
+	check(not deep_torches.is_empty(), "seed %d has lit torches on its deep spines" % SEED)
+	if not deep_torches.is_empty():
+		await _place(deep_torches[0].cell)
+		await shot("a_torch_on_a_deep_spine")
+	check(not mine.connectors.is_empty(), "seed %d has a connector" % SEED)
+	if not mine.connectors.is_empty():
+		var c: Connector = mine.connectors[0]
+		var spine: Drift = mine.drifts.filter(func(d): return d.layer == c.layer)[0]
+		for column in [c.mouth.x - c.dir, c.mouth.x + 2 * c.dir]:
+			if column < mini(spine.x0, spine.x1) or column > maxi(spine.x0, spine.x1):
+				continue # the spine ends there: no post
+			check(mine.get_cell_atlas_coords(MineGrid.DECOR_LAYER, Vector2i(column, c.mouth.y)) == MineGrid.POST_ATLAS_COORDS, "a post frames the mouth at column %d" % column)
+		await _place(Vector2i(c.mouth.x - c.dir, c.mouth.y))
+		await shot("a_connector_mouth")
+	var flasks: Array = mine.get_children().filter(func(n): return n is FuelPickup and mine._layer_index_for_row(mine.world_to_cell(n.position).y) >= 3)
+	check(not flasks.is_empty(), "seed %d has flasks in the deep layers" % SEED)
+	for flask in flasks:
+		var at: Vector2i = mine.world_to_cell(flask.position)
+		for dx in [12, -12]:
+			var spot := at + Vector2i(dx, 0)
+			if mine.is_solid(spot) or not mine.is_solid(spot + Vector2i.DOWN):
+				continue
+			await _place(spot)
+			check(flask.get_node("Glint").energy > 0.0, "the flask carries a glint")
+			await shot("a_flask_glints_in_the_dark")
+			return

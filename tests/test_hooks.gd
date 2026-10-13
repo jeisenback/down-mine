@@ -17,6 +17,7 @@ const EXPLAINED := {
 	"Sfx._pool": "the audio player pool, created on demand and reused",
 	"Sfx._lp_state": "filter state inside one sound's synthesis",
 	"MineGrid._launch_seed_read": "the launch option is read once per process; tests launch without a seed",
+	"FuelPickup._glint_texture": "one shared radial falloff, built on first use; it holds no per-test state",
 	"TouchKeys.sent_count": "a counter; tests compare differences, never absolute values",
 }
 

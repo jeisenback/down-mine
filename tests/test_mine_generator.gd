@@ -277,6 +277,53 @@ func test_the_connector_skip_rate_is_reported() -> void:
 	print("connectors: %d of %d eligible rooms (%d%%) across %d seeds" % [connected, eligible, 100 * connected / maxi(eligible, 1), GoldenTest.SEEDS.size()])
 	assert_true(connected > 0, "some rooms are connected")
 
+# --- clues: lit spines and framed branch mouths --------------------------------------
+
+func test_each_spine_has_a_lit_torch_every_thirty_tiles() -> void:
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		for d in layout.drifts:
+			var mine: Array = _torches(layout, "gallery").filter(func(t): return t.cell.y == d.row and t.cell.x >= mini(d.x0, d.x1) and t.cell.x <= maxi(d.x0, d.x1))
+			assert_eq(mine.size(), d.length() / MineGrid.SPINE_TORCH_SPACING, "seed %d layer %d: a torch per %d tiles" % [s, d.layer, MineGrid.SPINE_TORCH_SPACING])
+			var offsets: Array = mine.map(func(t): return absi(t.cell.x - d.x0))
+			offsets.sort()
+			for i in range(1, offsets.size()):
+				assert_true(offsets[i] - offsets[i - 1] >= MineGrid.SPINE_TORCH_SPACING / 2, "seed %d: torches spread along the spine (%s)" % [s, str(offsets)])
+			for t in mine:
+				assert_true(not layout.is_solid(t.cell) and layout.is_solid(t.cell + Vector2i.DOWN), "seed %d: on an open standing cell" % s)
+				assert_true(not d.collapses.any(func(box): return box.has_point(t.cell)), "seed %d: not in a collapse" % s)
+				assert_true(not _pickup_cells(layout).has(t.cell), "seed %d: not on a pickup" % s)
+
+func test_a_spine_torch_takes_no_numbers_from_the_global_generator() -> void:
+	var gen := MineGenerator.new()
+	gen._solid = gen._make_grid(true)
+	for x in range(10, 80):
+		gen._solid[x][99] = false
+		gen._solid[x][100] = false
+	gen._layout.drifts = [Drift.new(3, 1, 100, 10, 79, "")]
+	seed(321)
+	var expected := randi()
+	seed(321)
+	gen._place_gallery_torches()
+	assert_eq(randi(), expected, "the global generator is untouched")
+	assert_eq(_torches(gen._layout, "gallery").size(), 2, "a 70-tile spine gets two torches")
+
+func test_connector_mouths_are_framed_by_posts() -> void:
+	var framed := 0
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		for c in layout.connectors:
+			var spine := _spine_for(layout, c)
+			var low := mini(spine.x0, spine.x1)
+			var high := maxi(spine.x0, spine.x1)
+			for column in [c.mouth.x - c.dir, c.mouth.x + 2 * c.dir]:
+				if column < low or column > high:
+					continue # the spine ends there
+				for row in [spine.row, spine.row - 1]:
+					assert_eq(layout.decor.get(Vector2i(column, row), -1), MineLayout.Decor.POST, "seed %d: a post at (%d, %d) beside the junction" % [s, column, row])
+					framed += 1
+	assert_true(framed > 0, "some mouths are framed")
+
 func test_the_shaft_and_ladder_keep_their_values() -> void:
 	# Recorded from the code before the workings: they draw before the drifts, from the same stream.
 	var expected := {1001: 163, 1: 180, 2: 171}
@@ -323,10 +370,16 @@ func test_drifts_floor_caves_with_planks_and_post_in_uneven_pairs() -> void:
 	var gaps := {}
 	for s in range(1, 13):
 		var layout := shared_layout(s)
+		var framing := {} # the posts beside a connector's mouth are placed on purpose, off the spine's own rhythm
+		for c in layout.connectors:
+			framing[c.mouth.x - c.dir] = c.layer
+			framing[c.mouth.x + 2 * c.dir] = c.layer
 		for d in layout.drifts:
 			var last_post := 0
 			for i in range(d.length()):
 				var x: int = d.x0 + d.side * i
+				if framing.get(x, -1) == d.layer:
+					continue
 				if layout.kind_at(Vector2i(x, d.row + 1)) == MineLayout.Kind.PLANK:
 					planks += 1
 				var low: bool = layout.decor.get(Vector2i(x, d.row), -1) == MineLayout.Decor.POST
