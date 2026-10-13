@@ -220,6 +220,14 @@ dictates.
   the cap (the staircase would be wider than the map, so a longer cap does not help), 23% lose the chance roll, the rest meet the shaft,
   a collapse or another room. Goldens re-recorded again. Bots: round trip identical; the Heart bot claims the Heart on 5 of 6 seeds
   (seed 1 sticks under refilled rock on a rope, the bot's own weakness). Next: clues (phase 3).
+- ~~**M82 - Old workings, phase 3: clues.**~~ Done (issue #26): a worked passage can now be seen from a distance. Every spine carries a lit
+  torch about every 30 tiles (about 13 a mine, spread evenly, never in a collapse or on a pickup); each connector's mouth is framed by a
+  pair of posts on either side of the pit; and every fuel flask carries a small twinkling light of its own (radius 14 px, only while on
+  screen, no random numbers), so it shows in the dark beyond the lantern. The glint is a plain light, not a MineLight, so it spares no
+  tunnel. The spine torches are MineLights like the early mine's torches: they stop decay and slow rope rot around them, so lit galleries
+  are partly safe corridors. That is a balance question for hand play (thin them or make them unlit sconces if the mine feels too safe).
+  A new playtest scenario (`clues_in_the_old_workings`) photographs a deep spine torch, a connector mouth and a flask in the dark.
+  Goldens re-recorded. Bots: identical to phase 2. This finishes the galleries-and-clues spec.
 
 ## Quality pass
 
