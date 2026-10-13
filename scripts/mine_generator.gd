@@ -22,6 +22,8 @@ class_name MineGenerator
 var _layout := MineLayout.new()
 var _solid: Array = []
 var _rng := RandomNumberGenerator.new()
+## The Heart's room, carved before the old mine so the workings can head for it.
+var _heart: EventRoom
 
 static func generate(mine_seed: int) -> MineLayout:
 	return MineGenerator.new()._run(mine_seed)
@@ -99,7 +101,12 @@ func _run(mine_seed: int) -> MineLayout:
 		for x in range(MineGrid.GRID_WIDTH):
 			flat[x * MineGrid.GRID_HEIGHT + MineGrid.SURFACE_ROWS] = 1
 	_solid = _unflatten(flat)
+	# The Heart is carved first so the workings can head for it, but joins event_rooms after the
+	# old mine's own rooms (camps, lift), where it always was: the list's order is fingerprinted.
+	_carve_event_room(MineGrid.EVENT_ROOMS[0])
+	_heart = _layout.event_rooms.pop_back()
 	_carve_old_mine()
+	_layout.event_rooms.append(_heart)
 	_carve_event_rooms()
 
 	var shaft := shaft_rect(_layout.shaft_end_row)
@@ -309,35 +316,41 @@ func _collapse_drift(drift: Drift, length: int, rng: RandomNumberGenerator) -> v
 			_layout.reserved_floors[Vector2i(x, y)] = true
 	drift.collapse = Rect2i(mini(first_x, last_x), drift.row - 1, size, 2)
 
-## Clears a ROOM_SIZE chamber per EVENT_ROOMS entry, on a solid floor,
-## spaced apart. A room that finds no spot is skipped.
+## Carves the EVENT_ROOMS entries after the Heart (see _carve_event_room).
 func _carve_event_rooms() -> void:
+	for i in range(1, MineGrid.EVENT_ROOMS.size()):
+		_carve_event_room(MineGrid.EVENT_ROOMS[i])
+
+## Clears a ROOM_SIZE chamber for one EVENT_ROOMS entry, on a solid floor,
+## spaced apart. A room that finds no spot is skipped. The Heart (entry 0) is
+## carved before the old mine, so the workings know where it is.
+func _carve_event_room(room: Dictionary) -> void:
 	var rng := _rng
-	for room in MineGrid.EVENT_ROOMS:
-		var layer: int = room.layers[rng.randi_range(0, room.layers.size() - 1)]
-		var rows := layer_rows(layer)
-		if room.get("bottom", false):
-			rows.x = rows.y - MineGrid.ROOM_SIZE.y - 12
-		for i in range(MineGrid.ROOM_PLACE_TRIES):
-			var top_left := Vector2i(rng.randi_range(2, MineGrid.GRID_WIDTH - 2 - MineGrid.ROOM_SIZE.x),
-				rng.randi_range(max(rows.x, MineGrid.SURFACE_ROWS + 2), rows.y - MineGrid.ROOM_SIZE.y - 1))
-			var center := top_left + Vector2i(MineGrid.ROOM_SIZE.x / 2, MineGrid.ROOM_SIZE.y - 1)
-			var room_box := Rect2i(top_left, MineGrid.ROOM_SIZE).grow(1)
-			if old_mine_rects(_layout.drifts, _layout.shaft_end_row).any(func(r): return room_box.intersects(r)):
-				continue # rooms keep out of the old mine
-			if _layout.event_rooms.any(func(r): return Vector2(r.cell - center).length() < MineGrid.ROOM_MIN_SPACING_TILES):
-				continue
-			for x in range(top_left.x, top_left.x + MineGrid.ROOM_SIZE.x):
-				for y in range(top_left.y, top_left.y + MineGrid.ROOM_SIZE.y + 1):
-					_solid[x][y] = y == top_left.y + MineGrid.ROOM_SIZE.y # open room, solid floor row
-					_layout.room_cells[Vector2i(x, y)] = true
-					if _solid[x][y]:
-						_layout.reserved_floors[Vector2i(x, y)] = true
-			var entry := EventRoom.new(room.kind, center, Rect2i(top_left, MineGrid.ROOM_SIZE))
-			if room.kind == "vault":
-				entry.door = _seal_vault(top_left)
-			_layout.event_rooms.append(entry)
-			break
+	var layer: int = room.layers[rng.randi_range(0, room.layers.size() - 1)]
+	var rows := layer_rows(layer)
+	if room.get("bottom", false):
+		rows.x = rows.y - MineGrid.ROOM_SIZE.y - 12
+	for i in range(MineGrid.ROOM_PLACE_TRIES):
+		var top_left := Vector2i(rng.randi_range(2, MineGrid.GRID_WIDTH - 2 - MineGrid.ROOM_SIZE.x),
+			rng.randi_range(max(rows.x, MineGrid.SURFACE_ROWS + 2), rows.y - MineGrid.ROOM_SIZE.y - 1))
+		var center := top_left + Vector2i(MineGrid.ROOM_SIZE.x / 2, MineGrid.ROOM_SIZE.y - 1)
+		var room_box := Rect2i(top_left, MineGrid.ROOM_SIZE).grow(1)
+		# Rooms keep out of the old mine (not yet carved when the Heart is placed: shaft_end_row is -1).
+		if _layout.shaft_end_row >= 0 and old_mine_rects(_layout.drifts, _layout.shaft_end_row).any(func(r): return room_box.intersects(r)):
+			continue
+		if _layout.event_rooms.any(func(r): return Vector2(r.cell - center).length() < MineGrid.ROOM_MIN_SPACING_TILES):
+			continue
+		for x in range(top_left.x, top_left.x + MineGrid.ROOM_SIZE.x):
+			for y in range(top_left.y, top_left.y + MineGrid.ROOM_SIZE.y + 1):
+				_solid[x][y] = y == top_left.y + MineGrid.ROOM_SIZE.y # open room, solid floor row
+				_layout.room_cells[Vector2i(x, y)] = true
+				if _solid[x][y]:
+					_layout.reserved_floors[Vector2i(x, y)] = true
+		var entry := EventRoom.new(room.kind, center, Rect2i(top_left, MineGrid.ROOM_SIZE))
+		if room.kind == "vault":
+			entry.door = _seal_vault(top_left)
+		_layout.event_rooms.append(entry)
+		break
 
 ## Rings the room at top_left in bedrock, leaving a 2-tile doorway on its
 ## left at floor level (Main puts the vault door there). Returns the
