@@ -201,6 +201,16 @@ dictates.
   to depth 200 ends with 30 to 33 fuel left (60 to 66 s). Seed 2 sticks under refilled rock at depth 52. The whole Heart run
   takes about 230 s, so a perfect line still has little spare: the next lever is the galleries and visual clues spec, not a
   smaller number. Hand play decides whether 0.5 is right.
+- ~~**M80 - Old workings, phase 1: long galleries in every layer.**~~ Done (issue #26; spec `docs/superpowers/specs/2026-10-13-galleries-and-clues-design.md`,
+  plan `docs/superpowers/plans/2026-10-13-galleries-and-clues.md`): the mine's galleries are now long and decayed. Each shaft-fed
+  spine (Topsoil, Clay, Stone) runs 60 to 75 tiles (the room beside the shaft), with 2 to 4 collapses below Topsoil, uneven timber
+  with some posts gone, and the Stone spine on the side facing the Heart. Layers 3 to 5 gain free-standing spines of 60 to 100 tiles
+  that start on the side of the map away from the Heart and run toward it, found by digging; the deepest stops 10 tiles short of the
+  Heart's room. About one fuel per 12 tiles and one ore per 25 lie along them, replacing the same number of cave pickups (the mine's
+  totals are unchanged). The Heart is carved first so the workings can head for it; new randomness uses its own stream
+  (`mine_seed + 53`). **Every layout changed on purpose** and the 31 golden fingerprints were re-recorded; "Seed 1001" is a different
+  mine. Bots, after: round trip identical to M79; the Heart bot claims the Heart on 4 of 6 seeds (was 5 of 6), seeds 1001 and 2
+  stick under refilled rock on a rope (the bot's own weakness, not light). Next: connectors to rooms (phase 2), then clues (phase 3).
 
 ## Quality pass
 
