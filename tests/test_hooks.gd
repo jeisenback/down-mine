@@ -8,7 +8,7 @@ class_name TestHooks
 ## Reset by reset().
 const RESET := [
 	"HUD.title_seen", "TouchControls.force", "TouchControls.seen_touch",
-	"MineGrid.next_seed", "Progress.path_override", "TouchKeys._down",
+	"MineGrid.next_seed", "Progress.path_override", "TouchKeys._down", "ControlScheme.pad_last",
 ]
 
 ## Static variables that are deliberately left alone, and why.
@@ -29,3 +29,4 @@ static func reset(save_path: String = "") -> void:
 	MineGrid.next_seed = 0
 	Progress.path_override = save_path
 	TouchKeys.release_all()
+	ControlScheme.pad_last = false
