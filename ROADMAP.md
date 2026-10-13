@@ -194,6 +194,13 @@ dictates.
   1.5 to 8 s. It now tries the dug cells in random order and stops at the first eligible one: 0.05 to 0.11 ms, same uniform pick.
   The light count was not the main cost (per-cell overhead was). Dead helpers `is_in_old_mine` and `_old_mine_rects` removed.
   Left on the watch list: a lint step and a Godot download cache in CI, until style drift or CI time asks for them.
+- ~~**M79 - Slower light.**~~ Done (issue #26, from "too hard, the player needs to be able to wander"): the player's lantern burns at
+  `Player.LANTERN_BURN_RATE` 0.5 instead of 1.0, so the base lantern lasts 120 s and a level-3 one 210 s, and each fuel pickup
+  (+25 fuel) is worth 50 s. The base, lamps and torches keep their rates. Bots, before to after: the Heart bot (lantern 3, no
+  detours, no fighting) now claims the Heart on 5 of 6 seeds and climbs home with 3 to 13 fuel left (6 to 26 s); the round trip
+  to depth 200 ends with 30 to 33 fuel left (60 to 66 s). Seed 2 sticks under refilled rock at depth 52. The whole Heart run
+  takes about 230 s, so a perfect line still has little spare: the next lever is the galleries and visual clues spec, not a
+  smaller number. Hand play decides whether 0.5 is right.
 
 ## Quality pass
 
