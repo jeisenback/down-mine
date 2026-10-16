@@ -90,7 +90,7 @@ func test_digging_straight_down_descends_at_the_measured_rate() -> void:
 	assert_true(absf(rate - expected) <= expected * 0.15, "dug down at %.2f tiles/s, expected %.2f +/- 15%%" % [rate, expected])
 
 func test_falls_hurt_by_measured_landing_speed() -> void:
-	var cases := {6: 0, 8: 1, 12: 2, 20: Player.MAX_FALL_DAMAGE}
+	var cases := {6: 0, 8: 1, 12: 2, 20: 2} # the 20 tile fall is capped at MAX_FALL_DAMAGE, 2
 	for drop in cases:
 		var mine: MineGrid = add(MineScene.instantiate())
 		_arena(mine, 3, drop + 1)
