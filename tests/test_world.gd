@@ -364,9 +364,13 @@ func test_collapse_tunnel_picks_only_dark_open_dug_cells() -> void:
 	mine.dig_cells([lit_cell])
 	_still_player(mine.cell_to_world(lit_cell), 1.0)
 	assert_eq(mine._collapse_tunnel(), Vector2i(-1, -1), "a lit cell is never refilled")
+	# A row with no sconce or post near it: the generated mine's lights depend on its (random) seed.
+	var row := 250
+	while range(30).any(func(i: int): return mine.is_lit(mine.cell_to_world(Vector2i(5 + i, row))) or Support.protects(tree, mine.cell_to_world(Vector2i(5 + i, row)))):
+		row += 1
 	var dark: Array[Vector2i] = []
 	for i in range(30):
-		var cell := Vector2i(5 + i, 250)
+		var cell := Vector2i(5 + i, row)
 		mine.set_cell(0, cell, mine.source_id, Vector2i(1, 0))
 		dark.append(cell)
 	mine.dig_cells(dark)
