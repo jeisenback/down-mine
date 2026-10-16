@@ -41,13 +41,18 @@ func test_the_bot_notices_a_wall() -> void:
 	for key in [KEY_A, KEY_D, KEY_W]:
 		assert_true(not TouchKeys.is_down(key), "key %d released" % key)
 
-func test_a_pit_two_or_three_deep_can_be_climbed_out_of() -> void:
-	for depth in [2, 3]:
-		var arena := await _pit_arena(depth, true)
-		var player: Player = arena[1]
-		var result := await WalkBot.walk_to(tree, player, arena[0], Vector2i(27, FLOOR_ROW - 1), 8.0, WalkBot.KeyDriver.new())
-		assert_true(result["reached"], "a %d-deep pit is climbed out of: %s" % [depth, str(result)])
-		_release()
+func _climbs_out_of(depth: int) -> void:
+	var arena := await _pit_arena(depth, true)
+	var result := await WalkBot.walk_to(tree, arena[1], arena[0], Vector2i(27, FLOOR_ROW - 1), 8.0, WalkBot.KeyDriver.new())
+	assert_true(result["reached"], "a %d-deep pit is climbed out of: %s" % [depth, str(result)])
+	_release()
+
+## One test per depth: two arenas alive in one test would share a physics space.
+func test_a_two_deep_pit_can_be_climbed_out_of() -> void:
+	await _climbs_out_of(2)
+
+func test_a_three_deep_pit_can_be_climbed_out_of() -> void:
+	await _climbs_out_of(3)
 
 func test_the_bot_stops_when_it_arrives() -> void:
 	var arena := await _pit_arena(2, false)
