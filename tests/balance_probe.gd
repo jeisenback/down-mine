@@ -21,6 +21,9 @@ extends SceneTree
 ## pickups near its shaft: each pickup within DETOUR_TILES of the column it passes is removed, adds its
 ## light and costs N seconds of light (the travel, paid as burned fuel); none is taken when the lantern
 ## is nearly full. The detour is modelled, not walked: the output is the break-even N for the win.
+## walk (`-- walk`, only this one runs; `-- walk seeds=1001,2,4` for some): walk every connector of each
+## seed (default: the golden seeds) down to its room and back with WalkBot and real keys. One line per
+## connector: seconds and jumps each way, or STUCK at the cell. Ends with the totals. Not a gate.
 
 const SEEDS := [1001, 2002, 3003]
 const TRIP_DEPTHS := [50, 100, 150, 200]
@@ -46,6 +49,10 @@ func _run() -> void:
 	Progress.path_override = SAVE_PATH
 	if OS.get_cmdline_user_args().has("trip"):
 		await _run_trips()
+		quit()
+		return
+	if OS.get_cmdline_user_args().has("walk"):
+		await _run_walks()
 		quit()
 		return
 	if OS.get_cmdline_user_args().has("heart"):
@@ -243,6 +250,42 @@ func _trip_line(main: Node, report: Dictionary) -> String:
 	return line
 
 # --- the Heart run -----------------------------------------------------------------
+
+func _run_walks() -> void:
+	var seeds: Array = load("res://tests/test_mine_golden.gd").SEEDS
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("seeds="):
+			seeds = Array(arg.substr(6).split(",")).map(func(t): return int(t))
+	var total := 0
+	var stuck := 0
+	for run_seed in seeds:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+		MineGrid.next_seed = run_seed
+		var main: Main = load("res://scenes/Main.tscn").instantiate()
+		root.add_child(main)
+		main.mine.decay_multiplier = 1000.0
+		main.player.invincible = true
+		main.player.light.burn_rate = 0.0
+		for i in range(10):
+			await physics_frame
+		for connector: Connector in main.mine.connectors:
+			var result := await WalkBot.walk_connector(self, main.player, main.mine, connector, WalkBot.KeyDriver.new())
+			total += 1
+			var line := "walk seed %d layer %d (%d tiles): " % [run_seed, connector.layer, connector.cells.size()]
+			var legs: Array[String] = []
+			for leg in ["out", "back"]:
+				var r: Dictionary = result[leg]
+				legs.append("%s %.1fs %d jumps" % [leg, r["seconds"], r["jumps"]] if r["reached"] else "%s STUCK at %s" % [leg, str(r["stuck_at"])])
+				if not r["reached"]:
+					stuck += 1
+			print(line + ", ".join(legs))
+		root.remove_child(main)
+		main.free()
+	print("walk: %d connectors, %d legs stuck" % [total, stuck])
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+	Sfx.stop_all()
+	OS.delay_msec(100)
+	await process_frame
 
 func _run_hearts() -> void:
 	for run_seed in HEART_SEEDS:
