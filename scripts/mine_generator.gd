@@ -504,6 +504,25 @@ func _place_gallery_torches() -> void:
 				continue
 			taken[cell] = true
 			_layout.torches.append(TorchSite.new(cell, "gallery"))
+	_place_mouth_sconces(taken)
+
+## One lit torch beside each connector's mouth, just outside the posts that frame it: a side passage
+## shows as a glow from beyond the lantern's reach, as the spine torches do. It stands two columns
+## off the pit behind the mouth, else three past it, else one column further out each way. No random numbers.
+func _place_mouth_sconces(taken: Dictionary) -> void:
+	for c in _layout.connectors:
+		var spine: Drift = _layout.drifts.filter(func(d): return d.layer == c.layer)[0]
+		for column in [c.mouth.x - 2 * c.dir, c.mouth.x + 3 * c.dir, c.mouth.x - 3 * c.dir, c.mouth.x + 4 * c.dir]:
+			var cell := Vector2i(column, spine.row)
+			if column < mini(spine.x0, spine.x1) or column > maxi(spine.x0, spine.x1):
+				continue
+			if _solid[cell.x][cell.y] or not _solid[cell.x][cell.y + 1] or taken.has(cell) or _layout.decor.has(cell):
+				continue
+			if spine.collapses.any(func(box: Rect2i): return box.has_point(cell)):
+				continue
+			taken[cell] = true
+			_layout.torches.append(TorchSite.new(cell, "mouth"))
+			break
 
 ## The standing cell nearest `offset` along the spine (searching up to 9 tiles either way) where a
 ## torch can stand, or (-1, -1).

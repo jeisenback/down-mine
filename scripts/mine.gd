@@ -215,7 +215,7 @@ static var _launch_seed_read: bool = false
 var lost_miner_cell := Vector2i(-1, -1)
 ## Floor cells no pickup or NPC has claimed yet (shuffled).
 var _spare_floor_cells: Array = []
-## This mine's torches (cell and "shaft" or "cave").
+## This mine's torches (cell and "shaft", "cave", "gallery" or "mouth").
 var torches: Array[TorchSite] = []
 var _wall_cells: Array[Vector2i] = []
 var _wall_decay_timer: float = 0.0

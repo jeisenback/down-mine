@@ -3,7 +3,8 @@ class_name TorchSite
 
 ## Where one wall torch stands (milestone 60).
 var cell: Vector2i
-## "shaft" (on the old shaft's timber) or "cave" (on a cave floor).
+## "shaft" (on the old shaft's timber), "cave" (on a cave floor), "gallery" (along a spine) or
+## "mouth" (beside a connector's mouth).
 var where: String
 
 func _init(torch_cell: Vector2i, torch_where: String) -> void:
