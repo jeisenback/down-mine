@@ -216,7 +216,7 @@ func _spine_for(layout: MineLayout, c: Connector) -> Drift:
 func test_connector_length_and_origin() -> void:
 	assert_eq(MineGenerator.connector_length(2), 2, "a drop of 2 is just the junction pit")
 	assert_eq(MineGenerator.connector_length(5), 8, "two columns per level")
-	assert_eq(MineGenerator.connector_length(36), MineGrid.CONNECTOR_MAX_LENGTH, "70 tiles of staircase is the cap")
+	assert_eq(MineGenerator.connector_length(51), MineGrid.CONNECTOR_MAX_LENGTH, "100 tiles of staircase is the cap")
 	assert_eq(MineGenerator.connector_origin(100, 5, 1, 40, 200), 92, "running right it starts the staircase's length left of the room")
 	assert_eq(MineGenerator.connector_origin(100, 5, -1, 40, 200), 108, "running left, to its right")
 	assert_eq(MineGenerator.connector_origin(100, 5, 1, 40, 90), 89, "a spine that ends short: start at its end and run flat")
@@ -234,6 +234,14 @@ func test_connectors_are_walkable_and_meet_their_rooms() -> void:
 			assert_true(GalleryChecks.reachable(layout, c.mouth, c.room.cell, Vector2i(rows.x - 2, rows.y + 8)),
 					"seed %d: the %s is reachable on foot from its connector's mouth" % [s, c.room.kind])
 	assert_true(total >= 10, "across %d seeds some rooms get a connector (%d)" % [GoldenTest.SEEDS.size(), total])
+
+func test_connectors_reach_rooms_far_below_their_spine() -> void:
+	var deepest := 0
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		for c in layout.connectors:
+			deepest = maxi(deepest, c.room.cell.y - _spine_for(layout, c).row)
+	assert_true(deepest > 36, "a connector drops more than the old 36 rows (deepest %d)" % deepest)
 
 func test_connectors_skip_the_vault_the_heart_and_the_lift() -> void:
 	for s in GoldenTest.SEEDS:
