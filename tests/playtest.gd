@@ -1063,6 +1063,12 @@ func _clues_in_the_old_workings() -> void:
 			check(mine.get_cell_atlas_coords(MineGrid.DECOR_LAYER, Vector2i(column, c.mouth.y)) == MineGrid.POST_ATLAS_COORDS, "a post frames the mouth at column %d" % column)
 		await _place(Vector2i(c.mouth.x - c.dir, c.mouth.y))
 		await shot("a_connector_mouth")
+		var sconces: Array = mine.torches.filter(func(t): return t.where == "mouth" and t.cell.y == c.mouth.y and absi(t.cell.x - c.mouth.x) <= 4)
+		check(not sconces.is_empty(), "the connector's mouth has a lit sconce")
+		if not sconces.is_empty():
+			var back: int = signi(sconces[0].cell.x - c.mouth.x) * 5
+			await _place(Vector2i(c.mouth.x + back, c.mouth.y))
+			await shot("a_sconce_marks_the_mouth")
 	var flasks: Array = mine.get_children().filter(func(n): return n is FuelPickup and mine._layer_index_for_row(mine.world_to_cell(n.position).y) >= 3)
 	check(not flasks.is_empty(), "seed %d has flasks in the deep layers" % SEED)
 	for flask in flasks:

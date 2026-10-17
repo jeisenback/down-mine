@@ -302,6 +302,27 @@ func test_each_spine_has_a_lit_torch_every_thirty_tiles() -> void:
 				assert_true(not d.collapses.any(func(box): return box.has_point(t.cell)), "seed %d: not in a collapse" % s)
 				assert_true(not _pickup_cells(layout).has(t.cell), "seed %d: not on a pickup" % s)
 
+func test_a_connector_mouth_has_a_lit_sconce_beside_its_posts() -> void:
+	var total := 0
+	var marked := 0
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		for c in layout.connectors:
+			total += 1
+			var spine := _spine_for(layout, c)
+			var near: Array = _torches(layout, "mouth").filter(func(t): return t.cell.y == spine.row and absi(t.cell.x - c.mouth.x) <= 4)
+			if near.is_empty():
+				continue
+			marked += 1
+			var cell: Vector2i = near[0].cell
+			assert_true(not layout.is_solid(cell) and layout.is_solid(cell + Vector2i.DOWN), "seed %d: on an open standing cell" % s)
+			assert_true(cell.x != c.mouth.x and cell.x != c.mouth.x + c.dir, "seed %d: not over the pit" % s)
+			assert_true(cell.x != c.mouth.x - c.dir and cell.x != c.mouth.x + 2 * c.dir, "seed %d: not on a post" % s)
+			assert_true(not spine.collapses.any(func(box): return box.has_point(cell)), "seed %d: not in a collapse" % s)
+			assert_true(not _pickup_cells(layout).has(cell), "seed %d: not on a pickup" % s)
+	print("connector mouths with a sconce: %d of %d" % [marked, total])
+	assert_true(marked * 10 >= total * 9, "nearly every mouth is marked (%d of %d)" % [marked, total])
+
 func test_a_spine_torch_takes_no_numbers_from_the_global_generator() -> void:
 	var gen := MineGenerator.new()
 	gen._solid = gen._make_grid(true)
