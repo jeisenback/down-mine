@@ -13,6 +13,11 @@ class_name CreatureArt
 @export var animate: bool = true
 var t: float = 0.0
 var pose: float = 0.0
+## 0 for the ordinary creature, 1 for its deep variant (the second Stalker has four eyes).
+var variant: int = 0
+## When true this art draws only its unlit glow (eyes and the like) through _draw_glow, for ArtSprite's
+## glow layer: pieces that must show in total darkness, drawn on their own unshaded sprite.
+var glow_only: bool = false
 
 const PAL := {
 	"stalker": {"k": Color8(12, 16, 24), "a": Color8(30, 44, 58), "b": Color8(52, 76, 96), "c": Color8(104, 140, 158),
@@ -41,12 +46,20 @@ func _process(delta: float) -> void:
 		queue_redraw()
 
 func _draw() -> void:
+	if glow_only:
+		_draw_glow()
+		return
 	match kind:
 		"stalker": _draw_stalker()
 		"burrower": _draw_burrower()
 		"snuffer": _draw_snuffer()
 		"fuel": _draw_fuel()
 		"ore": _draw_ore()
+
+## The unlit pieces of this creature, drawn alone when glow_only is set. Nothing yet: each creature
+## that glows overrides it with a `match kind`.
+func _draw_glow() -> void:
+	pass
 
 # --- helpers ---------------------------------------------------------------
 
