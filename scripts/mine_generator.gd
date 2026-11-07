@@ -390,9 +390,10 @@ func _decay_spine(drift: Drift) -> void:
 		drift.collapses.append(Rect2i(mini(first_x, last_x), drift.row - 1, span.y - span.x + 1, 2))
 
 ## The cells of a connector's staircase for a drop of `dy` rows to a room's standing row: a two-column
-## pit two rows under the spine, then two columns for each further level. A flat run may follow.
+## pit two rows under the spine, then one column for each further level (a 45 degree stair). A flat run
+## may follow.
 static func connector_length(dy: int) -> int:
-	return 2 * dy - 2
+	return maxi(2, dy)
 
 ## The junction column of a connector running `dir` to a room whose near interior column is
 ## `near_x`, `dy` rows below the spine that spans columns low..high: the spine column nearest the
@@ -449,7 +450,7 @@ func _plan_connector(spine: Drift, room: EventRoom, dir: int, xs: int, taken: Di
 	var cells: Array[Vector2i] = []
 	var shaft := shaft_rect(_layout.shaft_end_row).grow(1)
 	for i in range(n):
-		var cell := Vector2i(xs + dir * i, spine.row + 2 + mini(i / 2, last_level))
+		var cell := Vector2i(xs + dir * i, spine.row + 2 + mini(maxi(i - 1, 0), last_level))
 		if cell.x < MineGrid.WORKING_EDGE_MARGIN or cell.x > MineGrid.GRID_WIDTH - 1 - MineGrid.WORKING_EDGE_MARGIN or cell.y + 1 > MineGrid.GRID_HEIGHT - 2:
 			return null
 		var box := Rect2i(cell.x, cell.y - 1, 1, 3) # two open rows and the floor
@@ -548,9 +549,16 @@ func _torch_cell_near(d: Drift, offset: int, taken: Dictionary) -> Vector2i:
 	return Vector2i(-1, -1)
 
 ## Opens a planned connector: two rows per cell, a floor under each (planks over a cave), all of it
-## kept clear of pickups and gas, and its floors from crumbling.
+## kept clear of pickups and gas, and its floors from crumbling. The two rows over each cell's roof are
+## sealed with rock (below the spine's own rows): a runner dropping down a one-tile-a-column stair meets
+## the next step's roof corner mid-fall, and where a cave lay above it the step-up helper would lift the
+## player onto that ledge, off the passage. Walked with the bot: 38 legs of 160 stuck without it, none with.
 func _cut_connector(c: Connector, taken: Dictionary) -> void:
+	var spine_row: int = _layout.drifts.filter(func(d): return d.layer == c.layer)[0].row
 	for cell in c.cells:
+		for above in [2, 3]: # rock over the roof (see the function's comment)
+			if cell.y - above > spine_row:
+				_solid[cell.x][cell.y - above] = true
 		for y in [cell.y - 1, cell.y]:
 			var open := Vector2i(cell.x, y)
 			_solid[open.x][open.y] = false
