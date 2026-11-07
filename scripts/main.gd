@@ -146,6 +146,8 @@ var touch_controls: TouchControls
 ## The gamepad, as the same keys (controller support).
 var gamepad_controls: GamepadControls
 var ambience: Ambience
+var vignette: Vignette
+var dust_motes: DustMotes
 ## How a scene is changed; tests swap it so the runner's scene is left alone.
 var change_scene: Callable = func(path: String): Engine.get_main_loop().change_scene_to_file(path)
 var lost_miners: Array[LostMiner] = []
@@ -207,6 +209,12 @@ func _ready() -> void:
 	ambience.mine = mine
 	ambience.player = player
 	add_child(ambience)
+	vignette = Vignette.new()
+	vignette.layer = hud.layer
+	add_child(vignette)
+	move_child(vignette, hud.get_index()) # drawn before the HUD, so its text stays clear
+	dust_motes = DustMotes.new()
+	player.add_child(dust_motes)
 	Sfx.warm_up()
 
 ## The old mine's ladder (milestone 51): each surviving 8-row piece is a run

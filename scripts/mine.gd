@@ -101,6 +101,8 @@ const HEART_STANDOFF_TILES := 10 # the deepest spine stops this far short of the
 const LIFT_ROWS_FROM_CLAY_BOTTOM := 1
 const DRIFT_END_CLEAR := 4 # open tiles kept at each end of a collapsed section
 const DECOR_LAYER := 1
+# Soft shading on rock that faces open ground (MineShading), over the rock and its decor.
+const SHADE_LAYER := 2
 const OLD_MINE_ART := preload("res://assets/custom/props.png")
 const ART_FRAME := Vector2i(0, 176)
 const ART_POST := Vector2i(16, 176)
@@ -206,6 +208,7 @@ const OLD_LADDER_PIECE_ROWS := 8
 const OLD_LADDER_MISSING_CHANCE := 0.3
 
 var source_id: int = 0
+var shade_source_id: int = 0
 ## This mine's seed (milestone 43): the same seed builds the same mine.
 var mine_seed: int = 0
 ## The seed the next mine uses; 0 picks a random one. Main sets it from
@@ -253,6 +256,7 @@ func _ready() -> void:
 	assert(LAYERS.size() == LAYER_COUNT, "LAYER_COUNT must match the LAYERS table")
 	_build_tileset()
 	add_layer(-1) # DECOR_LAYER
+	add_layer(-1) # SHADE_LAYER
 	_resolve_seed()
 	_apply(MineGenerator.generate(mine_seed))
 
@@ -285,6 +289,9 @@ func _apply(layout: MineLayout) -> void:
 				MineLayout.Kind.GAS: coords = gas_atlas(_layer_index_for_row(y))
 				_: coords = layer_atlas(_layer_index_for_row(y))
 			set_cell(0, Vector2i(x, y), source_id, coords)
+			var sides := MineShading.layout_mask(layout.kinds, x, y)
+			if sides != 0:
+				set_cell(SHADE_LAYER, Vector2i(x, y), shade_source_id, Vector2i(sides, 0))
 	for cell in layout.decor:
 		set_cell(DECOR_LAYER, cell, source_id, FRAME_ATLAS_COORDS if layout.decor[cell] == MineLayout.Decor.FRAME else POST_ATLAS_COORDS)
 	shaft_end_row = layout.shaft_end_row
@@ -381,6 +388,14 @@ func _build_tileset() -> void:
 		var tile_data := atlas.get_tile_data(atlas_coords, 0)
 		tile_data.add_collision_polygon(physics_layer)
 		tile_data.set_collision_polygon_points(physics_layer, 0, polygon)
+
+	# The shading overlay: its own source, so its tiles carry no collision.
+	var shade_atlas := TileSetAtlasSource.new()
+	shade_atlas.texture = ImageTexture.create_from_image(MineShading.build_image())
+	shade_atlas.texture_region_size = Vector2i(TILE_SIZE, TILE_SIZE)
+	for sides in range(1, MineShading.MASKS):
+		shade_atlas.create_tile(Vector2i(sides, 0))
+	shade_source_id = new_tileset.add_source(shade_atlas)
 
 	tile_set = new_tileset
 
@@ -486,6 +501,24 @@ func ore_value_at(world_pos: Vector2) -> int:
 ## Refills an open cell with its layer's rock (the gallery collapse).
 func fill_cell(cell: Vector2i) -> void:
 	set_cell(0, cell, source_id, layer_atlas(_layer_index_for_row(cell.y)))
+	_reshade(cell)
+
+## Refreshes the edge shading of `cell` and its four neighbours after rock there was dug or filled.
+func _reshade(cell: Vector2i) -> void:
+	for c in [cell, cell + Vector2i.UP, cell + Vector2i.DOWN, cell + Vector2i.LEFT, cell + Vector2i.RIGHT]:
+		if c.x < 0 or c.y < 0 or c.x >= GRID_WIDTH or c.y >= GRID_HEIGHT:
+			continue
+		var sides := 0
+		if is_solid(c):
+			sides = MineShading.mask(_faces_open(c + Vector2i.UP), _faces_open(c + Vector2i.RIGHT), _faces_open(c + Vector2i.DOWN), _faces_open(c + Vector2i.LEFT))
+		if sides == 0:
+			set_cell(SHADE_LAYER, c, -1)
+		else:
+			set_cell(SHADE_LAYER, c, shade_source_id, Vector2i(sides, 0))
+
+## Whether `cell` is open ground inside the grid (off the grid counts as rock, as in the layout).
+func _faces_open(cell: Vector2i) -> bool:
+	return cell.x >= 0 and cell.y >= 0 and cell.x < GRID_WIDTH and cell.y < GRID_HEIGHT and not is_solid(cell)
 
 func is_solid(cell: Vector2i) -> bool:
 	return get_cell_source_id(0, cell) != -1
@@ -512,6 +545,7 @@ func dig_cells(cells: Array, emit_noise: bool = true) -> int:
 			if emit_noise and is_gas(cell): # player digs only; Burrowers tunnel through quietly
 				gas_released.emit(cell_to_world(cell))
 			set_cell(0, cell, -1)
+			_reshade(cell)
 			_wall_cells.erase(cell)
 			dug_count += 1
 			if emit_noise: # player digs; enemy tunnels don't collapse
@@ -591,6 +625,7 @@ func _crumble_floor(player_pos: Vector2) -> Vector2i:
 		if is_solid(cell + Vector2i.UP) or _reserved_floors.has(cell) or is_lit(cell_to_world(cell)):
 			continue
 		set_cell(0, cell, -1)
+		_reshade(cell)
 		return cell
 	return Vector2i(-1, -1)
 
