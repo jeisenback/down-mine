@@ -10,12 +10,13 @@ class_name MineGenerator
 ##   - mine_seed + 52: the torches;
 ##   - mine_seed + 53: the old workings (spines, then connectors, gallery pickups and gallery torches,
 ##     in that order);
+##   - mine_seed + 54: the old workings' decor (rubble, then rails, then cobwebs, spine by spine);
 ##   - the GLOBAL generator, seeded here with seed(mine_seed): the floor-cell shuffle,
 ##     then one draw per fuel pickup as MineGrid builds it (FuelPickup keeps that draw
 ##     on purpose). Gameplay keeps drawing from it afterwards (crew names, crumbling
 ##     floors), so a side effect of generating is that it is seeded.
 ## New randomness in generation gets its own RandomNumberGenerator at the next free
-## offset (54), so no existing stream moves. Leave the global generator alone: using
+## offset (55), so no existing stream moves. Leave the global generator alone: using
 ## it differently changes every seed a player may have noted ("Seed 1001").
 ## The golden fingerprints (tests/test_mine_golden.gd) hash the tiles, every list and
 ## where the global generator ends up, so an accidental change fails there. A change
@@ -142,6 +143,7 @@ func _run(mine_seed: int) -> MineLayout:
 	_pick_lost_miner_cell()
 	_place_torches()
 	_place_gallery_torches()
+	_place_old_workings_decor()
 	return _layout
 
 func _make_grid(default_value: bool) -> Array:
@@ -531,6 +533,52 @@ func _place_mouth_sconces(taken: Dictionary) -> void:
 				continue
 			taken[along] = true
 			_layout.torches.append(TorchSite.new(along, "passage"))
+
+## Decor for the old workings (M90), on every spine and drawn behind whoever walks it: rubble on the
+## floor just beside each collapse, then a rail along the floor (some pieces missing or worn), then
+## cobwebs in the upper corners well apart. Never on a post, a torch, a pickup, a connector's pit or
+## in a collapse. Its own random stream (mine_seed + 54), so no other stream moves.
+func _place_old_workings_decor() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = _layout.mine_seed + 54
+	var taken := {}
+	for t in _layout.torches:
+		taken[t.cell] = true
+	for cell in _layout.fuel_cells:
+		taken[cell] = true
+	for ore in _layout.ore_cells:
+		taken[ore.cell] = true
+	for c in _layout.connectors:
+		taken[c.mouth] = true
+		taken[c.mouth + Vector2i(c.dir, 0)] = true
+	for d in _layout.drifts:
+		for box in d.collapses:
+			for x in [box.position.x - 2, box.position.x - 1, box.end.x, box.end.x + 1]:
+				var cell := Vector2i(x, d.row)
+				if _decor_cell_free(d, cell, taken) and rng.randf() < MineGrid.RUBBLE_CHANCE:
+					_layout.decor[cell] = MineLayout.Decor.RUBBLE
+		for i in range(d.length()):
+			var cell := Vector2i(d.x0 + d.side * i, d.row)
+			if not _decor_cell_free(d, cell, taken) or rng.randf() < MineGrid.RAIL_GAP_CHANCE:
+				continue
+			_layout.decor[cell] = MineLayout.Decor.RAIL_WORN if rng.randf() < MineGrid.RAIL_WORN_CHANCE else MineLayout.Decor.RAIL
+		var next_web := rng.randi_range(MineGrid.COBWEB_GAP_MIN, MineGrid.COBWEB_GAP_MAX)
+		for i in range(d.length()):
+			if i < next_web:
+				continue
+			var cell := Vector2i(d.x0 + d.side * i, d.row - 1)
+			if _decor_cell_free(d, cell, taken) and _solid[cell.x][cell.y - 1]:
+				_layout.decor[cell] = MineLayout.Decor.COBWEB
+				next_web = i + rng.randi_range(MineGrid.COBWEB_GAP_MIN, MineGrid.COBWEB_GAP_MAX)
+
+## Whether `cell` on spine `d` can take decor: inside the spine, open, free of anything else, and (on
+## the standing row) over a floor, and not in a collapse.
+func _decor_cell_free(d: Drift, cell: Vector2i, taken: Dictionary) -> bool:
+	if cell.x < mini(d.x0, d.x1) or cell.x > maxi(d.x0, d.x1) or taken.has(cell) or _layout.decor.has(cell):
+		return false
+	if _solid[cell.x][cell.y] or d.collapses.any(func(box: Rect2i): return box.has_point(cell)):
+		return false
+	return cell.y != d.row or _solid[cell.x][cell.y + 1]
 
 ## The standing cell nearest `offset` along the spine (searching up to 9 tiles either way) where a
 ## torch can stand, or (-1, -1).
