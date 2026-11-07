@@ -17,6 +17,9 @@ const GEAR_KINDS := ["player", "flag", "beacon", "bell", "support", "lamp", "lad
 @export var kind: String = ""
 @export var cell: Vector2i = Vector2i(48, 48)
 @export var origin: Vector2i = Vector2i(24, 24)
+## Draws the creature's glow pieces (CreatureArt._draw_glow) on a second, unshaded sprite, so they
+## show in total darkness. Off for everything that does not glow.
+@export var glow: bool = false
 @export var length: float = 64.0
 ## The miner's coat, or a sign's cloth, colour. Live: set it any time.
 @export var coat: Color = GearArt.DEFAULT_COAT:
@@ -36,6 +39,9 @@ var _notifier: VisibleOnScreenNotifier2D
 var art # CreatureArt or GearArt (a CreatureArt subclass)
 var viewport: SubViewport
 var sprite: Sprite2D
+var glow_viewport: SubViewport
+var glow_art: CreatureArt
+var glow_sprite: Sprite2D
 var flip_h: bool = false:
 	set(value):
 		flip_h = value
@@ -68,6 +74,8 @@ func _ready() -> void:
 	sprite.texture = viewport.get_texture()
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	add_child(sprite)
+	if glow:
+		_build_glow()
 	_place_sprite()
 	_notifier = VisibleOnScreenNotifier2D.new()
 	_notifier.name = "Notifier"
@@ -76,19 +84,53 @@ func _ready() -> void:
 	add_child(_notifier)
 	_place_sprite()
 
+## The glow layer: the same art in glow-only mode, in its own viewport, shown through an unshaded
+## sprite above the lit one. It follows the lit art's clock, pose and variant (see _on_art_drawn).
+func _build_glow() -> void:
+	glow_art = CreatureArt.new()
+	glow_art.kind = kind
+	glow_art.glow_only = true
+	glow_art.animate = false
+	glow_art.position = Vector2(origin)
+	glow_viewport = SubViewport.new()
+	glow_viewport.size = cell
+	glow_viewport.transparent_bg = true
+	glow_viewport.msaa_2d = Viewport.MSAA_DISABLED
+	glow_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	glow_viewport.add_child(glow_art)
+	add_child(glow_viewport)
+	glow_art.set_process(false)
+	glow_sprite = Sprite2D.new()
+	glow_sprite.texture = glow_viewport.get_texture()
+	glow_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	var unlit := CanvasItemMaterial.new()
+	unlit.light_mode = CanvasItemMaterial.LIGHT_MODE_UNSHADED
+	glow_sprite.material = unlit
+	add_child(glow_sprite)
+
 func _place_sprite() -> void:
 	if sprite == null:
 		return
 	var centre := Vector2(cell) / 2.0 - Vector2(origin)
 	sprite.position = Vector2(-centre.x if flip_h else centre.x, centre.y)
 	sprite.scale.x = -1.0 if flip_h else 1.0
+	if glow_sprite != null:
+		glow_sprite.position = sprite.position
+		glow_sprite.scale.x = sprite.scale.x
 	if _notifier != null:
 		_notifier.rect = Rect2(sprite.position - Vector2(cell) / 2.0, Vector2(cell))
 
 ## The viewport renders once per redraw of the art, not every frame.
 func _on_art_drawn() -> void:
+	if glow_art != null:
+		glow_art.t = art.t
+		glow_art.pose = art.pose
+		glow_art.variant = art.variant
+		glow_art.queue_redraw()
 	if _on_screen:
 		viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+		if glow_viewport != null:
+			glow_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 func _on_screen_entered() -> void:
 	_on_screen = true
@@ -99,3 +141,5 @@ func _on_screen_exited() -> void:
 	_on_screen = false
 	art.set_process(false)
 	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	if glow_viewport != null:
+		glow_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED

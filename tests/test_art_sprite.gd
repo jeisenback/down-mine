@@ -115,3 +115,59 @@ func test_the_hub_gears_build_gear_art() -> void:
 		assert_true(a.art is GearArt, "%s builds a gear art" % name)
 		if a.art is GearArt:
 			assert_eq(a.art.gear, name, "%s gear" % name)
+
+# --- the unlit glow layer (M92) ----------------------------------------------------------------
+
+func _make_glow(kind: String = "stalker") -> ArtSprite:
+	var a := ArtSprite.new()
+	a.kind = kind
+	a.glow = true
+	add(a)
+	return a
+
+func test_glow_is_off_by_default() -> void:
+	var a := _make("stalker")
+	await tree.process_frame
+	assert_eq(a.glow_viewport, null, "no glow viewport")
+	assert_eq(a.glow_art, null, "no glow art")
+	assert_eq(a.glow_sprite, null, "no glow sprite")
+
+func test_a_glow_sprite_is_unshaded_and_shares_the_pixel_grid() -> void:
+	var a := _make_glow()
+	await tree.process_frame
+	assert_true(a.glow_sprite.material is CanvasItemMaterial, "a canvas item material")
+	assert_eq((a.glow_sprite.material as CanvasItemMaterial).light_mode, CanvasItemMaterial.LIGHT_MODE_UNSHADED, "unshaded: it ignores the dark")
+	assert_eq(a.glow_sprite.texture_filter, CanvasItem.TEXTURE_FILTER_NEAREST, "nearest")
+	assert_eq(a.glow_sprite.position, a.sprite.position, "on the lit sprite's pixels")
+	assert_eq(a.glow_viewport.size, a.cell, "the same cell")
+	assert_true(a.glow_art.glow_only and not a.glow_art.is_processing() and not a.glow_art.animate, "the glow art draws only the glow, on the lit art's clock")
+
+func test_the_glow_mirrors_with_the_sprite() -> void:
+	var a := _make_glow()
+	await tree.process_frame
+	a.flip_h = true
+	assert_eq(a.glow_sprite.scale.x, a.sprite.scale.x, "mirrored together")
+	assert_eq(a.glow_sprite.position, a.sprite.position, "and placed together")
+	a.flip_h = false
+	assert_eq(a.glow_sprite.scale.x, 1.0, "restored")
+
+func test_the_glow_follows_the_lit_arts_clock_and_pose() -> void:
+	var a := _make_glow()
+	await tree.process_frame
+	a.art.t = 3.5
+	a.art.pose = 1.0
+	a.art.variant = 1
+	a._on_art_drawn()
+	assert_eq(a.glow_art.t, 3.5, "the same clock")
+	assert_eq(a.glow_art.pose, 1.0, "the same pose")
+	assert_eq(a.glow_art.variant, 1, "the same variant")
+
+func test_the_glow_sleeps_off_screen() -> void:
+	var a := _make_glow()
+	await tree.process_frame
+	assert_eq(a.glow_viewport.render_target_update_mode, SubViewport.UPDATE_DISABLED, "spawned asleep")
+	a._on_screen_entered()
+	a._on_art_drawn()
+	assert_eq(a.glow_viewport.render_target_update_mode, SubViewport.UPDATE_ONCE, "renders once per redraw while seen")
+	a._on_screen_exited()
+	assert_eq(a.glow_viewport.render_target_update_mode, SubViewport.UPDATE_DISABLED, "gone again: asleep")
