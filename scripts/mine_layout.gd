@@ -6,12 +6,12 @@ class_name MineLayout
 ## copies it into the fields the rest of the game reads.
 
 enum Kind { EMPTY, ROCK, BEDROCK, VAULT, PLANK, DEBRIS, GAS }
-enum Decor { FRAME, POST }
+enum Decor { FRAME, POST, RAIL, RAIL_WORN, RUBBLE, COBWEB }
 
 var mine_seed: int = 0
 ## One Kind per cell, indexed x * GRID_HEIGHT + y.
 var kinds := PackedByteArray()
-## Decor-layer cells (shaft timber, drift posts): cell -> Decor.
+## Decor-layer cells (shaft timber, drift posts, rails, rubble, cobwebs): cell -> Decor.
 var decor: Dictionary = {}
 var drifts: Array[Drift] = []
 var connectors: Array[Connector] = []

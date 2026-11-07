@@ -69,6 +69,11 @@ const FRAME_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 4, 0)
 # floor where a drift crosses a cave.
 const POST_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 5, 0)
 const PLANK_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 6, 0)
+# Old-workings decor (OldWorkingsArt), drawn in code: rails, worn rails, rubble, cobwebs.
+const RAIL_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 7, 0)
+const RAIL_WORN_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 8, 0)
+const RUBBLE_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 9, 0)
+const COBWEB_ATLAS_COORDS := Vector2i(2 * LAYER_COUNT + 10, 0)
 # Spines (the old workings' long galleries): length, decay and timber. A spine fed from the
 # shaft has only the room beside it, so its length is clamped to that (about 73 tiles).
 const SPINE_MIN_LENGTH := 60
@@ -94,6 +99,13 @@ const SPINE_TORCH_SPACING := 30
 const CONNECTOR_CHANCE := 0.8
 # One lit torch per this many tiles of a connector's passage, so a long one is not dark from end to end.
 const CONNECTOR_TORCH_SPACING := 30
+# Old-workings decor along each spine (M90): the chance a rail cell is missing, the chance one that
+# stands is worn, the chance of rubble on a cell beside a collapse, and how far apart cobwebs hang.
+const RAIL_GAP_CHANCE := 0.12
+const RAIL_WORN_CHANCE := 0.3
+const RUBBLE_CHANCE := 0.8
+const COBWEB_GAP_MIN := 8
+const COBWEB_GAP_MAX := 16
 const CONNECTOR_MAX_LENGTH := 70
 const HEART_STANDOFF_TILES := 10 # the deepest spine stops this far short of the Heart's room
 # The lift (milestone 51c): the old cage in the shaft, this many rows above
@@ -293,7 +305,7 @@ func _apply(layout: MineLayout) -> void:
 			if sides != 0:
 				set_cell(SHADE_LAYER, Vector2i(x, y), shade_source_id, Vector2i(sides, 0))
 	for cell in layout.decor:
-		set_cell(DECOR_LAYER, cell, source_id, FRAME_ATLAS_COORDS if layout.decor[cell] == MineLayout.Decor.FRAME else POST_ATLAS_COORDS)
+		set_cell(DECOR_LAYER, cell, source_id, decor_atlas(layout.decor[cell]))
 	shaft_end_row = layout.shaft_end_row
 	old_ladder_rows = layout.old_ladder_rows.duplicate()
 	drifts = layout.drifts.duplicate()
@@ -322,7 +334,7 @@ func _apply(layout: MineLayout) -> void:
 		add_child(torch)
 
 func _build_tileset() -> void:
-	var atlas_width := PLANK_ATLAS_COORDS.x + 1
+	var atlas_width := COBWEB_ATLAS_COORDS.x + 1
 	var image := Image.create(TILE_SIZE * atlas_width, TILE_SIZE, false, Image.FORMAT_RGBA8)
 	image.fill_rect(Rect2i(BEDROCK_ATLAS_COORDS.x * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE), BEDROCK_COLOR)
 	image.fill_rect(Rect2i(WALL_ATLAS_COORDS.x * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE), WALL_COLOR)
@@ -359,6 +371,10 @@ func _build_tileset() -> void:
 	image.blit_rect(art, Rect2i(ART_FRAME, tile), Vector2i(FRAME_ATLAS_COORDS.x * TILE_SIZE, 0))
 	image.blit_rect(art, Rect2i(ART_POST, tile), Vector2i(POST_ATLAS_COORDS.x * TILE_SIZE, 0))
 	image.blit_rect(art, Rect2i(ART_PLANK, tile), Vector2i(PLANK_ATLAS_COORDS.x * TILE_SIZE, 0))
+	var decor_art := {RAIL_ATLAS_COORDS: OldWorkingsArt.rail(false), RAIL_WORN_ATLAS_COORDS: OldWorkingsArt.rail(true),
+			RUBBLE_ATLAS_COORDS: OldWorkingsArt.rubble(), COBWEB_ATLAS_COORDS: OldWorkingsArt.cobweb()}
+	for coords in decor_art:
+		image.blit_rect(decor_art[coords], Rect2i(Vector2i.ZERO, tile), Vector2i(coords.x * TILE_SIZE, 0))
 	var debris_at := Vector2i(DEBRIS_ATLAS_COORDS.x * TILE_SIZE, 0)
 	image.blit_rect(image, Rect2i(Vector2i(layer_atlas(2).x * TILE_SIZE, 0), tile), debris_at)
 	image.blend_rect(art, Rect2i(ART_DEBRIS, tile), debris_at)
@@ -383,7 +399,7 @@ func _build_tileset() -> void:
 	for i in range(atlas_width):
 		var atlas_coords := Vector2i(i, 0)
 		atlas.create_tile(atlas_coords)
-		if atlas_coords == FRAME_ATLAS_COORDS or atlas_coords == POST_ATLAS_COORDS:
+		if atlas_coords in [FRAME_ATLAS_COORDS, POST_ATLAS_COORDS, RAIL_ATLAS_COORDS, RAIL_WORN_ATLAS_COORDS, RUBBLE_ATLAS_COORDS, COBWEB_ATLAS_COORDS]:
 			continue # decoration: nothing to collide with
 		var tile_data := atlas.get_tile_data(atlas_coords, 0)
 		tile_data.add_collision_polygon(physics_layer)
@@ -398,6 +414,16 @@ func _build_tileset() -> void:
 	shade_source_id = new_tileset.add_source(shade_atlas)
 
 	tile_set = new_tileset
+
+## The tile for a decor kind (MineLayout.Decor).
+func decor_atlas(kind: int) -> Vector2i:
+	match kind:
+		MineLayout.Decor.FRAME: return FRAME_ATLAS_COORDS
+		MineLayout.Decor.RAIL: return RAIL_ATLAS_COORDS
+		MineLayout.Decor.RAIL_WORN: return RAIL_WORN_ATLAS_COORDS
+		MineLayout.Decor.RUBBLE: return RUBBLE_ATLAS_COORDS
+		MineLayout.Decor.COBWEB: return COBWEB_ATLAS_COORDS
+	return POST_ATLAS_COORDS
 
 ## First and last row (inclusive) of a depth layer.
 func _layer_rows(layer: int) -> Vector2i:
