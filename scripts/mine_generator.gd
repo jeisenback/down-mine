@@ -508,7 +508,8 @@ func _place_gallery_torches() -> void:
 
 ## One lit torch beside each connector's mouth, just outside the posts that frame it: a side passage
 ## shows as a glow from beyond the lantern's reach, as the spine torches do. It stands two columns
-## off the pit behind the mouth, else three past it, else one column further out each way. No random numbers.
+## off the pit behind the mouth, else three past it, else one column further out each way. A long passage
+## also gets a torch every CONNECTOR_TORCH_SPACING tiles along its stair. No random numbers.
 func _place_mouth_sconces(taken: Dictionary) -> void:
 	for c in _layout.connectors:
 		var spine: Drift = _layout.drifts.filter(func(d): return d.layer == c.layer)[0]
@@ -523,6 +524,12 @@ func _place_mouth_sconces(taken: Dictionary) -> void:
 			taken[cell] = true
 			_layout.torches.append(TorchSite.new(cell, "mouth"))
 			break
+		for i in range(MineGrid.CONNECTOR_TORCH_SPACING, c.cells.size(), MineGrid.CONNECTOR_TORCH_SPACING):
+			var along: Vector2i = c.cells[i]
+			if taken.has(along):
+				continue
+			taken[along] = true
+			_layout.torches.append(TorchSite.new(along, "passage"))
 
 ## The standing cell nearest `offset` along the spine (searching up to 9 tiles either way) where a
 ## torch can stand, or (-1, -1).

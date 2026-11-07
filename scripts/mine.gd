@@ -88,10 +88,12 @@ const SPINE_POST_MISSING_CHANCE := 0.25
 # replace cave pickups, so the mine's totals (FUEL_DEPOSIT_COUNT, ORE_DEPOSIT_COUNT) do not change.
 const GALLERY_FUEL_TILES := 12
 const GALLERY_ORE_TILES := 25
-# Connectors (spine to room): a chance per eligible room, and the longest allowed (a drop of 36 rows).
+# Connectors (spine to room): a chance per eligible room, and the longest allowed (a drop of 51 rows).
 # One lit torch per this many tiles of spine: a worked gallery shows from a distance (old workings, clues).
 const SPINE_TORCH_SPACING := 30
 const CONNECTOR_CHANCE := 0.8
+# One lit torch per this many tiles of a connector's passage, so a long one is not dark from end to end.
+const CONNECTOR_TORCH_SPACING := 30
 const CONNECTOR_MAX_LENGTH := 100
 const HEART_STANDOFF_TILES := 10 # the deepest spine stops this far short of the Heart's room
 # The lift (milestone 51c): the old cage in the shaft, this many rows above
@@ -215,7 +217,7 @@ static var _launch_seed_read: bool = false
 var lost_miner_cell := Vector2i(-1, -1)
 ## Floor cells no pickup or NPC has claimed yet (shuffled).
 var _spare_floor_cells: Array = []
-## This mine's torches (cell and "shaft", "cave", "gallery" or "mouth").
+## This mine's torches (cell and "shaft", "cave", "gallery", "mouth" or "passage").
 var torches: Array[TorchSite] = []
 var _wall_cells: Array[Vector2i] = []
 var _wall_decay_timer: float = 0.0

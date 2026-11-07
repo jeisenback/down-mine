@@ -323,6 +323,26 @@ func test_a_connector_mouth_has_a_lit_sconce_beside_its_posts() -> void:
 	print("connector mouths with a sconce: %d of %d" % [marked, total])
 	assert_true(marked * 10 >= total * 9, "nearly every mouth is marked (%d of %d)" % [marked, total])
 
+func test_a_long_passage_has_a_lit_torch_every_thirty_tiles() -> void:
+	var long_passages := 0
+	var lit := 0
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		for c in layout.connectors:
+			var n := c.cells.size()
+			for t in _torches(layout, "passage"):
+				var i := c.cells.find(t.cell)
+				if i >= 0:
+					assert_eq(i % MineGrid.CONNECTOR_TORCH_SPACING, 0, "seed %d: a passage torch stands at a multiple of the spacing (index %d)" % [s, i])
+					assert_true(not layout.is_solid(t.cell) and layout.is_solid(t.cell + Vector2i.DOWN), "seed %d: on an open standing cell" % s)
+			for k in range(1, (n - 1) / MineGrid.CONNECTOR_TORCH_SPACING + 1):
+				long_passages += 1
+				if _torches(layout, "passage").any(func(t): return t.cell == c.cells[k * MineGrid.CONNECTOR_TORCH_SPACING]):
+					lit += 1
+	print("passage torch spots: %d, lit: %d" % [long_passages, lit])
+	assert_true(long_passages > 0, "some passages are long enough")
+	assert_true(lit * 10 >= long_passages * 9, "nearly every spot is lit (%d of %d)" % [lit, long_passages])
+
 func test_a_spine_torch_takes_no_numbers_from_the_global_generator() -> void:
 	var gen := MineGenerator.new()
 	gen._solid = gen._make_grid(true)

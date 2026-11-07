@@ -145,6 +145,7 @@ var progress: Progress
 var touch_controls: TouchControls
 ## The gamepad, as the same keys (controller support).
 var gamepad_controls: GamepadControls
+var ambience: Ambience
 ## How a scene is changed; tests swap it so the runner's scene is left alone.
 var change_scene: Callable = func(path: String): Engine.get_main_loop().change_scene_to_file(path)
 var lost_miners: Array[LostMiner] = []
@@ -202,6 +203,10 @@ func _ready() -> void:
 	gamepad_controls = GamepadControls.new()
 	add_child(gamepad_controls)
 	gamepad_controls.set_mode("mine")
+	ambience = Ambience.new()
+	ambience.mine = mine
+	ambience.player = player
+	add_child(ambience)
 	Sfx.warm_up()
 
 ## The old mine's ladder (milestone 51): each surviving 8-row piece is a run
