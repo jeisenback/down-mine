@@ -460,6 +460,7 @@ func _wake_stalker(layer: int) -> void:
 	var hunter: Stalker = StalkerScene.instantiate()
 	hunter.player = player
 	hunter.run_base = run_base
+	hunter.deep = layer == NEST_LAYER
 	# Below the quiet floor by a tile and a strike's reach, so a player
 	# standing on the boundary row is out of range.
 	hunter.min_y = mine.cell_to_world(Vector2i(0, mine.quiet_floor_row())).y + mine.TILE_SIZE + Stalker.ATTACK_RANGE

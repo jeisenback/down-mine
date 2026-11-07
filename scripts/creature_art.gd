@@ -19,9 +19,13 @@ var variant: int = 0
 ## glow layer: pieces that must show in total darkness, drawn on their own unshaded sprite.
 var glow_only: bool = false
 
+## The Stalker's eyes: ice blue, red on a strike. Drawn unlit (the glow layer), so they show in the dark.
+const STALKER_EYE := Color8(150, 215, 255)
+const STALKER_STRIKE_EYE := Color8(245, 74, 56)
+
 const PAL := {
-	"stalker": {"k": Color8(12, 16, 24), "a": Color8(30, 44, 58), "b": Color8(52, 76, 96), "c": Color8(104, 140, 158),
-		"e": Color8(245, 74, 56), "m": Color8(226, 230, 216), "v": Color8(6, 8, 12)},
+	"stalker": {"k": Color8(26, 26, 32), "a": Color8(70, 72, 80), "b": Color8(120, 122, 126), "c": Color8(214, 208, 194),
+		"m": Color8(236, 232, 220), "v": Color8(8, 8, 12)},
 	"burrower": {"k": Color8(20, 12, 6), "a": Color8(66, 44, 20), "b": Color8(120, 82, 34), "c": Color8(188, 140, 68),
 		"e": Color8(240, 70, 46), "m": Color8(228, 214, 178)},
 	"snuffer": {"k": Color8(18, 34, 46), "a": Color8(46, 74, 92), "b": Color8(88, 134, 152), "c": Color8(190, 226, 236),
@@ -56,10 +60,11 @@ func _draw() -> void:
 		"fuel": _draw_fuel()
 		"ore": _draw_ore()
 
-## The unlit pieces of this creature, drawn alone when glow_only is set. Nothing yet: each creature
-## that glows overrides it with a `match kind`.
+## The unlit pieces of this creature, drawn alone when glow_only is set: the Stalker's eyes. Other
+## creatures draw nothing here.
 func _draw_glow() -> void:
-	pass
+	match kind:
+		"stalker": _draw_stalker_glow()
 
 # --- helpers ---------------------------------------------------------------
 
@@ -104,42 +109,66 @@ func _glow(c: Vector2, r: float, col: Color, strength: float) -> void:
 
 # --- the Stalker: a big dark spider ------------------------------------------
 
+## The Stalker (M92): a tall, thin, pale figure, hunched, forearms longer than its legs. It has no eyes
+## here: they are drawn unlit by _draw_stalker_glow, so in the dark you see two cold eyes and nothing
+## else. The deep Stalker (variant 1) is taller and has a taller hollow for four eyes.
 func _draw_stalker() -> void:
 	var p: Dictionary = PAL["stalker"]
-	var lunge := pose * 3.0
-	var bob := sin(t * 3.0) * 0.5
-	var ground := 7.0
-	var thorax := Vector2(2.0 + lunge, -2.0 + bob)
-	var abdomen := Vector2(-4.5 + lunge * 0.4, -1.5 + bob * 0.6)
-	# eight legs: long, high-kneed, splayed front and back; far side darker
-	for i in range(8):
-		var far := i % 2 == 0
-		var slot := i / 2                                   # 0 front .. 3 rear
-		var dir := 1.0 if slot < 2 else -1.0
-		var reach: float = [10.0, 7.0, 8.0, 11.0][slot] + (1.0 if far else 0.0)
-		var ph := t * 4.0 + (PI if far else 0.0) + slot * 1.6
-		var hip := thorax + Vector2(-slot * 2.2 + 1.5, 1.0)
-		var knee := hip + Vector2(dir * (reach * 0.5), -7.0 + sin(ph) * 0.8)
-		if slot == 0:
-			knee.y -= 1.5 + pose * 3.0                       # front legs reach up and out
-		var foot := Vector2(hip.x + dir * reach + (lunge if slot == 0 else 0.0), ground - maxf(0.0, cos(ph)) * 1.5 - (1.0 if far else 0.0))
-		if slot == 0:
-			foot.y -= pose * 5.0
-		var leg := PackedVector2Array([hip, knee, foot])
-		draw_polyline(leg, p["k"], 2.0)
-		draw_polyline(leg, p["a"] if far else p["c"], 1.0)
-	# round abdomen with a mark, smaller thorax
-	_blob(_ellipse(abdomen, 5.2, 4.4, 16), p)
-	draw_colored_polygon(PackedVector2Array([abdomen + Vector2(-2.6, -1.0), abdomen + Vector2(0.0, -2.6), abdomen + Vector2(0.6, 0.6)]), p["e"].darkened(0.35))
-	_blob(_ellipse(thorax, 3.4, 2.9, 12), p)
-	# eyes: a cluster of four, plus fangs
-	var flare := 0.8 + 0.2 * sin(t * 7.0)
-	for e in [Vector2(1.6, -1.2), Vector2(2.6, -0.4), Vector2(0.6, -0.6), Vector2(1.8, 0.3)]:
-		_glow(thorax + e, 1.6, p["e"], flare * 0.6)
-		draw_rect(Rect2(thorax + e - Vector2(0.5, 0.5), Vector2(1, 1)), p["e"])
-	var fang := 0.4 + 0.4 * sin(t * 5.0) + pose
-	for side in [-1.0, 1.0]:
-		draw_line(thorax + Vector2(3.0, 0.8 + side * 0.9), thorax + Vector2(4.2, 2.6 + side * 0.3 * fang), p["m"], 1.0)
+	var lunge := roundf(pose * 3.0)
+	var head := _stalker_head()
+	var shoulder := Vector2(2.0 + lunge, _stalker_up(-12.0))
+	# legs: two long thin ones, the far one darker
+	for leg in [[Vector2(1, -3), Vector2(4, 2), Vector2(5, 7), true], [Vector2(-1, -3), Vector2(-3, 2), Vector2(-2, 7), false]]:
+		var line := PackedVector2Array([leg[0], leg[1], leg[2]])
+		draw_polyline(line, p["k"], 2.0)
+		draw_polyline(line, p["a"] if leg[3] else p["b"], 1.0)
+	# the far arm, behind the body
+	_stalker_arm(shoulder + Vector2(-2, 1), p, true)
+	# the torso: narrow at the hips, a hunched back, shoulders forward
+	var torso := PackedVector2Array([Vector2(-3, -3), Vector2(3, -3), Vector2(4.0 + lunge * 0.5, _stalker_up(-8.0)),
+		shoulder + Vector2(2, 0), shoulder + Vector2(-1, -1), Vector2(-3, _stalker_up(-10.0)), Vector2(-4, _stalker_up(-6.0))])
+	draw_colored_polygon(torso, p["c"])
+	draw_polyline(torso, p["k"], 1.0)
+	draw_line(Vector2(-2, _stalker_up(-7.0)), Vector2(2.0 + lunge * 0.5, _stalker_up(-6.0)), p["b"], 1.0) # a rib
+	draw_line(Vector2(-2, _stalker_up(-9.0)), Vector2(2.0 + lunge * 0.7, _stalker_up(-8.5)), p["b"], 1.0)
+	# the head: a long skull with a dark hollow where the eyes will be
+	var tall := 1.8 * variant
+	draw_colored_polygon(_ellipse(head + Vector2(0, -tall * 0.4), 4.0, 4.4 + tall, 14), p["c"])
+	draw_polyline(_ellipse(head + Vector2(0, -tall * 0.4), 4.0, 4.4 + tall, 14), p["k"], 1.0)
+	draw_colored_polygon(_ellipse(head + Vector2(1.0, tall * 0.2), 3.4, 3.2 + tall, 12), p["v"])
+	# the near arm, in front: long, to the knees at rest, reaching on a strike
+	_stalker_arm(shoulder, p, false)
+
+## An arm from `from`: down to the knees at rest, out in front of it as `pose` goes to 1.
+func _stalker_arm(from: Vector2, p: Dictionary, far: bool) -> void:
+	var elbow := from + Vector2(3, 6).lerp(Vector2(7, 1), pose)
+	var hand := from + Vector2(5, 12).lerp(Vector2(14, 0), pose)
+	var arm := PackedVector2Array([from, elbow, hand])
+	draw_polyline(arm, p["k"], 2.0)
+	draw_polyline(arm, p["a"] if far else p["m"], 1.0)
+	draw_rect(Rect2(hand + Vector2(-0.5, 0.0), Vector2(2, 1)), p["k"])
+
+## The Stalker's centre of the head: a slow sway, forward on a strike (whole pixels, so it stays crisp).
+func _stalker_head() -> Vector2:
+	return Vector2(3.0 + roundf(sin(t * 1.2) * 0.8) + roundf(pose * 3.0), _stalker_up(-15.0))
+
+## `y` (above the hips, negative) stretched for the deep variant, to whole pixels.
+func _stalker_up(y: float) -> float:
+	return roundf(-3.0 + (y + 3.0) * (1.0 + 0.18 * variant))
+
+## The Stalker's eyes, drawn alone on the glow layer: two (four for the deep one) cold ice blue eyes,
+## round and slow to blink; on a strike they narrow to red slits.
+func _draw_stalker_glow() -> void:
+	var striking := pose >= 0.5
+	if not striking and fposmod(t, 4.2) > 4.05:
+		return # a blink
+	var head := _stalker_head()
+	var colour := STALKER_STRIKE_EYE if striking else STALKER_EYE
+	var size := Vector2(3, 1) if striking else Vector2(2, 2)
+	var rows := [-1.0, 2.0] if variant == 1 else [-1.0]
+	for row in rows:
+		for dx in [-2.0, 2.0]:
+			draw_rect(Rect2(head + Vector2(dx, row), size), colour)
 
 # --- the Burrower: a low, many-legged crawler with mandibles --------------
 

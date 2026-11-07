@@ -1126,6 +1126,147 @@ func _gamepad_play() -> void:
 
 ## The creatures' pixel checks (M92): each redrawn creature adds its checks here (it fits its cell, its
 ## poses differ, its glow shows in the dark). Pixels need a renderer, so they live in the playtest and not
-## in the headless unit suite. Nothing is checked yet.
+## in the headless unit suite.
+const EYE_ICE := Color(0.588, 0.843, 1.0)
+const EYE_RED := Color(0.961, 0.29, 0.22)
+const STALKER_CELL := Vector2i(64, 48)
+const STALKER_ORIGIN := Vector2i(32, 30)
+
 func _enemy_art() -> void:
-	await frames(1)
+	await _stalker_art_checks()
+	await _stalker_in_the_dark()
+
+## The lit and glow pictures of one creature at a pose and variant, at a fixed clock (t = 1, so no blink).
+func _art_images(kind: String, cell: Vector2i, origin: Vector2i, pose: float, variant: int) -> Dictionary:
+	var sprite := ArtSprite.new()
+	sprite.kind = kind
+	sprite.glow = true
+	sprite.cell = cell
+	sprite.origin = origin
+	root.add_child(sprite)
+	await process_frame
+	sprite._on_screen_entered()
+	sprite.art.animate = false
+	sprite.art.t = 1.0
+	sprite.art.pose = pose
+	sprite.art.variant = variant
+	sprite.art.queue_redraw()
+	await process_frame
+	sprite._on_art_drawn()
+	await process_frame
+	await process_frame
+	var pictures := {"lit": sprite.viewport.get_texture().get_image(), "glow": sprite.glow_viewport.get_texture().get_image()}
+	sprite.queue_free()
+	return pictures
+
+func _count_pixels(image: Image, wanted: Callable) -> int:
+	var count := 0
+	for x in range(image.get_width()):
+		for y in range(image.get_height()):
+			if wanted.call(image.get_pixel(x, y), x, y):
+				count += 1
+	return count
+
+func _near(colour: Color, target: Color, tolerance: float = 0.22) -> bool:
+	return Vector3(colour.r - target.r, colour.g - target.g, colour.b - target.b).length() < tolerance
+
+## Whether anything opaque touches the outer ring of the picture.
+func _touches_the_border(image: Image) -> bool:
+	return _count_pixels(image, func(c, x, y): return c.a > 0.1 and (x == 0 or y == 0 or x == image.get_width() - 1 or y == image.get_height() - 1)) > 0
+
+## Separate lit patches (8-connected pixels above half alpha), as the number of eyes in a glow picture.
+func _patches(image: Image) -> int:
+	var seen := {}
+	var patches := 0
+	for x in range(image.get_width()):
+		for y in range(image.get_height()):
+			if image.get_pixel(x, y).a <= 0.5 or seen.has(Vector2i(x, y)):
+				continue
+			patches += 1
+			var stack: Array[Vector2i] = [Vector2i(x, y)]
+			seen[Vector2i(x, y)] = true
+			while not stack.is_empty():
+				var at: Vector2i = stack.pop_back()
+				for dx in [-1, 0, 1]:
+					for dy in [-1, 0, 1]:
+						var next := Vector2i(at.x + dx, at.y + dy)
+						if next.x < 0 or next.y < 0 or next.x >= image.get_width() or next.y >= image.get_height() or seen.has(next):
+							continue
+						if image.get_pixel(next.x, next.y).a > 0.5:
+							seen[next] = true
+							stack.append(next)
+	return patches
+
+func _stalker_art_checks() -> void:
+	var pictures := {}
+	for pose in [0.0, 1.0]:
+		for variant in [0, 1]:
+			var shown := await _art_images("stalker", STALKER_CELL, STALKER_ORIGIN, pose, variant)
+			pictures[[pose, variant]] = shown
+			for layer in ["lit", "glow"]:
+				check(not _touches_the_border(shown[layer]), "the Stalker's %s art stays inside its cell (pose %.0f, variant %d)" % [layer, pose, variant])
+	var idle: Dictionary = pictures[[0.0, 0]]
+	var strike: Dictionary = pictures[[1.0, 0]]
+	var deep: Dictionary = pictures[[0.0, 1]]
+	for shown in [idle, strike]:
+		var eyes_in_the_body := _count_pixels(shown["lit"], func(c, _x, _y): return c.a > 0.5 and (_near(c, EYE_ICE) or _near(c, EYE_RED)))
+		check(eyes_in_the_body == 0, "the lit Stalker has no eye pixels (%d)" % eyes_in_the_body)
+	var eye_pixels := _count_pixels(idle["glow"], func(c, _x, _y): return c.a > 0.5)
+	check(eye_pixels >= 2 and eye_pixels <= 24, "the glow is a few eye pixels (%d)" % eye_pixels)
+	check(_count_pixels(idle["glow"], func(c, _x, y): return c.a > 0.5 and y >= STALKER_ORIGIN.y) == 0, "the eyes are in the head, above the body's centre")
+	check(_patches(idle["glow"]) == 2, "an ordinary Stalker has two eyes (%d)" % _patches(idle["glow"]))
+	check(_patches(deep["glow"]) == 4, "the deep Stalker has four eyes (%d)" % _patches(deep["glow"]))
+	check(idle["lit"].get_data() != strike["lit"].get_data(), "the strike changes the lit picture")
+	check(idle["glow"].get_data() != strike["glow"].get_data(), "the strike changes the glow")
+	check(_count_pixels(strike["glow"], func(c, _x, _y): return c.a > 0.5 and _near(c, EYE_RED)) > 0, "the eyes flash red on the strike")
+	check(_count_pixels(idle["glow"], func(c, _x, _y): return c.a > 0.5 and _near(c, EYE_RED)) == 0, "and are ice blue when idle")
+
+## The real mine, in a sealed pocket of rock with the lantern out: the eyes show and the body does not,
+## and the eyes sit on the side the Stalker faces, whichever way it is mirrored.
+func _stalker_in_the_dark() -> void:
+	await _start_game(false)
+	var mine: MineGrid = main.mine
+	var origin := Vector2i(100, 380)
+	for x in range(origin.x - 14, origin.x + 15):
+		for y in range(origin.y - 8, origin.y + 8):
+			mine.fill_cell(Vector2i(x, y))
+	for x in range(origin.x - 10, origin.x + 11):
+		for y in range(origin.y - 3, origin.y + 3):
+			mine.dig_cells([Vector2i(x, y)], false)
+	main.player.global_position = mine.cell_to_world(Vector2i(origin.x - 6, origin.y + 2))
+	main.player.light.burn_rate = 0.0
+	main.player.light.fuel = 0.0
+	var sprite := ArtSprite.new()
+	sprite.kind = "stalker"
+	sprite.glow = true
+	sprite.cell = STALKER_CELL
+	sprite.origin = STALKER_ORIGIN
+	main.add_child(sprite)
+	sprite.global_position = main.player.global_position + Vector2(120, 0)
+	sprite.art.animate = false
+	sprite.art.t = 1.0
+	var centroids := []
+	for flipped in [false, true]:
+		sprite.flip_h = flipped
+		await frames(30)
+		var screen := root.get_viewport().get_canvas_transform() * sprite.global_position
+		var zoom: float = root.get_viewport().get_canvas_transform().get_scale().x
+		var image := root.get_viewport().get_texture().get_image()
+		var eyes_found := 0
+		var eye_x := 0.0
+		var dark_body := true
+		for x in range(int(screen.x - 30 * zoom), int(screen.x + 30 * zoom)):
+			for y in range(int(screen.y - 30 * zoom), int(screen.y + 8 * zoom)):
+				if x < 0 or y < 0 or x >= image.get_width() or y >= image.get_height():
+					continue
+				var colour := image.get_pixel(x, y)
+				if _near(colour, EYE_ICE, 0.3) and colour.v > 0.5:
+					eyes_found += 1
+					eye_x += x - screen.x
+				elif y > screen.y - 8 * zoom and colour.v > 0.15:
+					dark_body = false
+		check(eyes_found >= 2, "the eyes show in the dark (flipped %s: %d pixels)" % [str(flipped), eyes_found])
+		check(dark_body, "the body is lost in the dark (flipped %s)" % str(flipped))
+		centroids.append(eye_x / maxf(1.0, eyes_found))
+	check(centroids[0] > 0.0 and centroids[1] < 0.0, "the eyes follow the way it faces (%s)" % str(centroids))
+	await shot("the_eyes_in_the_dark")
