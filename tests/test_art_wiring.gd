@@ -56,6 +56,48 @@ func test_stalker_lunges_in_its_strike() -> void:
 	stalker._process(Stalker.STRIKE_POSE_SECONDS)
 	assert_eq(stalker.get_node("Art").art.pose, 0.0, "rested again")
 
+func test_the_stalker_scene_has_a_glow_layer() -> void:
+	var stalker: Stalker = await _art_of("res://scenes/Stalker.tscn", "stalker")
+	var art: ArtSprite = stalker.get_node("Art")
+	assert_true(art.glow, "the Stalker's eyes are drawn unlit")
+	assert_true(art.glow_art != null and art.glow_sprite != null, "so its glow layer is built")
+
+func test_only_the_deep_stalker_has_four_eyes() -> void:
+	var ordinary: Stalker = load("res://scenes/Stalker.tscn").instantiate()
+	add(ordinary)
+	var deep: Stalker = load("res://scenes/Stalker.tscn").instantiate()
+	deep.deep = true
+	add(deep)
+	await tree.process_frame
+	for pair in [[ordinary, 0], [deep, 1]]:
+		var art: ArtSprite = pair[0].get_node("Art")
+		art._on_art_drawn() # the glow takes the lit art's variant when it draws
+		assert_eq(art.art.variant, pair[1], "lit art variant")
+		assert_eq(art.glow_art.variant, pair[1], "glow art variant")
+
+func test_waking_the_nest_layer_stalker_makes_it_deep() -> void:
+	Progress.path_override = TEST_SAVE_PATH
+	var fresh := Progress.new()
+	fresh.save_path = TEST_SAVE_PATH
+	fresh.save()
+	var main: Main = add(load("res://scenes/Main.tscn").instantiate())
+	await tree.process_frame
+	main._wake_stalker(Main.NEST_LAYER)
+	assert_true(is_instance_valid(main.deep_stalker) and main.deep_stalker.deep, "the nest layer's Stalker is deep")
+	main._wake_stalker(Main.NEST_LAYER - 1)
+	var others := tree.get_nodes_in_group(Groups.STALKERS).filter(func(s): return s != main.deep_stalker)
+	assert_true(others.size() > 0 and others.all(func(s): return not s.deep), "other layers' Stalkers are ordinary")
+	Progress.path_override = ""
+
+func test_a_freed_stalker_leaves_no_glow_nodes_behind() -> void:
+	var stalker: Stalker = await _art_of("res://scenes/Stalker.tscn", "stalker")
+	var viewport: SubViewport = stalker.get_node("Art").glow_viewport
+	assert_true(is_instance_valid(viewport), "built")
+	stalker.queue_free()
+	await tree.process_frame
+	await tree.process_frame
+	assert_true(not is_instance_valid(viewport), "freed with its creature")
+
 func test_burrower_and_snuffer_mirror_toward_their_target() -> void:
 	var base: RunBase = add(RunBaseScene.instantiate())
 	base.global_position = Vector2(-10, 0)

@@ -16,5 +16,6 @@ shape = SubResource("RectangleShape2D_1")
 [node name="Art" type="Node2D" parent="."]
 script = ExtResource("art")
 kind = "stalker"
+glow = true
 cell = Vector2i(64, 48)
 origin = Vector2i(32, 30)

@@ -49,10 +49,14 @@ var alert_timer: float = 0.0
 const STRIKE_POSE_SECONDS := 0.4
 var _strike_timer: float = 0.0
 
+## The second Stalker, in the deep rock by the nest (set before it enters the tree): taller, four eyes.
+var deep: bool = false
+
 @onready var art: ArtSprite = $Art
 
 func _ready() -> void:
 	add_to_group(Groups.STALKERS)
+	art.art.variant = 1 if deep else 0
 
 func _process(delta: float) -> void:
 	_strike_timer = maxf(0.0, _strike_timer - delta)

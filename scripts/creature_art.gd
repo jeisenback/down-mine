@@ -19,6 +19,10 @@ var variant: int = 0
 ## glow layer: pieces that must show in total darkness, drawn on their own unshaded sprite.
 var glow_only: bool = false
 
+## The Stalker's eyes: ice blue, red on a strike. Drawn unlit (the glow layer), so they show in the dark.
+const STALKER_EYE := Color8(150, 215, 255)
+const STALKER_STRIKE_EYE := Color8(245, 74, 56)
+
 const PAL := {
 	"stalker": {"k": Color8(12, 16, 24), "a": Color8(30, 44, 58), "b": Color8(52, 76, 96), "c": Color8(104, 140, 158),
 		"e": Color8(245, 74, 56), "m": Color8(226, 230, 216), "v": Color8(6, 8, 12)},
@@ -56,10 +60,11 @@ func _draw() -> void:
 		"fuel": _draw_fuel()
 		"ore": _draw_ore()
 
-## The unlit pieces of this creature, drawn alone when glow_only is set. Nothing yet: each creature
-## that glows overrides it with a `match kind`.
+## The unlit pieces of this creature, drawn alone when glow_only is set: the Stalker's eyes. Other
+## creatures draw nothing here.
 func _draw_glow() -> void:
-	pass
+	match kind:
+		"stalker": _draw_stalker_glow()
 
 # --- helpers ---------------------------------------------------------------
 
@@ -104,13 +109,17 @@ func _glow(c: Vector2, r: float, col: Color, strength: float) -> void:
 
 # --- the Stalker: a big dark spider ------------------------------------------
 
+## The Stalker: a blue eight-legged spider. Its eyes are not here: they are drawn unlit by
+## _draw_stalker_glow, so in the dark you see two cold eyes and nothing else. The deep Stalker
+## (variant 1) stands taller and has four.
 func _draw_stalker() -> void:
 	var p: Dictionary = PAL["stalker"]
 	var lunge := pose * 3.0
 	var bob := sin(t * 3.0) * 0.5
 	var ground := 7.0
-	var thorax := Vector2(2.0 + lunge, -2.0 + bob)
-	var abdomen := Vector2(-4.5 + lunge * 0.4, -1.5 + bob * 0.6)
+	var rise := -2.0 * variant                              # the deep Stalker stands taller
+	var thorax := Vector2(2.0 + lunge, -2.0 + bob + rise)
+	var abdomen := Vector2(-4.5 + lunge * 0.4, -1.5 + bob * 0.6 + rise)
 	# eight legs: long, high-kneed, splayed front and back; far side darker
 	for i in range(8):
 		var far := i % 2 == 0
@@ -132,14 +141,29 @@ func _draw_stalker() -> void:
 	_blob(_ellipse(abdomen, 5.2, 4.4, 16), p)
 	draw_colored_polygon(PackedVector2Array([abdomen + Vector2(-2.6, -1.0), abdomen + Vector2(0.0, -2.6), abdomen + Vector2(0.6, 0.6)]), p["e"].darkened(0.35))
 	_blob(_ellipse(thorax, 3.4, 2.9, 12), p)
-	# eyes: a cluster of four, plus fangs
-	var flare := 0.8 + 0.2 * sin(t * 7.0)
-	for e in [Vector2(1.6, -1.2), Vector2(2.6, -0.4), Vector2(0.6, -0.6), Vector2(1.8, 0.3)]:
-		_glow(thorax + e, 1.6, p["e"], flare * 0.6)
-		draw_rect(Rect2(thorax + e - Vector2(0.5, 0.5), Vector2(1, 1)), p["e"])
+	# the fangs (the eyes are on the glow layer, drawn unlit: see _draw_stalker_glow)
 	var fang := 0.4 + 0.4 * sin(t * 5.0) + pose
 	for side in [-1.0, 1.0]:
 		draw_line(thorax + Vector2(3.0, 0.8 + side * 0.9), thorax + Vector2(4.2, 2.6 + side * 0.3 * fang), p["m"], 1.0)
+
+## The thorax centre, shared by the body and its eyes so the eyes stay on the face.
+func _stalker_thorax() -> Vector2:
+	var rise := -2.0 * variant
+	return Vector2(2.0 + pose * 3.0, -2.0 + sin(t * 3.0) * 0.5 + rise)
+
+## The Stalker's eyes, drawn alone on the glow layer: two (four for the deep one) cold ice blue eyes,
+## round and slow to blink; on a strike they narrow to red slits.
+func _draw_stalker_glow() -> void:
+	var striking := pose >= 0.5
+	if not striking and fposmod(t, 4.2) > 4.05:
+		return # a blink
+	var face := Vector2(roundf(_stalker_thorax().x), roundf(_stalker_thorax().y))
+	var colour := STALKER_STRIKE_EYE if striking else STALKER_EYE
+	var size := Vector2(3, 1) if striking else Vector2(2, 2)
+	var rows := [-3.0, 0.0] if variant == 1 else [-2.0]
+	for row in rows:
+		for dx in [-1.0, 3.0]:
+			draw_rect(Rect2(face + Vector2(dx, row), size), colour)
 
 # --- the Burrower: a low, many-legged crawler with mandibles --------------
 

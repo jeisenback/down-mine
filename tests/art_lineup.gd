@@ -47,7 +47,7 @@ func _render(kind: String) -> void:
 	for i in range(states.size()):
 		var sprite := ArtSprite.new()
 		sprite.kind = kind
-		sprite.glow = false
+		sprite.glow = kind == "stalker" # the only creature with unlit glow pieces (so far)
 		sprite.position = Vector2(-width / 2.0 + i * SPACING, 0)
 		holder.add_child(sprite)
 	for i in range(states.size()):
