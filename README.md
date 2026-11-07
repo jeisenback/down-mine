@@ -238,6 +238,8 @@ standing still until the light fails) over three seeds and prints each
 run's log line - compare the output before and after a tuning change:
 `godot --headless --fixed-fps 60 -s tests/balance_probe.gd`.
 
+`tests/art_lineup.gd` renders each creature in each state on a plain background (the review harness for redrawing the enemies): `xvfb-run -a godot --fixed-fps 60 -s tests/art_lineup.gd [-- kind=stalker]` writes `playtest_out/art/<kind>_1x.png` and `_5x.png`.
+
 The suite also measures the real game: `tests/test_walk.gd` walks connectors and pits with a bot that presses real keys (`tests/walk_bot.gd`), `tests/test_physics.gd` measures jump, walk, dig and fall numbers, and `tests/test_perf.gd` holds frame and decay-tick time to a budget (set `PERF_SLACK=2` to relax it on a slow machine). `-- walk` after the probe script walks every connector of the golden seeds.
 
 With `-- trip` after the script, only the round-trip bot runs: it digs straight down to 50, 100, 150 and 200 tiles

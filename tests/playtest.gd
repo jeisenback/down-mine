@@ -62,6 +62,7 @@ func _run() -> void:
 		["abandon_a_run", _abandon_a_run],
 		["clues_in_the_old_workings", _clues_in_the_old_workings],
 		["gamepad_play", _gamepad_play],
+		["enemy_art", _enemy_art],
 	]
 	var failed := 0
 	for entry in scenarios:
@@ -1122,3 +1123,9 @@ func _gamepad_play() -> void:
 	await frames(8)
 	check(not paused, "B closes it")
 	ControlScheme.pad_last = false
+
+## The creatures' pixel checks (M92): each redrawn creature adds its checks here (it fits its cell, its
+## poses differ, its glow shows in the dark). Pixels need a renderer, so they live in the playtest and not
+## in the headless unit suite. Nothing is checked yet.
+func _enemy_art() -> void:
+	await frames(1)
