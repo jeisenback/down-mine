@@ -215,12 +215,25 @@ func _spine_for(layout: MineLayout, c: Connector) -> Drift:
 
 func test_connector_length_and_origin() -> void:
 	assert_eq(MineGenerator.connector_length(2), 2, "a drop of 2 is just the junction pit")
-	assert_eq(MineGenerator.connector_length(5), 8, "two columns per level")
-	assert_eq(MineGenerator.connector_length(51), MineGrid.CONNECTOR_MAX_LENGTH, "100 tiles of staircase is the cap")
-	assert_eq(MineGenerator.connector_origin(100, 5, 1, 40, 200), 92, "running right it starts the staircase's length left of the room")
-	assert_eq(MineGenerator.connector_origin(100, 5, -1, 40, 200), 108, "running left, to its right")
+	assert_eq(MineGenerator.connector_length(5), 5, "a level per column after the pit")
+	assert_eq(MineGenerator.connector_length(70), MineGrid.CONNECTOR_MAX_LENGTH, "70 tiles of staircase is the cap")
+	assert_eq(MineGenerator.connector_origin(100, 5, 1, 40, 200), 95, "running right it starts the staircase's length left of the room")
+	assert_eq(MineGenerator.connector_origin(100, 5, -1, 40, 200), 105, "running left, to its right")
 	assert_eq(MineGenerator.connector_origin(100, 5, 1, 40, 90), 89, "a spine that ends short: start at its end and run flat")
-	assert_eq(MineGenerator.connector_origin(100, 5, 1, 95, 120), -1, "no spine column leaves room for the stairs: none")
+	assert_eq(MineGenerator.connector_origin(100, 5, 1, 97, 120), -1, "no spine column leaves room for the stairs: none")
+
+func test_a_connector_stair_has_rock_over_its_roof() -> void:
+	var checked := 0
+	for s in GoldenTest.SEEDS:
+		var layout := shared_layout(s)
+		for c in layout.connectors:
+			var spine := _spine_for(layout, c)
+			for cell in c.cells:
+				for above in [2, 3]:
+					if cell.y - above > spine.row:
+						checked += 1
+						assert_true(layout.is_solid(Vector2i(cell.x, cell.y - above)), "seed %d: rock %d rows over the stair cell %s (no ledge to be stepped up onto)" % [s, above, str(cell)])
+	assert_true(checked > 0, "some stair cells were checked")
 
 func test_connectors_are_walkable_and_meet_their_rooms() -> void:
 	var total := 0

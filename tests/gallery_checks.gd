@@ -61,18 +61,18 @@ static func heads_toward(drift: Drift, heart: Rect2i) -> bool:
 	return absi(drift.x1 - heart_x) < absi(drift.x0 - heart_x) and drift.side == (1 if drift.x1 > drift.x0 else -1)
 
 ## A connector's problems: the junction pit under its spine, a descent of at most one tile every
-## two columns with two open rows and a floor everywhere, and its far end beside its room.
+## column after the pit with two open rows and a floor everywhere, and its far end beside its room.
 static func connector_problems(layout: MineLayout, c: Connector, spine: Drift) -> Array[String]:
 	var problems: Array[String] = []
 	var n := c.cells.size()
 	var dy: int = c.room.cell.y - spine.row
-	if n < 2 * dy - 2 or n > MineGrid.CONNECTOR_MAX_LENGTH:
+	if n < maxi(2, dy) or n > MineGrid.CONNECTOR_MAX_LENGTH:
 		problems.append("length %d for a drop of %d" % [n, dy])
 	if c.mouth != Vector2i(c.cells[0].x, spine.row):
 		problems.append("the mouth %s is not above the first cell" % c.mouth)
 	for i in range(n):
 		var cell: Vector2i = c.cells[i]
-		if cell.x != c.cells[0].x + c.dir * i or cell.y != spine.row + 2 + mini(i / 2, dy - 2):
+		if cell.x != c.cells[0].x + c.dir * i or cell.y != spine.row + 2 + mini(maxi(i - 1, 0), dy - 2):
 			problems.append("cell %d at %s is off the staircase" % [i, cell])
 		for y in [cell.y - 1, cell.y]:
 			if layout.is_solid(Vector2i(cell.x, y)):

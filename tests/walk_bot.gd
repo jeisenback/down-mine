@@ -19,6 +19,13 @@ const NOT_STUCK := Vector2i(-1, -1)
 static func budget_seconds(tiles: int) -> float:
 	return 4.0 + 1.5 * tiles / 7.5
 
+## Going down a one-tile-a-column stair costs a drop and a landing a column (about 0.36 s a tile
+## measured over every golden seed, the slowest 0.4), so a passage gets half a second a tile.
+const STAIR_SECONDS_PER_TILE := 0.5
+
+static func connector_budget_seconds(tiles: int) -> float:
+	return 4.0 + STAIR_SECONDS_PER_TILE * tiles
+
 ## Presses A, D and W through TouchKeys under its own source.
 class KeyDriver extends RefCounted:
 	func go(dir: int, jump: bool) -> void:
@@ -93,7 +100,7 @@ static func walk_connector(tree: SceneTree, player: Player, mine: MineGrid, conn
 	player.global_position = mine.cell_to_world(start)
 	player.velocity = Vector2.ZERO
 	await tree.physics_frame
-	var budget := budget_seconds(connector.cells.size() + 4)
+	var budget := connector_budget_seconds(connector.cells.size())
 	# A runner crosses the two-wide pit without falling in (the rim steps it over), so the bot
 	# first stops over the opening, as a player entering the passage does, then follows it.
 	var to_mouth := await walk_to(tree, player, mine, connector.mouth, budget, driver, 3, 0)
