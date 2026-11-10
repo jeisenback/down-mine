@@ -1135,6 +1135,7 @@ const STALKER_ORIGIN := Vector2i(32, 30)
 func _enemy_art() -> void:
 	await _stalker_art_checks()
 	await _stalker_in_the_dark()
+	await _burrower_art_checks()
 
 ## The lit and glow pictures of one creature at a pose and variant, at a fixed clock (t = 1, so no blink).
 func _art_images(kind: String, cell: Vector2i, origin: Vector2i, pose: float, variant: int) -> Dictionary:
@@ -1270,3 +1271,34 @@ func _stalker_in_the_dark() -> void:
 		centroids.append(eye_x / maxf(1.0, eyes_found))
 	check(centroids[0] > 0.0 and centroids[1] < 0.0, "the eyes follow the way it faces (%s)" % str(centroids))
 	await shot("the_eyes_in_the_dark")
+
+const BURROWER_CELL := Vector2i(48, 48)
+const BURROWER_ORIGIN := Vector2i(24, 24)
+const MOUTH_ORANGE := Color(0.941, 0.431, 0.157)
+
+## The smallest box around the pixels above half alpha.
+func _opaque_box(image: Image) -> Rect2i:
+	var low := Vector2i(image.get_width(), image.get_height())
+	var high := Vector2i(-1, -1)
+	for x in range(image.get_width()):
+		for y in range(image.get_height()):
+			if image.get_pixel(x, y).a > 0.5:
+				low = Vector2i(mini(low.x, x), mini(low.y, y))
+				high = Vector2i(maxi(high.x, x), maxi(high.y, y))
+	return Rect2i(low, high - low + Vector2i.ONE) if high.x >= 0 else Rect2i()
+
+func _burrower_art_checks() -> void:
+	var idle := await _art_images("burrower", BURROWER_CELL, BURROWER_ORIGIN, 0.0, 0)
+	var strike := await _art_images("burrower", BURROWER_CELL, BURROWER_ORIGIN, 1.0, 0)
+	var box := _opaque_box(idle["lit"])
+	check(box.size.x >= 3 * box.size.y, "the Burrower is long and low (%s)" % str(box.size))
+	check(idle["lit"].get_data() != strike["lit"].get_data(), "the Burrower's strike changes the picture")
+	for entry in [["idle", idle], ["strike", strike]]:
+		var image: Image = entry[1]["lit"]
+		check(not _touches_the_border(image), "the Burrower's %s art stays inside its cell" % entry[0])
+		var shown := _opaque_box(image)
+		var head_third := shown.position.x + shown.size.x * 2 / 3
+		var orange := _count_pixels(image, func(c, _x, _y): return c.a > 0.5 and _near(c, MOUTH_ORANGE, 0.1))
+		var orange_elsewhere := _count_pixels(image, func(c, x, _y): return c.a > 0.5 and _near(c, MOUTH_ORANGE, 0.1) and x < head_third)
+		check(orange > 0, "the Burrower's %s mouth glows orange" % entry[0])
+		check(orange_elsewhere == 0, "the orange is only at the head, the front third (%s: %d elsewhere)" % [entry[0], orange_elsewhere])

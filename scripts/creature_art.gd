@@ -27,7 +27,7 @@ const PAL := {
 	"stalker": {"k": Color8(12, 16, 24), "a": Color8(30, 44, 58), "b": Color8(52, 76, 96), "c": Color8(104, 140, 158),
 		"e": Color8(245, 74, 56), "m": Color8(226, 230, 216), "v": Color8(6, 8, 12)},
 	"burrower": {"k": Color8(20, 12, 6), "a": Color8(66, 44, 20), "b": Color8(120, 82, 34), "c": Color8(188, 140, 68),
-		"e": Color8(240, 70, 46), "m": Color8(228, 214, 178)},
+		"o": Color8(240, 110, 40), "m": Color8(228, 214, 178)},
 	"snuffer": {"k": Color8(18, 34, 46), "a": Color8(46, 74, 92), "b": Color8(88, 134, 152), "c": Color8(190, 226, 236),
 		"e": Color8(214, 66, 204), "g": Color8(76, 112, 128)},
 	"fuel": {"k": Color8(14, 22, 38), "a": Color8(40, 70, 120), "b": Color8(70, 130, 210), "c": Color8(150, 205, 250),
@@ -167,53 +167,42 @@ func _draw_stalker_glow() -> void:
 
 # --- the Burrower: a low, many-legged crawler with mandibles --------------
 
+## The Burrower (M92): a long, low, segmented armoured worm, a fat head tapering back through five
+## segments that ripple front to back, and at the head a ring of pale teeth turning like a drill bit
+## round a hot orange mouth. The ring spins fast and flares open on a strike (`pose`). A few specks of
+## rubble trail off the tail.
 func _draw_burrower() -> void:
 	var p: Dictionary = PAL["burrower"]
-	var lunge := pose * 3.0
-	var bob := sin(t * 9.0) * 0.4
-	var body_c := Vector2(-1.0 + lunge * 0.5, 0.5 + bob)
-	var ground := 5.5
-	# eight legs, jointed, spread wide around the body; far side darker
+	var lunge := roundf(pose * 2.0)
+	var ground := 4.0
+	# the segments, tail first so the head is drawn last and over them
+	var centres := [-16.0, -11.5, -7.0, -2.5, 2.0]
+	var radii := [Vector2(2.2, 1.9), Vector2(2.7, 2.3), Vector2(3.0, 2.7), Vector2(3.3, 3.0), Vector2(3.6, 3.3)]
+	for i in range(centres.size()):
+		var ripple := roundf(sin(t * 4.0 - i * 0.9) * 1.0)
+		var r: Vector2 = radii[i]
+		var c := Vector2(centres[i], ground - r.y + ripple)
+		_blob(_ellipse(c, r.x, r.y, 12), p)
+		draw_line(c + Vector2(-r.x + 0.5, -r.y * 0.6), c + Vector2(-r.x + 0.5, r.y * 0.6), p["a"], 1.0) # the plate seam
+	# the head: the biggest segment, low and forward
+	var head := Vector2(7.0 + lunge, ground - 3.8 + roundf(sin(t * 4.0 - 4.5)))
+	_blob(_ellipse(head, 4.4, 3.8, 14), p)
+	# the mouth: a hot orange opening in its face, wider on a strike, ringed with turning teeth
+	var mouth := head + Vector2(3.0, 0.0)
+	var opening := 2.5 + pose * 1.5
+	draw_rect(Rect2(mouth + Vector2(-1, -opening), Vector2(3, opening * 2.0 + 1.0)), p["k"])
+	draw_rect(Rect2(mouth + Vector2(0, -opening + 1.0), Vector2(2, opening * 2.0 - 1.0)), p["o"])
+	var spin := t * (6.0 + pose * 18.0)
+	var ring := 3.8 + pose * 1.5
 	for i in range(8):
-		var far := i % 2 == 0
-		var slot := i / 2                                   # 0 (front) .. 3 (rear)
-		var hip := body_c + Vector2(4.5 - slot * 3.0, 1.0)
-		var ph := t * 9.0 + (PI if far else 0.0) + slot * 1.4
-		var lift := maxf(0.0, cos(ph)) * 1.8
-		var splay := (slot - 1.5) * -2.2 + (1.5 if far else -1.5)
-		var foot := Vector2(hip.x + splay * 1.6 + sin(ph) * 1.6 + lunge * 0.5, ground - lift - (1.0 if far else 0.0))
-		var knee := Vector2(hip.x + splay * 0.7, hip.y - 5.0 - (1.0 if far else 0.0))
-		var leg := PackedVector2Array([hip, knee, foot])
-		draw_polyline(leg, p["k"], 2.0)
-		draw_polyline(leg, p["a"] if far else p["c"], 1.0)
-	# the body: a flat, armoured oval with a spiny ridge
-	var body := _ellipse(body_c, 7.0, 3.3, 16)
-	_blob(body, p)
-	for i in range(5):
-		var sx := body_c.x - 5.0 + i * 2.3
-		var sy := body_c.y - 3.0 + absf(i - 2) * 0.35
-		draw_colored_polygon(PackedVector2Array([Vector2(sx - 0.9, sy + 0.4), Vector2(sx + 0.9, sy + 0.4), Vector2(sx + 0.3, sy - 1.8)]), p["k"])
-	# plate seams
-	for i in range(3):
-		draw_line(body_c + Vector2(-3.0 + i * 2.8, -2.4), body_c + Vector2(-3.4 + i * 2.8, 2.2), p["a"], 1.0)
-	# the head, low and forward
-	var head_c := body_c + Vector2(7.0 + lunge * 0.3, 0.8)
-	_blob(_ellipse(head_c, 3.2, 2.6, 12), p)
-	# mandibles: two curved hooks that open and snap
-	var open := 0.35 + 0.35 * sin(t * 5.0) + pose * 0.9
-	for side in [-1.0, 1.0]:
-		var base := head_c + Vector2(2.2, side * 1.2)
-		var mid := base + Vector2(2.2, side * (1.0 + open * 2.2))
-		var tip := mid + Vector2(1.6, -side * (1.2 + open * 0.6))
-		draw_polyline(PackedVector2Array([base, mid, tip]), p["k"], 2.2)
-		draw_polyline(PackedVector2Array([base, mid, tip]), p["m"], 1.0)
-	# a cluster of burning eyes
-	var flare := 0.8 + 0.2 * sin(t * 7.0)
-	for e in [Vector2(0.4, -1.2), Vector2(1.6, -0.7), Vector2(-0.8, -0.4)]:
-		_glow(head_c + e, 1.8, p["e"], flare * 0.6)
-		draw_rect(Rect2(head_c + e - Vector2(0.5, 0.5), Vector2(1, 1)), p["e"])
-
-
+		var angle := TAU * i / 8.0 + spin
+		var near := cos(angle) > 0.0
+		var tooth := mouth + Vector2(1.0 + cos(angle) * 1.0, roundf(sin(angle) * ring) - 1.0)
+		draw_rect(Rect2(tooth, Vector2(2, 2) if near else Vector2(2, 1)), p["m"] if near else p["c"])
+	# rubble kicked off the tail
+	for i in range(4):
+		var along := fposmod(t * 0.9 + i * 0.37, 1.0)
+		draw_rect(Rect2(Vector2(-18.0 - roundf(along * 4.0), ground - 1.0 - roundf(fposmod(t * 1.3 + i * 0.21, 1.0) * 4.0)), Vector2(1, 1)), p["b"])
 
 # --- the Snuffer: a light-eating jellyfish -------------------------------------
 
