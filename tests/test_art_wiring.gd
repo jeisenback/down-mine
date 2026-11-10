@@ -114,6 +114,29 @@ func test_burrower_and_snuffer_mirror_toward_their_target() -> void:
 	burrower._physics_process(0.016)
 	assert_true(not burrower.get_node("Art").flip_h, "and on the right")
 
+func test_the_snuffer_lights_its_core_while_it_drains() -> void:
+	var lamp: Node2D = add(load("res://scenes/Lamp.tscn").instantiate())
+	lamp.global_position = Vector2(100, 0)
+	var snuffer: Snuffer = load("res://scenes/Snuffer.tscn").instantiate()
+	add(snuffer)
+	snuffer.player = _still_player(Vector2(1000, 0)) # far away: nothing to flee
+	await tree.process_frame
+	snuffer.set_physics_process(false)
+	var art: ArtSprite = snuffer.get_node("Art")
+	var light: Vector2 = lamp.get_node("MineLight").global_position
+	snuffer.global_position = light + Vector2(-(Snuffer.DRAIN_RANGE - 2.0), 3)
+	snuffer._physics_process(0.016)
+	assert_eq(art.art.pose, 1.0, "draining: the core is lit")
+	assert_true(art.art.aim != Vector2.ZERO, "and the tether reaches for the light (%s)" % str(art.art.aim))
+	assert_true(art.art.aim.x > 0.0 and not art.flip_h, "to its right, facing it")
+	snuffer.global_position = light + Vector2(Snuffer.DRAIN_RANGE - 2.0, 3)
+	snuffer._physics_process(0.016)
+	assert_true(art.flip_h and art.art.aim.x > 0.0, "the light on its left: mirrored, and the tether is drawn mirrored too (x stays positive)")
+	snuffer.global_position = light + Vector2(200, 0)
+	snuffer._physics_process(0.016)
+	assert_eq(art.art.pose, 0.0, "drifting: the core is dim again")
+	assert_eq(art.art.aim, Vector2.ZERO, "and no tether")
+
 func test_burrower_snaps_its_mandibles_when_it_strikes() -> void:
 	var base: RunBase = add(RunBaseScene.instantiate())
 	var burrower: Burrower = load("res://scenes/Burrower.tscn").instantiate()
