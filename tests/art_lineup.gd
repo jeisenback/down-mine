@@ -16,6 +16,8 @@ const EXTRA_STATES := {
 	"stalker": [["deep", 0.0, 1], ["deep_strike", 1.0, 1]],
 	"nest": [["burning", 0.5, 0]],
 }
+## Where the Snuffer's tether points in its striking (draining) state.
+const AIMS := {"snuffer": Vector2(16, 3)}
 const ZOOMS := [1, 5]
 
 func _initialize() -> void:
@@ -55,6 +57,8 @@ func _render(kind: String) -> void:
 		await process_frame
 		sprite.art.pose = states[i][1]
 		sprite.art.variant = states[i][2]
+		if states[i][1] >= 0.5:
+			sprite.art.aim = AIMS.get(kind, Vector2.ZERO)
 	var camera := Camera2D.new()
 	holder.add_child(camera)
 	for zoom in ZOOMS:

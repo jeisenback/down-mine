@@ -1136,9 +1136,10 @@ func _enemy_art() -> void:
 	await _stalker_art_checks()
 	await _stalker_in_the_dark()
 	await _burrower_art_checks()
+	await _snuffer_art_checks()
 
 ## The lit and glow pictures of one creature at a pose and variant, at a fixed clock (t = 1, so no blink).
-func _art_images(kind: String, cell: Vector2i, origin: Vector2i, pose: float, variant: int) -> Dictionary:
+func _art_images(kind: String, cell: Vector2i, origin: Vector2i, pose: float, variant: int, aim: Vector2 = Vector2.ZERO) -> Dictionary:
 	var sprite := ArtSprite.new()
 	sprite.kind = kind
 	sprite.glow = true
@@ -1151,6 +1152,7 @@ func _art_images(kind: String, cell: Vector2i, origin: Vector2i, pose: float, va
 	sprite.art.t = 1.0
 	sprite.art.pose = pose
 	sprite.art.variant = variant
+	sprite.art.aim = aim
 	sprite.art.queue_redraw()
 	await process_frame
 	sprite._on_art_drawn()
@@ -1302,3 +1304,23 @@ func _burrower_art_checks() -> void:
 		var orange_elsewhere := _count_pixels(image, func(c, x, _y): return c.a > 0.5 and _near(c, MOUTH_ORANGE, 0.1) and x < head_third)
 		check(orange > 0, "the Burrower's %s mouth glows orange" % entry[0])
 		check(orange_elsewhere == 0, "the orange is only at the head, the front third (%s: %d elsewhere)" % [entry[0], orange_elsewhere])
+
+const SNUFFER_CELL := Vector2i(48, 48)
+const SNUFFER_ORIGIN := Vector2i(24, 24)
+
+## Magenta pixels: the Snuffer's core, brighter while it drains.
+func _core_pixels(image: Image) -> int:
+	return _count_pixels(image, func(c, _x, _y): return c.a > 0.5 and c.r > 0.6 and c.b > 0.6 and c.g < 0.7)
+
+func _snuffer_art_checks() -> void:
+	var aim := Vector2(30, 5) # farther than the cell holds: the art draws it limited to fit
+	var drifting := await _art_images("snuffer", SNUFFER_CELL, SNUFFER_ORIGIN, 0.0, 0)
+	var draining := await _art_images("snuffer", SNUFFER_CELL, SNUFFER_ORIGIN, 1.0, 0, aim)
+	var untethered := await _art_images("snuffer", SNUFFER_CELL, SNUFFER_ORIGIN, 1.0, 0)
+	for entry in [["drifting", drifting], ["draining", draining], ["draining without an aim", untethered]]:
+		check(not _touches_the_border(entry[1]["lit"]), "the Snuffer's %s art stays inside its cell" % entry[0])
+	check(_core_pixels(draining["lit"]) > _core_pixels(drifting["lit"]), "the core is brighter while it drains (%d against %d magenta pixels)" % [_core_pixels(draining["lit"]), _core_pixels(drifting["lit"])])
+	var beyond_the_bell := func(c, x, _y): return c.a > 0.5 and x >= SNUFFER_ORIGIN.x + 10
+	check(_count_pixels(draining["lit"], beyond_the_bell) > 0, "a tether reaches out of the bell toward the light")
+	check(_count_pixels(untethered["lit"], beyond_the_bell) == 0, "and there is none without an aim")
+	check(_count_pixels(drifting["lit"], beyond_the_bell) == 0, "or while drifting")

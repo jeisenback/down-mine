@@ -15,6 +15,9 @@ var t: float = 0.0
 var pose: float = 0.0
 ## 0 for the ordinary creature, 1 for its deep variant (the second Stalker has four eyes).
 var variant: int = 0
+## Snuffer only: where the light it is draining lies, as an offset from its origin in art pixels (mirrored
+## with the picture, so x is never negative); Vector2.ZERO when it is not draining.
+var aim: Vector2 = Vector2.ZERO
 ## When true this art draws only its unlit glow (eyes and the like) through _draw_glow, for ArtSprite's
 ## glow layer: pieces that must show in total darkness, drawn on their own unshaded sprite.
 var glow_only: bool = false
@@ -206,14 +209,18 @@ func _draw_burrower() -> void:
 
 # --- the Snuffer: a light-eating jellyfish -------------------------------------
 
+## The Snuffer (M92): the jellyfish is kept, but it is now the opposite of a lantern: its magenta core
+## glows brighter the more it drains (dim while it drifts, bright while it drains), and while it drains a
+## thin pale tether runs from the bell to the light it is eating, with beads of light travelling along it
+## into the bell.
 func _draw_snuffer() -> void:
 	var p: Dictionary = PAL["snuffer"]
 	var pulse := sin(t * 3.0)
 	var bell_c := Vector2(0, -5.0 + pulse * 0.6)
 	var rx := 6.5 - pulse * 0.7
 	var ry := 5.2 + pulse * 0.9
-	# a faint cold halo: it drinks light, so it glows from within, never brightly
-	_glow(bell_c, 11.0, p["c"], 0.5)
+	# a faint cold halo: it drinks light, so it glows from within, brighter while it drains
+	_glow(bell_c, 11.0, p["c"], 0.5 + 0.3 * pose)
 	# tendrils first, trailing behind the bell
 	for i in range(5):
 		var x0 := lerpf(-4.5, 4.5, i / 4.0)
@@ -238,10 +245,21 @@ func _draw_snuffer() -> void:
 		var a2 := t * 0.9 + i * 1.7
 		var fp := bell_c + Vector2(cos(a2) * rx * 0.55, sin(a2 * 1.3) * ry * 0.4 - 1.0)
 		draw_rect(Rect2(fp, Vector2(1, 1)), Color(p["c"].r, p["c"].g, p["c"].b, 0.5 + 0.5 * sin(t * 4.0 + i)))
-	# one slit eye
-	var eye := bell_c + Vector2(0, 0.5)
-	_glow(eye, 3.5, p["e"], 0.8)
-	draw_rect(Rect2(eye + Vector2(-1.5, 0), Vector2(3, 1)), p["e"])
+	# the tether: limited to what the cell holds
+	if aim != Vector2.ZERO:
+		var end := aim.limit_length(20.0)
+		var sag := (bell_c + end) * 0.5 + Vector2(0, 2.0)
+		draw_polyline(PackedVector2Array([bell_c, sag, end]), Color(p["c"].r, p["c"].g, p["c"].b, 0.8), 1.0)
+		for i in range(2):
+			var bead := end.lerp(bell_c, fposmod(t * 1.5 + i * 0.5, 1.0))
+			draw_rect(Rect2(bead.floor(), Vector2(1, 1)), Color(1.0, 1.0, 1.0, 0.9))
+	# the core: dim while it drifts, bright (and larger) while it drains
+	var core := bell_c + Vector2(0, 0.5)
+	_glow(core, 3.5 + pose * 3.0, p["e"], 0.6 + 0.4 * pose)
+	var core_colour: Color = p["e"].darkened(0.5 * (1.0 - pose))
+	draw_rect(Rect2(core + Vector2(-1.5, -0.5), Vector2(3, 2 if pose < 0.5 else 3)), core_colour)
+	if pose >= 0.5:
+		draw_rect(Rect2(core + Vector2(-0.5, 0.5), Vector2(1, 1)), Color8(255, 170, 250))
 
 # --- fuel: a glass flask of glowing oil ----------------------------------------
 
